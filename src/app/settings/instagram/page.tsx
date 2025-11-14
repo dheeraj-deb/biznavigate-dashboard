@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { useAuthStore } from '@/store/auth-store';
 import {
@@ -33,7 +33,6 @@ import { toast } from 'react-hot-toast';
 
 export default function InstagramSettingsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user } = useAuthStore();
   const businessId = user?.business_id || '';
 
@@ -44,31 +43,41 @@ export default function InstagramSettingsPage() {
   const syncAccountMutation = useSyncInstagramAccount(businessId);
   const connectAccountMutation = useConnectInstagramAccount();
 
-  // Handle OAuth callback
-  useState(() => {
-    const code = searchParams.get('code');
-    const state = searchParams.get('state');
+  // Listen for messages from OAuth popup
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      // Verify origin for security
+      if (event.origin !== window.location.origin) {
+        return;
+      }
 
-    if (code && state) {
-      // Exchange code for access token
-      fetch(`/api/instagram/callback?code=${code}&state=${state}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            toast.success('Instagram account connected successfully!');
-            router.replace('/settings/instagram');
-            refetch();
-          } else {
-            toast.error('Failed to connect Instagram account');
-          }
-        })
-        .catch(() => {
-          toast.error('Failed to connect Instagram account');
-        });
-    }
-  });
+      if (event.data.type === 'INSTAGRAM_CONNECT_ACCOUNT') {
+        // Popup found Instagram account, now parent window connects it with JWT auth
+        try {
+          const { facebookPageId, accessToken, businessId: popupBusinessId } = event.data.data;
 
-  console.log("businessId", businessId)
+          await connectAccountMutation.mutateAsync({
+            facebookPageId,
+            accessToken,
+            businessId: popupBusinessId,
+          });
+
+          toast.success('Instagram account connected successfully!');
+          refetch(); // Refresh the accounts list
+        } catch (error: any) {
+          toast.error(error.message || 'Failed to connect Instagram account');
+        }
+      } else if (event.data.type === 'INSTAGRAM_OAUTH_ERROR') {
+        toast.error(event.data.errorDescription || 'Failed to connect Instagram account');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [refetch, connectAccountMutation]);
 
   const handleConnectInstagram = () => {
     if (oauthUrl) {

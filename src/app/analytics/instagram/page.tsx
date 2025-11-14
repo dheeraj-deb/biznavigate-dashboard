@@ -46,7 +46,7 @@ export default function InstagramAnalyticsPage() {
   );
   const { data: insights, isLoading: insightsLoading } = useInstagramAccountInsights({
     accountId: selectedAccountId,
-    metrics: ['impressions', 'reach', 'follower_count', 'profile_views'],
+    metrics: ['reach', 'follower_count', 'profile_views', 'website_clicks'],
     period: 'day',
   });
 
@@ -91,25 +91,32 @@ export default function InstagramAnalyticsPage() {
     );
   }
 
-  const mockEngagementData = [
-    { date: 'Mon', likes: 245, comments: 52, shares: 18 },
-    { date: 'Tue', likes: 312, comments: 68, shares: 24 },
-    { date: 'Wed', likes: 289, comments: 45, shares: 15 },
-    { date: 'Thu', likes: 356, comments: 78, shares: 31 },
-    { date: 'Fri', likes: 423, comments: 92, shares: 42 },
-    { date: 'Sat', likes: 498, comments: 105, shares: 56 },
-    { date: 'Sun', likes: 387, comments: 71, shares: 38 },
-  ];
+  // Extract real insights data
+  const reach = insights?.reach || 0;
+  const profileViews = insights?.profile_views || 0;
+  const websiteClicks = insights?.website_clicks || 0;
+  const followerCount = insights?.follower_count || selectedAccount?.follower_count || 0;
 
-  const mockReachData = [
-    { date: 'Mon', reach: 4521, impressions: 6234 },
-    { date: 'Tue', reach: 5234, impressions: 7123 },
-    { date: 'Wed', reach: 4876, impressions: 6543 },
-    { date: 'Thu', reach: 5987, impressions: 8234 },
-    { date: 'Fri', reach: 6543, impressions: 9123 },
-    { date: 'Sat', reach: 7234, impressions: 10234 },
-    { date: 'Sun', reach: 6123, impressions: 8765 },
-  ];
+  // Calculate engagement metrics from media data
+  const totalLikes = mediaData?.data?.reduce((sum, media) => sum + (media.like_count || 0), 0) || 0;
+  const totalComments = mediaData?.data?.reduce((sum, media) => sum + (media.comment_count || 0), 0) || 0;
+  const totalEngagement = totalLikes + totalComments;
+  const engagementRate = followerCount > 0 ? ((totalEngagement / followerCount) * 100).toFixed(1) : '0.0';
+
+  // Aggregate media stats by day for charts (last 7 posts approximation)
+  const recentMedia = mediaData?.data?.slice(0, 7) || [];
+  const engagementChartData = recentMedia.map((media, index) => ({
+    date: format(new Date(media.timestamp), 'EEE'),
+    likes: media.like_count || 0,
+    comments: media.comment_count || 0,
+    shares: 0, // Instagram API doesn't provide share count directly
+  })).reverse();
+
+  const reachChartData = recentMedia.map((media, index) => ({
+    date: format(new Date(media.timestamp), 'EEE'),
+    reach: media.reach || 0,
+    views: media.impressions || 0,
+  })).reverse();
 
   const COLORS = ['#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 
@@ -220,22 +227,30 @@ export default function InstagramAnalyticsPage() {
                 <Eye className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">42.5K</div>
+                {insightsLoading ? (
+                  <div className="text-2xl font-bold text-muted-foreground">-</div>
+                ) : (
+                  <div className="text-2xl font-bold">{reach.toLocaleString()}</div>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  <span className="text-green-600">+12.5%</span> from last week
+                  Unique accounts reached
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Impressions</CardTitle>
+                <CardTitle className="text-sm font-medium">Website Clicks</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">58.2K</div>
+                {insightsLoading ? (
+                  <div className="text-2xl font-bold text-muted-foreground">-</div>
+                ) : (
+                  <div className="text-2xl font-bold">{websiteClicks.toLocaleString()}</div>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  <span className="text-green-600">+8.2%</span> from last week
+                  Profile link clicks
                 </p>
               </CardContent>
             </Card>
@@ -246,9 +261,13 @@ export default function InstagramAnalyticsPage() {
                 <Heart className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">4.8%</div>
+                {mediaLoading ? (
+                  <div className="text-2xl font-bold text-muted-foreground">-</div>
+                ) : (
+                  <div className="text-2xl font-bold">{engagementRate}%</div>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  <span className="text-green-600">+0.5%</span> from last week
+                  {totalEngagement.toLocaleString()} total interactions
                 </p>
               </CardContent>
             </Card>
@@ -259,9 +278,13 @@ export default function InstagramAnalyticsPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">3.2K</div>
+                {insightsLoading ? (
+                  <div className="text-2xl font-bold text-muted-foreground">-</div>
+                ) : (
+                  <div className="text-2xl font-bold">{profileViews.toLocaleString()}</div>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  <span className="text-green-600">+15.3%</span> from last week
+                  Profile visits today
                 </p>
               </CardContent>
             </Card>
@@ -271,40 +294,59 @@ export default function InstagramAnalyticsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Reach & Impressions</CardTitle>
-                <CardDescription>Last 7 days</CardDescription>
+                <CardTitle>Reach & Views</CardTitle>
+                <CardDescription>Last {recentMedia.length} posts</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={mockReachData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="reach" stroke="#8b5cf6" strokeWidth={2} />
-                    <Line type="monotone" dataKey="impressions" stroke="#ec4899" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
+                {mediaLoading ? (
+                  <div className="flex items-center justify-center h-[300px]">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : reachChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={reachChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="reach" stroke="#8b5cf6" strokeWidth={2} name="Reach" />
+                      <Line type="monotone" dataKey="views" stroke="#ec4899" strokeWidth={2} name="Impressions" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    No data available
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
                 <CardTitle>Engagement Breakdown</CardTitle>
-                <CardDescription>Last 7 days</CardDescription>
+                <CardDescription>Last {recentMedia.length} posts</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={mockEngagementData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="likes" fill="#ec4899" />
-                    <Bar dataKey="comments" fill="#8b5cf6" />
-                    <Bar dataKey="shares" fill="#f59e0b" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {mediaLoading ? (
+                  <div className="flex items-center justify-center h-[300px]">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : engagementChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={engagementChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="likes" fill="#ec4899" name="Likes" />
+                      <Bar dataKey="comments" fill="#8b5cf6" name="Comments" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                    No data available
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
