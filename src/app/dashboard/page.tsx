@@ -8,8 +8,11 @@ import { ConversionFunnel } from '@/components/dashboard/conversion-funnel'
 import { RecentOrders } from '@/components/dashboard/recent-orders'
 import { RecentLeads } from '@/components/dashboard/recent-leads'
 import { ProfileCompletionCheck } from '@/components/dashboard/ProfileCompletionCheck'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Loader2, AlertCircle } from 'lucide-react'
 import { useState } from 'react'
 import type { DashboardStats, ActivityItem, SalesChartData, FunnelStage, Order, Lead, OrderStatus, LeadStatus, PaymentStatus } from '@/types'
+import { useDashboardStats, useRecentLeads, useRecentOrders, useSalesCharts } from '@/hooks/use-dashboard'
 
 // Mock data - replace with actual API calls
 const mockStats: DashboardStats = {
@@ -365,32 +368,72 @@ const mockFunnelStages: FunnelStage[] = [
 
 export default function DashboardPage() {
   const [timeframe, setTimeframe] = useState<'weekly' | 'monthly'>('weekly')
-  const salesData = timeframe === 'weekly' ? mockWeeklySales : mockMonthlySales
+
+  // Fetch data from API
+  const { data: statsData, isLoading: statsLoading, error: statsError } = useDashboardStats()
+  const { data: leadsData, isLoading: leadsLoading, error: leadsError } = useRecentLeads(5)
+  const { data: ordersData, isLoading: ordersLoading, error: ordersError } = useRecentOrders(5)
+  const { data: salesData, isLoading: salesLoading, error: salesError } = useSalesCharts(timeframe === 'weekly' ? 'week' : 'month')
+
+  // Fallback to mock data if API fails
+  const stats = statsError ? mockStats : (statsData || mockStats)
+  const leads = leadsError ? mockLeads : (Array.isArray(leadsData) ? leadsData : mockLeads)
+  const orders = ordersError ? mockOrders : (Array.isArray(ordersData) ? ordersData : mockOrders)
+  const chartData = salesError ? (timeframe === 'weekly' ? mockWeeklySales : mockMonthlySales) : (salesData || mockWeeklySales)
+
+  // Loading state
+  if (statsLoading && leadsLoading && ordersLoading && salesLoading) {
+    return (
+      <ProfileCompletionCheck>
+        <DashboardLayout>
+          <div className="flex h-[600px] items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="mx-auto h-12 w-12 animate-spin text-blue-600" />
+              <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
+            </div>
+          </div>
+        </DashboardLayout>
+      </ProfileCompletionCheck>
+    )
+  }
+
+  const hasErrors = statsError || leadsError || ordersError || salesError
 
   return (
     <ProfileCompletionCheck>
       <DashboardLayout>
-        <div className="space-y-6">
+        <div className="space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Dashboard</h1>
+          <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
             Welcome back! Here's what's happening with your business today.
           </p>
         </div>
 
+        {/* Error Alert */}
+        {hasErrors && (
+          <Alert variant="destructive" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to connect to backend API. Showing sample data for demo purposes.
+              Please ensure backend is running on port 3006.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Overview Cards */}
-        <OverviewCards stats={mockStats} />
+        <OverviewCards stats={stats} />
 
         {/* Recent Orders and Leads */}
         <div className="grid gap-6 lg:grid-cols-2">
-          <RecentOrders orders={mockOrders} maxItems={5} />
-          <RecentLeads leads={mockLeads} maxItems={5} />
+          <RecentOrders orders={orders} maxItems={5} />
+          <RecentLeads leads={leads} maxItems={5} />
         </div>
 
         {/* Sales Chart */}
         <SalesChart
-          data={salesData}
+          data={chartData}
           timeframe={timeframe}
           onTimeframeChange={setTimeframe}
         />

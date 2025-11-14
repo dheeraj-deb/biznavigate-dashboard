@@ -17,7 +17,10 @@ export function OverviewCards({ stats }: OverviewCardsProps) {
       change: stats.leadsChange,
       subtitle: `${stats.newLeadsThisWeek} new this week`,
       icon: Users,
-      color: 'text-blue-600',
+      iconColor: 'text-blue-600 dark:text-blue-400',
+      iconBg: 'bg-blue-100 dark:bg-blue-950',
+      bgGradient: 'from-blue-500/10 to-blue-600/10',
+      changeColor: 'positive',
     },
     {
       title: 'Total Orders',
@@ -25,7 +28,10 @@ export function OverviewCards({ stats }: OverviewCardsProps) {
       change: stats.ordersChange,
       subtitle: `${stats.pendingOrders} pending, ${stats.completedOrders} completed`,
       icon: ShoppingCart,
-      color: 'text-green-600',
+      iconColor: 'text-purple-600 dark:text-purple-400',
+      iconBg: 'bg-purple-100 dark:bg-purple-950',
+      bgGradient: 'from-purple-500/10 to-purple-600/10',
+      changeColor: 'positive',
     },
     {
       title: 'Revenue',
@@ -33,7 +39,10 @@ export function OverviewCards({ stats }: OverviewCardsProps) {
       change: stats.revenueChange,
       subtitle: 'Total sales this period',
       icon: DollarSign,
-      color: 'text-emerald-600',
+      iconColor: 'text-green-600 dark:text-green-400',
+      iconBg: 'bg-green-100 dark:bg-green-950',
+      bgGradient: 'from-green-500/10 to-green-600/10',
+      changeColor: 'positive',
     },
     {
       title: 'Inventory Alerts',
@@ -41,37 +50,50 @@ export function OverviewCards({ stats }: OverviewCardsProps) {
       change: stats.inventoryChange,
       subtitle: `Value: ${formatCurrency(stats.inventoryValue)}`,
       icon: Package,
-      color: 'text-orange-600',
+      iconColor: 'text-orange-600 dark:text-orange-400',
+      iconBg: 'bg-orange-100 dark:bg-orange-950',
+      bgGradient: 'from-orange-500/10 to-orange-600/10',
+      changeColor: 'neutral',
     },
   ]
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
       {cards.map((card) => {
         const Icon = card.icon
         const isPositive = card.change >= 0
         const showTrend = card.title !== 'Inventory Alerts'
 
         return (
-          <Card key={card.title}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-              <Icon className={`h-4 w-4 ${card.color}`} />
+          <Card
+            key={card.title}
+            className="group relative overflow-hidden border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm transition-all hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-700"
+          >
+            <div className={`absolute inset-0 bg-gradient-to-br ${card.bgGradient} opacity-0 transition-opacity group-hover:opacity-100`} />
+            <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+                {card.title}
+              </CardTitle>
+              <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${card.iconBg} transition-all group-hover:scale-110`}>
+                <Icon className={`h-6 w-6 ${card.iconColor}`} />
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{card.value}</div>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">{card.subtitle}</p>
+            <CardContent className="relative">
+              <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                {card.value}
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <p className="text-xs text-gray-500 dark:text-gray-400">{card.subtitle}</p>
                 {showTrend && (
-                  <div className="flex items-center">
+                  <div className="flex items-center gap-1 rounded-full bg-gray-100 dark:bg-gray-900 px-2 py-1">
                     {isPositive ? (
-                      <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
+                      <TrendingUp className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                     ) : (
-                      <TrendingDown className="mr-1 h-3 w-3 text-red-500" />
+                      <TrendingDown className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
                     )}
                     <span
-                      className={`text-xs font-medium ${
-                        isPositive ? 'text-green-500' : 'text-red-500'
+                      className={`text-xs font-semibold ${
+                        isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                       }`}
                     >
                       {isPositive ? '+' : ''}

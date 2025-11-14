@@ -20,10 +20,52 @@ import {
   Calendar,
   ChevronLeft,
   Instagram,
+  CreditCard,
+  UserCircle,
+  ChevronDown,
+  ChevronRight,
+  Target,
+  Inbox,
+  Star,
+  Globe,
+  Brain,
+  Zap,
+  Activity,
 } from 'lucide-react'
+import { useState } from 'react'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Team Workspace', href: '/workspace', icon: Users },
+  {
+    name: 'Lead Generation',
+    icon: Target,
+    children: [
+      { name: 'Lead Capture', href: '/lead-generation/capture' },
+      { name: 'Social Inbox', href: '/lead-generation/inbox', icon: Inbox },
+      { name: 'Chatbot Config', href: '/chatbot', icon: MessageSquare },
+    ],
+  },
+  {
+    name: 'CRM',
+    icon: Users,
+    children: [
+      { name: 'Leads', href: '/crm/leads' },
+      { name: 'Campaigns', href: '/crm/campaigns' },
+      { name: 'Follow-Ups', href: '/crm/follow-ups' },
+      { name: 'Contacts', href: '/crm/contacts' },
+    ],
+  },
+  {
+    name: 'Sales & Orders',
+    icon: ShoppingCart,
+    children: [
+      { name: 'Customers', href: '/customers' },
+      { name: 'Orders', href: '/orders' },
+      { name: 'Payments', href: '/payments' },
+      { name: 'Reviews', href: '/reviews', icon: Star },
+    ],
+  },
   {
     name: 'Inventory',
     icon: Package,
@@ -35,33 +77,35 @@ const navigation = [
     ],
   },
   {
-    name: 'CRM',
-    icon: Users,
-    children: [
-      { name: 'Contacts', href: '/crm/contacts' },
-      { name: 'Leads', href: '/crm/leads' },
-      { name: 'Campaigns', href: '/crm/campaigns' },
-      { name: 'Follow-Ups', href: '/crm/follow-ups' },
-    ],
-  },
-  { name: 'Orders', href: '/orders', icon: ShoppingCart },
-  {
     name: 'Analytics',
     icon: BarChart3,
     children: [
-      { name: 'Sales Reports', href: '/analytics/sales' },
+      { name: 'Overview', href: '/analytics/overview' },
+      { name: 'AI Forecasting', href: '/analytics/forecasting', icon: Brain },
       { name: 'Lead Conversions', href: '/analytics/conversions' },
+      { name: 'Sales Reports', href: '/analytics/sales' },
       { name: 'Inventory Reports', href: '/analytics/inventory' },
-      { name: 'Instagram Analytics', href: '/analytics/instagram', icon: Instagram },
+      { name: 'Social Media', href: '/analytics/social-media', icon: Instagram },
     ],
   },
-  { name: 'Chatbot Config', href: '/chatbot', icon: MessageSquare },
+  {
+    name: 'AI Optimization',
+    icon: Zap,
+    children: [
+      { name: 'Campaign Optimizer', href: '/campaigns/optimizer', icon: Zap },
+      { name: 'Live Monitor', href: '/campaigns/live', icon: Activity },
+    ],
+  },
   {
     name: 'Settings',
     icon: Settings,
     children: [
       { name: 'General', href: '/settings' },
+      { name: 'Business Profile', href: '/settings/business' },
+      { name: 'WhatsApp', href: '/settings/whatsapp', icon: MessageSquare },
       { name: 'Instagram', href: '/settings/instagram', icon: Instagram },
+      { name: 'Mini Website', href: '/settings/website', icon: Globe },
+      { name: 'Roles & Permissions', href: '/settings/roles' },
     ],
   },
 ]
@@ -69,74 +113,119 @@ const navigation = [
 export function Sidebar() {
   const pathname = usePathname()
   const { sidebarOpen, toggleSidebar } = useUIStore()
+  const [expandedSections, setExpandedSections] = useState<string[]>(['Lead Generation', 'CRM', 'Sales & Orders', 'Inventory', 'Analytics', 'AI Optimization', 'Settings'])
+
+  const toggleSection = (sectionName: string) => {
+    setExpandedSections(prev =>
+      prev.includes(sectionName)
+        ? prev.filter(name => name !== sectionName)
+        : [...prev, sectionName]
+    )
+  }
 
   return (
     <>
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-card transition-transform duration-300 ease-in-out',
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-white dark:bg-gray-950 transition-transform duration-300 ease-in-out shadow-sm',
           'lg:translate-x-0',
           !sidebarOpen && 'max-lg:-translate-x-full'
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b px-6">
-          <Link href="/dashboard" className="flex items-center space-x-2">
-            <Package className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold">BizNavigate</span>
+        {/* Logo Header */}
+        <div className="flex h-16 items-center justify-between border-b border-gray-200 dark:border-gray-800 px-6">
+          <Link href="/dashboard" className="flex items-center space-x-3">
+            <div className="rounded-lg bg-blue-600 p-1.5">
+              <Package className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">BizNavigate</span>
           </Link>
           <button
             onClick={toggleSidebar}
-            className="lg:hidden rounded-md p-1 hover:bg-accent"
+            className="lg:hidden rounded-md p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {navigation.map((item) => (
-            <div key={item.name}>
-              {item.href ? (
-                <Link
-                  href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                    pathname === item.href
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  )}
-                >
-                  {item.icon && <item.icon className="h-5 w-5" />}
-                  {item.name}
-                </Link>
-              ) : (
-                <>
-                  <div className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-muted-foreground">
-                    {item.icon && <item.icon className="h-5 w-5" />}
-                    {item.name}
-                  </div>
-                  {item.children && (
-                    <div className="ml-6 space-y-1">
-                      {item.children.map((child) => (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          className={cn(
-                            'block rounded-md px-3 py-2 text-sm transition-colors',
-                            pathname === child.href
-                              ? 'bg-primary/10 text-primary font-medium'
-                              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                          )}
-                        >
-                          {child.name}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          ))}
+        {/* Navigation */}
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-6">
+          {navigation.map((item) => {
+            const isExpanded = expandedSections.includes(item.name)
+            const isActive = item.href === pathname
+            const hasActiveChild = item.children?.some(child => child.href === pathname)
+
+            return (
+              <div key={item.name}>
+                {item.href ? (
+                  <Link
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                      isActive
+                        ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    )}
+                  >
+                    {item.icon && <item.icon className="h-5 w-5 flex-shrink-0" />}
+                    <span>{item.name}</span>
+                  </Link>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => toggleSection(item.name)}
+                      className={cn(
+                        'flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                        hasActiveChild
+                          ? 'text-blue-700 dark:text-blue-400'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        {item.icon && <item.icon className="h-5 w-5 flex-shrink-0" />}
+                        <span>{item.name}</span>
+                      </div>
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                      )}
+                    </button>
+                    {item.children && isExpanded && (
+                      <div className="ml-8 mt-1 space-y-1 border-l-2 border-gray-200 dark:border-gray-800 pl-3">
+                        {item.children.map((child) => (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            className={cn(
+                              'block rounded-md px-3 py-2 text-sm transition-colors',
+                              pathname === child.href
+                                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 font-medium'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                            )}
+                          >
+                            {child.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )
+          })}
         </nav>
+
+        {/* Footer */}
+        <div className="border-t border-gray-200 dark:border-gray-800 p-4">
+          <div className="rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4">
+            <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">Need Help?</p>
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">Check our documentation</p>
+            <button className="mt-3 w-full rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors">
+              Get Support
+            </button>
+          </div>
+        </div>
       </div>
 
       {sidebarOpen && (

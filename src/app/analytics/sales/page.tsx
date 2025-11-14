@@ -2,8 +2,9 @@
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Download, TrendingUp } from 'lucide-react'
+import { Download, TrendingUp, Loader2, AlertCircle } from 'lucide-react'
 import {
   LineChart,
   Line,
@@ -20,6 +21,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { formatCurrency } from '@/lib/utils'
+import { useSalesAnalytics, useTopProducts, useRevenueByPeriod } from '@/hooks/use-analytics'
 
 const salesData = [
   { month: 'Jan', revenue: 45000, orders: 234 },
@@ -40,6 +42,38 @@ const productSalesData = [
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b']
 
 export default function SalesAnalyticsPage() {
+  // Fetch analytics data from API
+  const { data: salesAnalyticsData, isLoading: salesLoading, error: salesError } = useSalesAnalytics()
+  const { data: topProductsData, isLoading: productsLoading, error: productsError } = useTopProducts()
+  const { data: revenueData, isLoading: revenueLoading, error: revenueError } = useRevenueByPeriod('month')
+
+  // Fallback to mock data if API fails
+  const salesStats = salesError ? {
+    total_revenue: 328000,
+    total_orders: 1714,
+    average_order_value: 191.35,
+    conversion_rate: 3.2
+  } : salesAnalyticsData
+
+  const topProducts = productsError ? productSalesData : (topProductsData || productSalesData)
+  const revenueTrend = revenueError ? salesData : (revenueData || salesData)
+
+  // Loading state
+  if (salesLoading && productsLoading && revenueLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex h-[600px] items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="mx-auto h-12 w-12 animate-spin text-blue-600" />
+            <p className="mt-4 text-muted-foreground">Loading analytics...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  const hasErrors = salesError || productsError || revenueError
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -54,6 +88,17 @@ export default function SalesAnalyticsPage() {
           </Button>
         </div>
 
+        {/* Error Alert */}
+        {hasErrors && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to connect to backend API. Showing sample data for demo purposes.
+              Please ensure backend is running on port 3006.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Summary Cards */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
@@ -62,7 +107,7 @@ export default function SalesAnalyticsPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(328000)}</div>
+              <div className="text-2xl font-bold">{formatCurrency(salesStats?.total_revenue || 328000)}</div>
               <p className="text-xs text-muted-foreground">
                 <span className="text-green-500">+12.5%</span> from last period
               </p>
@@ -75,7 +120,7 @@ export default function SalesAnalyticsPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">1,714</div>
+              <div className="text-2xl font-bold">{salesStats?.total_orders || 1714}</div>
               <p className="text-xs text-muted-foreground">
                 <span className="text-green-500">+8.2%</span> from last period
               </p>
@@ -88,7 +133,7 @@ export default function SalesAnalyticsPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(191.35)}</div>
+              <div className="text-2xl font-bold">{formatCurrency(salesStats?.average_order_value || 191.35)}</div>
               <p className="text-xs text-muted-foreground">
                 <span className="text-green-500">+4.1%</span> from last period
               </p>
@@ -101,7 +146,7 @@ export default function SalesAnalyticsPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">3.2%</div>
+              <div className="text-2xl font-bold">{salesStats?.conversion_rate || 3.2}%</div>
               <p className="text-xs text-muted-foreground">
                 <span className="text-green-500">+0.4%</span> from last period
               </p>
@@ -117,7 +162,7 @@ export default function SalesAnalyticsPage() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={350}>
-              <LineChart data={salesData}>
+              <LineChart data={revenueTrend}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
@@ -144,7 +189,7 @@ export default function SalesAnalyticsPage() {
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={salesData}>
+                <BarChart data={revenueTrend}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis />
@@ -166,7 +211,7 @@ export default function SalesAnalyticsPage() {
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={productSalesData}
+                    data={topProducts}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -175,7 +220,7 @@ export default function SalesAnalyticsPage() {
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {productSalesData.map((entry, index) => (
+                    {topProducts.map((entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -194,7 +239,7 @@ export default function SalesAnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {productSalesData.map((product, index) => (
+              {topProducts.map((product: any, index: number) => (
                 <div key={product.name} className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">

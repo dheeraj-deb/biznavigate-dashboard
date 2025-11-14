@@ -5,8 +5,10 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Plus, Search, Filter, Mail, Phone, Building2, Edit, Trash2 } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Plus, Search, Filter, Mail, Phone, Building2, Edit, Trash2, Loader2, AlertCircle } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import { useCustomers } from '@/hooks/use-customers'
 
 const mockContacts = [
   {
@@ -57,15 +59,34 @@ const mockContacts = [
 
 export default function ContactsPage() {
   const [searchQuery, setSearchQuery] = useState('')
-  const [contacts] = useState(mockContacts)
 
-  const filteredContacts = contacts.filter(
-    (contact) =>
-      contact.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      contact.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      contact.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  // Fetch customers from API
+  const { data: customersResponse, isLoading, error } = useCustomers({ search: searchQuery })
+
+  // Fallback to mock data if API fails
+  const customersData = error ? mockContacts : (customersResponse?.data || mockContacts)
+
+  const filteredContacts = customersData.filter(
+    (contact: any) =>
+      contact.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contact.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contact.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       contact.company?.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex h-[600px] items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="mx-auto h-12 w-12 animate-spin text-blue-600" />
+            <p className="mt-4 text-muted-foreground">Loading contacts...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   return (
     <DashboardLayout>
@@ -80,6 +101,17 @@ export default function ContactsPage() {
             Add Contact
           </Button>
         </div>
+
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to connect to backend API. Showing sample data for demo purposes.
+              Please ensure backend is running on port 3006.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Card>
           <CardHeader>
@@ -101,75 +133,83 @@ export default function ContactsPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {filteredContacts.map((contact) => (
-                <Card key={contact.id} className="hover:shadow-md">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-medium text-primary-foreground">
-                          {contact.firstName[0]}
-                          {contact.lastName[0]}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold">
-                            {contact.firstName} {contact.lastName}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">{contact.position}</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon">
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
+              {filteredContacts.map((contact: any) => {
+                const firstName = contact.firstName || contact.first_name || ''
+                const lastName = contact.lastName || contact.last_name || ''
+                const fullName = `${firstName} ${lastName}`.trim() || 'N/A'
+                const initials = `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase()
 
-                    <div className="mt-4 space-y-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <a
-                          href={`mailto:${contact.email}`}
-                          className="hover:underline"
-                        >
-                          {contact.email}
-                        </a>
+                return (
+                  <Card key={contact.id || contact.customer_id} className="hover:shadow-md">
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-lg font-medium text-primary-foreground">
+                            {initials || 'NA'}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold">{fullName}</h3>
+                            <p className="text-sm text-muted-foreground">{contact.position || 'Customer'}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        <a href={`tel:${contact.phone}`} className="hover:underline">
-                          {contact.phone}
-                        </a>
+
+                      <div className="mt-4 space-y-2">
+                        {contact.email && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <a
+                              href={`mailto:${contact.email}`}
+                              className="hover:underline truncate"
+                            >
+                              {contact.email}
+                            </a>
+                          </div>
+                        )}
+                        {contact.phone && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            <a href={`tel:${contact.phone}`} className="hover:underline">
+                              {contact.phone}
+                            </a>
+                          </div>
+                        )}
+                        {contact.company && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Building2 className="h-4 w-4 text-muted-foreground" />
+                            <span>{contact.company}</span>
+                          </div>
+                        )}
                       </div>
-                      {contact.company && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                          <span>{contact.company}</span>
+
+                      {contact.tags && contact.tags.length > 0 && (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {contact.tags.map((tag: string) => (
+                            <span
+                              key={tag}
+                              className="inline-flex items-center rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
+                            >
+                              {tag}
+                            </span>
+                          ))}
                         </div>
                       )}
-                    </div>
 
-                    {contact.tags && contact.tags.length > 0 && (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {contact.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="inline-flex items-center rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary"
-                          >
-                            {tag}
-                          </span>
-                        ))}
+                      <div className="mt-4 text-xs text-muted-foreground">
+                        Added {formatDate(contact.createdAt || contact.created_at)}
                       </div>
-                    )}
-
-                    <div className="mt-4 text-xs text-muted-foreground">
-                      Added {formatDate(contact.createdAt)}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
 
             {filteredContacts.length === 0 && (
