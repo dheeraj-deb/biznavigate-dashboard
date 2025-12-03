@@ -369,6 +369,12 @@ export interface ApiResponse<T> {
   data?: T
   error?: string
   message?: string
+  meta?: {
+    total?: number
+    page?: number
+    limit?: number
+    totalPages?: number
+  }
 }
 
 export interface PaginatedResponse<T> {

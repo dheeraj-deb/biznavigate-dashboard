@@ -24,7 +24,6 @@ import {
   UserCircle,
   ChevronDown,
   ChevronRight,
-  Target,
   Inbox,
   Star,
   Globe,
@@ -36,26 +35,17 @@ import { useState } from 'react'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Team Workspace', href: '/workspace', icon: Users },
-  {
-    name: 'Lead Generation',
-    icon: Target,
-    children: [
-      { name: 'Lead Capture', href: '/lead-generation/capture' },
-      { name: 'Social Inbox', href: '/lead-generation/inbox', icon: Inbox },
-      { name: 'Chatbot Config', href: '/chatbot', icon: MessageSquare },
-    ],
-  },
   {
     name: 'CRM',
     icon: Users,
     children: [
       { name: 'Leads', href: '/crm/leads' },
-      { name: 'Campaigns', href: '/crm/campaigns' },
+      { name: 'Social Inbox', href: '/crm/inbox', icon: Inbox },
       { name: 'Follow-Ups', href: '/crm/follow-ups' },
       { name: 'Contacts', href: '/crm/contacts' },
     ],
   },
+  { name: 'Campaigns', href: '/crm/campaigns', icon: TrendingUp },
   {
     name: 'Sales & Orders',
     icon: ShoppingCart,

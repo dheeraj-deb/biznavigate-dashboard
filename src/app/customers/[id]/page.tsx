@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -46,7 +46,7 @@ import { useOrders } from '@/hooks/use-orders'
 import { OrderStatus, PaymentStatus } from '@/types'
 
 interface CustomerDetailsPageProps {
-  params: Promise<{ id: string }>
+  params: { id: string }
 }
 
 const getStatusBadgeColor = (status: OrderStatus) => {
@@ -74,8 +74,7 @@ const getPaymentStatusColor = (status: PaymentStatus) => {
 
 export default function CustomerDetailsPage({ params }: CustomerDetailsPageProps) {
   const router = useRouter()
-  const resolvedParams = use(params)
-  const customerId = resolvedParams.id
+  const customerId = params.id
 
   const [activeTab, setActiveTab] = useState('overview')
 

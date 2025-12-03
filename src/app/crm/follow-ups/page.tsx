@@ -1,11 +1,37 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 import {
   Plus,
   Calendar,
@@ -20,6 +46,10 @@ import {
   Users,
   Filter,
   ChevronRight,
+  MoreVertical,
+  Edit,
+  Trash2,
+  ExternalLink,
 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatDate, formatDateTime } from '@/lib/utils'
@@ -175,10 +205,32 @@ const isOverdue = (date: Date) => {
   return date < new Date() && !isToday(date)
 }
 
+type FollowUp = typeof mockFollowUps[0]
+
 export default function FollowUpsPage() {
+  const router = useRouter()
   const [selectedTab, setSelectedTab] = useState('all')
-  const [followUps] = useState(mockFollowUps)
+  const [followUps, setFollowUps] = useState(mockFollowUps)
   const [selectedFollowUps, setSelectedFollowUps] = useState<string[]>([])
+
+  // Dialog states
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [currentFollowUp, setCurrentFollowUp] = useState<FollowUp | null>(null)
+
+  // Form states
+  const [newFollowUp, setNewFollowUp] = useState({
+    leadName: '',
+    leadEmail: '',
+    leadPhone: '',
+    followupType: 'call',
+    description: '',
+    scheduledDate: '',
+    scheduledTime: '',
+    assignedTo: 'Sarah Johnson',
+  })
+  const [completionNotes, setCompletionNotes] = useState('')
 
   // Calculate stats
   const stats = {
@@ -217,6 +269,98 @@ export default function FollowUpsPage() {
     )
   }
 
+  // Create new follow-up
+  const handleCreateFollowUp = () => {
+    if (!newFollowUp.leadName || !newFollowUp.scheduledDate || !newFollowUp.scheduledTime) {
+      return
+    }
+
+    const [firstName, ...lastNameParts] = newFollowUp.leadName.split(' ')
+    const lastName = lastNameParts.join(' ')
+
+    const newId = (followUps.length + 1).toString()
+    const scheduledDateTime = new Date(`${newFollowUp.scheduledDate}T${newFollowUp.scheduledTime}`)
+
+    const followUp: FollowUp = {
+      followup_id: newId,
+      lead: {
+        lead_id: newId,
+        first_name: firstName,
+        last_name: lastName,
+        phone: newFollowUp.leadPhone,
+        email: newFollowUp.leadEmail,
+        lead_quality: 'warm',
+      },
+      followup_type: newFollowUp.followupType,
+      followup_description: newFollowUp.description,
+      scheduled_at: scheduledDateTime,
+      assigned_to_user: {
+        name: newFollowUp.assignedTo,
+      },
+      status: 'pending',
+      created_at: new Date(),
+    }
+
+    setFollowUps(prev => [followUp, ...prev])
+    setShowCreateDialog(false)
+    setNewFollowUp({
+      leadName: '',
+      leadEmail: '',
+      leadPhone: '',
+      followupType: 'call',
+      description: '',
+      scheduledDate: '',
+      scheduledTime: '',
+      assignedTo: 'Sarah Johnson',
+    })
+  }
+
+  // Mark as complete
+  const handleMarkAsComplete = (followupId?: string) => {
+    const idsToComplete = followupId ? [followupId] : selectedFollowUps
+
+    setFollowUps(prev =>
+      prev.map(f =>
+        idsToComplete.includes(f.followup_id)
+          ? {
+              ...f,
+              status: 'completed',
+              completed_at: new Date(),
+              completion_notes: completionNotes || 'Completed successfully',
+            }
+          : f
+      )
+    )
+
+    setSelectedFollowUps([])
+    setCompletionNotes('')
+    setShowCompleteDialog(false)
+    setCurrentFollowUp(null)
+  }
+
+  // Delete follow-up
+  const handleDeleteFollowUp = (followupId: string) => {
+    setFollowUps(prev => prev.filter(f => f.followup_id !== followupId))
+  }
+
+  // Quick actions
+  const handleCall = (phone: string) => {
+    window.location.href = `tel:${phone}`
+  }
+
+  const handleEmail = (email: string) => {
+    window.location.href = `mailto:${email}`
+  }
+
+  const handleWhatsApp = (phone: string) => {
+    const formattedPhone = phone.replace(/\s+/g, '')
+    window.open(`https://wa.me/${formattedPhone}`, '_blank')
+  }
+
+  const handleViewInInbox = (leadName: string, platform: string) => {
+    router.push(`/crm/inbox?contact=${encodeURIComponent(leadName)}&platform=${platform}`)
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -226,7 +370,10 @@ export default function FollowUpsPage() {
             <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Follow-Ups</h1>
             <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">Manage scheduled follow-up tasks</p>
           </div>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md">
+          <Button
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md"
+            onClick={() => setShowCreateDialog(true)}
+          >
             <Plus className="mr-2 h-4 w-4" />
             Schedule Follow-Up
           </Button>
@@ -299,7 +446,12 @@ export default function FollowUpsPage() {
               </div>
               <div className="flex items-center gap-3">
                 {selectedFollowUps.length > 0 && (
-                  <Button variant="outline" size="sm" className="border-green-300 dark:border-green-700 text-green-700 dark:text-green-400">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-green-300 dark:border-green-700 text-green-700 dark:text-green-400"
+                    onClick={() => setShowCompleteDialog(true)}
+                  >
                     Mark {selectedFollowUps.length} as Complete
                   </Button>
                 )}
@@ -435,9 +587,100 @@ export default function FollowUpsPage() {
                               )}
                             </div>
 
-                            {/* Action Arrow */}
-                            <div className="flex items-center pt-1">
-                              <ChevronRight className="h-5 w-5 text-gray-400" />
+                            {/* Quick Actions */}
+                            <div className="flex flex-col items-end gap-2 pt-1">
+                              {followup.status === 'pending' && (
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleCall(followup.lead.phone)
+                                    }}
+                                    title="Call"
+                                  >
+                                    <Phone className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleWhatsApp(followup.lead.phone)
+                                    }}
+                                    title="WhatsApp"
+                                  >
+                                    <MessageSquare className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleEmail(followup.lead.email)
+                                    }}
+                                    title="Email"
+                                  >
+                                    <Mail className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {followup.status === 'pending' && (
+                                    <>
+                                      <DropdownMenuItem
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setCurrentFollowUp(followup)
+                                          setShowCompleteDialog(true)
+                                        }}
+                                      >
+                                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                                        Mark as Complete
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                    </>
+                                  )}
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleViewInInbox(
+                                        `${followup.lead.first_name} ${followup.lead.last_name}`,
+                                        followup.followup_type === 'whatsapp' ? 'whatsapp' : 'instagram'
+                                      )
+                                    }}
+                                  >
+                                    <ExternalLink className="mr-2 h-4 w-4" />
+                                    View in Inbox
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDeleteFollowUp(followup.followup_id)
+                                    }}
+                                    className="text-red-600 dark:text-red-400"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </div>
                         </CardContent>
@@ -450,6 +693,174 @@ export default function FollowUpsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Create Follow-Up Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Schedule New Follow-Up</DialogTitle>
+            <DialogDescription>Create a follow-up task for a lead</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="leadName">Lead Name *</Label>
+                <Input
+                  id="leadName"
+                  placeholder="John Doe"
+                  value={newFollowUp.leadName}
+                  onChange={(e) => setNewFollowUp(prev => ({ ...prev, leadName: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="leadPhone">Phone Number *</Label>
+                <Input
+                  id="leadPhone"
+                  placeholder="+91 98765 43210"
+                  value={newFollowUp.leadPhone}
+                  onChange={(e) => setNewFollowUp(prev => ({ ...prev, leadPhone: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="leadEmail">Email</Label>
+              <Input
+                id="leadEmail"
+                type="email"
+                placeholder="john@example.com"
+                value={newFollowUp.leadEmail}
+                onChange={(e) => setNewFollowUp(prev => ({ ...prev, leadEmail: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="followupType">Follow-Up Type *</Label>
+                <Select
+                  value={newFollowUp.followupType}
+                  onValueChange={(value) => setNewFollowUp(prev => ({ ...prev, followupType: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="call">📞 Call</SelectItem>
+                    <SelectItem value="email">📧 Email</SelectItem>
+                    <SelectItem value="whatsapp">💬 WhatsApp</SelectItem>
+                    <SelectItem value="meeting">🤝 Meeting</SelectItem>
+                    <SelectItem value="video_call">📹 Video Call</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="assignedTo">Assigned To</Label>
+                <Select
+                  value={newFollowUp.assignedTo}
+                  onValueChange={(value) => setNewFollowUp(prev => ({ ...prev, assignedTo: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Sarah Johnson">Sarah Johnson</SelectItem>
+                    <SelectItem value="Michael Chen">Michael Chen</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="scheduledDate">Scheduled Date *</Label>
+                <Input
+                  id="scheduledDate"
+                  type="date"
+                  value={newFollowUp.scheduledDate}
+                  onChange={(e) => setNewFollowUp(prev => ({ ...prev, scheduledDate: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="scheduledTime">Scheduled Time *</Label>
+                <Input
+                  id="scheduledTime"
+                  type="time"
+                  value={newFollowUp.scheduledTime}
+                  onChange={(e) => setNewFollowUp(prev => ({ ...prev, scheduledTime: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                placeholder="Describe the follow-up task..."
+                rows={3}
+                value={newFollowUp.description}
+                onChange={(e) => setNewFollowUp(prev => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateFollowUp}
+              disabled={!newFollowUp.leadName || !newFollowUp.scheduledDate || !newFollowUp.scheduledTime}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Schedule Follow-Up
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark as Complete Dialog */}
+      <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark as Complete</DialogTitle>
+            <DialogDescription>
+              Add notes about the completed follow-up
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="completionNotes">Completion Notes</Label>
+              <Textarea
+                id="completionNotes"
+                placeholder="Describe what happened during the follow-up..."
+                rows={4}
+                value={completionNotes}
+                onChange={(e) => setCompletionNotes(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowCompleteDialog(false)
+              setCompletionNotes('')
+              setCurrentFollowUp(null)
+            }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => handleMarkAsComplete(currentFollowUp?.followup_id)}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Mark as Complete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   )
 }

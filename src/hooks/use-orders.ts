@@ -28,7 +28,7 @@ export function useOrders(filters?: OrderFilters) {
     queryKey: ['orders', filters],
     queryFn: async () => {
       const response = await apiClient.get('/orders', { params: filters })
-      return response.data?.data || { data: [], meta: { total: 0 } }
+      return response.data || { data: [], total: 0, page: 1, limit: 20 }
     },
     retry: 1,
     retryDelay: 1000,
@@ -41,7 +41,7 @@ export function useOrder(id: string) {
     queryKey: ['order', id],
     queryFn: async () => {
       const response = await apiClient.get(`/orders/${id}`)
-      return response.data?.data
+      return response.data
     },
     enabled: !!id,
   })
@@ -53,7 +53,7 @@ export function useOrderStats(businessId?: string) {
     queryKey: ['order-stats', businessId],
     queryFn: async () => {
       const response = await apiClient.get(`/orders/stats/${businessId}`)
-      return response.data?.data as OrderStats
+      return response.data as OrderStats
     },
     retry: 1,
     retryDelay: 1000,
@@ -67,7 +67,7 @@ export function useCreateOrder() {
   return useMutation({
     mutationFn: async (data: any) => {
       const response = await apiClient.post('/orders', data)
-      return response.data?.data
+      return response.data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
@@ -88,7 +88,7 @@ export function useUpdateOrder() {
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       const response = await apiClient.put(`/orders/${id}`, data)
-      return response.data?.data
+      return response.data
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
@@ -110,7 +110,7 @@ export function useUpdateOrderStatus() {
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const response = await apiClient.patch(`/orders/${id}/status`, { status })
-      return response.data?.data
+      return response.data
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
@@ -132,7 +132,7 @@ export function useUpdateOrderPayment() {
   return useMutation({
     mutationFn: async ({ id, payment_status }: { id: string; payment_status: string }) => {
       const response = await apiClient.patch(`/orders/${id}/payment`, { payment_status })
-      return response.data?.data
+      return response.data
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
@@ -153,7 +153,7 @@ export function useUpdateOrderShipping() {
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       const response = await apiClient.patch(`/orders/${id}/shipping`, data)
-      return response.data?.data
+      return response.data
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -164,21 +165,103 @@ const mockConversation: ConversationMessage[] = [
   },
 ]
 
-// AI suggested responses
-const aiSuggestions = [
-  'The blue collection ranges from ₹999 to ₹2,499. I can share the catalog right away!',
-  'We have 5 shades of blue available. Let me send you photos of each variant.',
-  'Our summer collection in blue is very popular! Would you like to know about our ongoing offers?',
-]
+// AI suggested responses - context-aware based on conversation
+const getAiSuggestions = (lastMessage: string, platform: Platform) => {
+  const lowerMessage = lastMessage.toLowerCase()
+
+  // Product inquiry suggestions
+  if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('how much')) {
+    return [
+      'Our prices range from ₹999 to ₹4,999. I can share detailed pricing with images. Would you like to see?',
+      'Great question! Let me send you our complete price list with product details.',
+      'We have various options in different price ranges. What\'s your budget?',
+    ]
+  }
+
+  // Product availability suggestions
+  if (lowerMessage.includes('available') || lowerMessage.includes('stock') || lowerMessage.includes('have')) {
+    return [
+      'Yes! We have this in stock. Would you like to place an order?',
+      'Currently available in multiple colors and sizes. Which one would you prefer?',
+      'We have limited stock left. I can reserve one for you right away!',
+    ]
+  }
+
+  // Interest/inquiry suggestions
+  if (lowerMessage.includes('interested') || lowerMessage.includes('want') || lowerMessage.includes('need')) {
+    return [
+      'Wonderful! Let me share more details about this product. When would you like to receive it?',
+      'Great choice! I can send you high-quality images and full specifications.',
+      'Perfect! Would you like to know about our current offers and discounts?',
+    ]
+  }
+
+  // Shipping/delivery suggestions
+  if (lowerMessage.includes('deliver') || lowerMessage.includes('shipping') || lowerMessage.includes('ship')) {
+    return [
+      'We offer free delivery within 2-3 business days. What\'s your location?',
+      'Delivery is available across India. Share your pincode and I\'ll confirm delivery time.',
+      'We provide express shipping! Your order can reach you in 24-48 hours.',
+    ]
+  }
+
+  // Default friendly responses
+  return [
+    'Thank you for your interest! How can I help you with this product?',
+    'I\'d be happy to assist you. What would you like to know?',
+    'Great to hear from you! Let me know if you need any specific details.',
+  ]
+}
 
 export default function SocialInboxPage() {
+  const searchParams = useSearchParams()
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [messages, setMessages] = useState<Message[]>(mockMessages)
+  const [conversations, setConversations] = useState<Record<string, ConversationMessage[]>>({
+    '1': mockConversation,
+    '2': [],
+    '3': [],
+    '4': [],
+    '5': [],
+  })
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(mockMessages[0])
   const [searchQuery, setSearchQuery] = useState('')
-  const [platformFilter, setPlatformFilter] = useState<Platform | 'all'>('all')
-  const [statusFilter, setStatusFilter] = useState<MessageStatus | 'all'>('all')
   const [replyText, setReplyText] = useState('')
-  const [showAiSuggestions, setShowAiSuggestions] = useState(false)
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [showAiSuggestions, setShowAiSuggestions] = useState(true)
+  const [showNewConversationDialog, setShowNewConversationDialog] = useState(false)
+  const [newConversationData, setNewConversationData] = useState({
+    name: '',
+    phone: '',
+    platform: 'whatsapp' as Platform,
+  })
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [conversations, selectedMessage])
+
+  // Handle opening specific chat from URL parameters
+  useEffect(() => {
+    const contactName = searchParams.get('contact')
+    const platform = searchParams.get('platform') as Platform | null
+
+    if (contactName && platform) {
+      // Find the message matching the contact and platform
+      const message = messages.find(
+        (msg) => msg.contactName === contactName && msg.platform === platform
+      )
+
+      if (message) {
+        handleSelectMessage(message)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, messages])
+
+  // Get AI suggestions based on selected conversation
+  const currentAiSuggestions = selectedMessage
+    ? getAiSuggestions(selectedMessage.lastMessage, selectedMessage.platform)
+    : []
 
   const getPlatformIcon = (platform: Platform) => {
     switch (platform) {
@@ -219,24 +302,116 @@ export default function SocialInboxPage() {
     )
   }
 
-  const filteredMessages = mockMessages.filter((msg) => {
+  const filteredMessages = messages.filter((msg) => {
     const matchesSearch = msg.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          msg.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesPlatform = platformFilter === 'all' || msg.platform === platformFilter
-    const matchesStatus = statusFilter === 'all' || msg.status === statusFilter
-    return matchesSearch && matchesPlatform && matchesStatus
+    return matchesSearch
   })
 
   const handleSendMessage = () => {
-    if (!replyText.trim()) return
-    console.log('Sending message:', replyText)
+    if (!replyText.trim() || !selectedMessage) return
+
+    // Create new message
+    const newMessage: ConversationMessage = {
+      id: Date.now().toString(),
+      content: replyText,
+      timestamp: new Date(),
+      isIncoming: false,
+      status: 'sent',
+    }
+
+    // Update conversation
+    setConversations(prev => ({
+      ...prev,
+      [selectedMessage.id]: [...(prev[selectedMessage.id] || []), newMessage],
+    }))
+
+    // Update message list - mark as replied and update last message
+    setMessages(prev =>
+      prev.map(msg =>
+        msg.id === selectedMessage.id
+          ? {
+              ...msg,
+              status: 'replied' as MessageStatus,
+              lastMessage: replyText,
+              timestamp: new Date(),
+              unreadCount: 0,
+            }
+          : msg
+      )
+    )
+
+    // Update selected message
+    setSelectedMessage(prev =>
+      prev
+        ? {
+            ...prev,
+            status: 'replied' as MessageStatus,
+            lastMessage: replyText,
+            timestamp: new Date(),
+            unreadCount: 0,
+          }
+        : null
+    )
+
     setReplyText('')
-    setShowAiSuggestions(false)
+    setShowAiSuggestions(true)
   }
 
   const handleUseSuggestion = (suggestion: string) => {
     setReplyText(suggestion)
     setShowAiSuggestions(false)
+  }
+
+  const handleSelectMessage = (message: Message) => {
+    setSelectedMessage(message)
+
+    // Mark message as read if it was unread
+    if (message.status === 'unread') {
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === message.id
+            ? { ...msg, status: 'read' as MessageStatus, unreadCount: 0 }
+            : msg
+        )
+      )
+    }
+  }
+
+  const handleCreateNewConversation = () => {
+    if (!newConversationData.name.trim() || !newConversationData.phone.trim()) {
+      return
+    }
+
+    const newId = (messages.length + 1).toString()
+    const newMessage: Message = {
+      id: newId,
+      contactName: newConversationData.name,
+      platform: newConversationData.platform,
+      lastMessage: 'Start a conversation...',
+      timestamp: new Date(),
+      status: 'read',
+    }
+
+    // Add to messages list
+    setMessages(prev => [newMessage, ...prev])
+
+    // Initialize empty conversation
+    setConversations(prev => ({
+      ...prev,
+      [newId]: [],
+    }))
+
+    // Select the new conversation
+    setSelectedMessage(newMessage)
+
+    // Reset dialog
+    setNewConversationData({
+      name: '',
+      phone: '',
+      platform: 'whatsapp',
+    })
+    setShowNewConversationDialog(false)
   }
 
   return (
@@ -251,21 +426,15 @@ export default function SocialInboxPage() {
                 Manage all your customer conversations in one place
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Filter className="mr-2 h-4 w-4" />
-                Filters
-              </Button>
-              <Button size="sm">
-                <UserPlus className="mr-2 h-4 w-4" />
-                New Conversation
-              </Button>
-            </div>
+            <Button size="sm" onClick={() => setShowNewConversationDialog(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              New Conversation
+            </Button>
           </div>
 
-          {/* Search and Filters */}
-          <div className="mt-4 flex items-center gap-3">
-            <div className="relative flex-1">
+          {/* Search Only */}
+          <div className="mt-4">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <Input
                 placeholder="Search conversations..."
@@ -274,28 +443,6 @@ export default function SocialInboxPage() {
                 className="pl-10"
               />
             </div>
-            <Select value={platformFilter} onValueChange={(value: any) => setPlatformFilter(value)}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Platform" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Platforms</SelectItem>
-                <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                <SelectItem value="instagram">Instagram</SelectItem>
-                <SelectItem value="comment">Comments</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="unread">Unread</SelectItem>
-                <SelectItem value="read">Read</SelectItem>
-                <SelectItem value="replied">Replied</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </div>
 
@@ -313,7 +460,7 @@ export default function SocialInboxPage() {
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20'
                       : 'bg-white dark:bg-gray-950'
                   )}
-                  onClick={() => setSelectedMessage(message)}
+                  onClick={() => handleSelectMessage(message)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
@@ -460,7 +607,7 @@ export default function SocialInboxPage() {
               {/* Messages */}
               <div className="flex-1 overflow-y-auto bg-gray-50 p-6 dark:bg-gray-900">
                 <div className="mx-auto max-w-3xl space-y-4">
-                  {mockConversation.map((msg) => (
+                  {(conversations[selectedMessage.id] || []).map((msg) => (
                     <div
                       key={msg.id}
                       className={cn(
@@ -491,25 +638,34 @@ export default function SocialInboxPage() {
                       </div>
                     </div>
                   ))}
+                  <div ref={messagesEndRef} />
                 </div>
               </div>
 
               {/* AI Suggestions */}
-              {showAiSuggestions && (
-                <div className="border-t bg-purple-50 p-4 dark:bg-purple-950/20">
+              {showAiSuggestions && currentAiSuggestions.length > 0 && (
+                <div className="border-t bg-gradient-to-r from-purple-50 to-indigo-50 p-3 dark:from-purple-950/20 dark:to-indigo-950/20">
                   <div className="mx-auto max-w-3xl">
-                    <div className="mb-2 flex items-center gap-2 text-sm font-medium text-purple-700 dark:text-purple-400">
-                      <Sparkles className="h-4 w-4" />
+                    <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-purple-700 dark:text-purple-400">
+                      <Sparkles className="h-4 w-4 animate-pulse" />
                       AI Suggested Responses
+                      <Badge variant="secondary" className="ml-auto bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 text-xs px-2 py-0">
+                        Smart
+                      </Badge>
                     </div>
-                    <div className="space-y-2">
-                      {aiSuggestions.map((suggestion, index) => (
+                    <div className="space-y-1.5">
+                      {currentAiSuggestions.map((suggestion, index) => (
                         <button
                           key={index}
                           onClick={() => handleUseSuggestion(suggestion)}
-                          className="w-full rounded-lg border border-purple-200 bg-white p-3 text-left text-sm transition-colors hover:bg-purple-50 dark:border-purple-800 dark:bg-gray-950 dark:hover:bg-purple-950/30"
+                          className="group w-full rounded-md border border-purple-200 bg-white px-2.5 py-2 text-left text-xs transition-all hover:border-purple-400 hover:bg-purple-50 hover:shadow-sm dark:border-purple-800 dark:bg-gray-950 dark:hover:border-purple-600 dark:hover:bg-purple-950/30"
                         >
-                          {suggestion}
+                          <div className="flex items-start gap-2">
+                            <Sparkles className="mt-0.5 h-3 w-3 flex-shrink-0 text-purple-500 dark:text-purple-400" />
+                            <span className="flex-1 text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white leading-snug">
+                              {suggestion}
+                            </span>
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -577,6 +733,98 @@ export default function SocialInboxPage() {
           )}
         </div>
       </div>
+
+      {/* New Conversation Dialog */}
+      <Dialog open={showNewConversationDialog} onOpenChange={setShowNewConversationDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Start New Conversation</DialogTitle>
+            <DialogDescription>
+              Create a new conversation with a customer
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Contact Name
+              </label>
+              <Input
+                placeholder="Enter customer name"
+                value={newConversationData.name}
+                onChange={(e) =>
+                  setNewConversationData(prev => ({ ...prev, name: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Phone Number
+              </label>
+              <Input
+                placeholder="+91 98765 43210"
+                value={newConversationData.phone}
+                onChange={(e) =>
+                  setNewConversationData(prev => ({ ...prev, phone: e.target.value }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Platform
+              </label>
+              <Select
+                value={newConversationData.platform}
+                onValueChange={(value: Platform) =>
+                  setNewConversationData(prev => ({ ...prev, platform: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="whatsapp">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 text-green-600" />
+                      WhatsApp
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="instagram">
+                    <div className="flex items-center gap-2">
+                      <Instagram className="h-4 w-4 text-purple-600" />
+                      Instagram
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="comment">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 text-blue-600" />
+                      Comment
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowNewConversationDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateNewConversation}
+              disabled={!newConversationData.name.trim() || !newConversationData.phone.trim()}
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              Create Conversation
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   )
 }

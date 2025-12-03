@@ -47,9 +47,10 @@ import {
   useUpdateOrderPayment,
   useDeleteOrder,
 } from '@/hooks/use-orders'
+import { useAuthStore } from '@/store/auth-store'
 
-// Business ID from seed data
-const BUSINESS_ID = '37689a7a-a45e-4c96-82ce-d695871d4e0c'
+// Fallback business ID from seed data
+const FALLBACK_BUSINESS_ID = '888352a5-c3bb-431b-90a2-993b0877fbb3'
 
 const getStatusBadgeColor = (status: OrderStatus) => {
   const colors = {
@@ -76,6 +77,7 @@ const getPaymentStatusColor = (status: PaymentStatus) => {
 
 export default function OrdersPage() {
   const router = useRouter()
+  const { user } = useAuthStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [paymentFilter, setPaymentFilter] = useState<string>('all')
@@ -85,7 +87,7 @@ export default function OrdersPage() {
 
   // Fetch orders from API with filters
   const { data: ordersResponse, isLoading, error, refetch } = useOrders({
-    business_id: BUSINESS_ID,
+    business_id: user?.business_id || FALLBACK_BUSINESS_ID,
     search: searchQuery || undefined,
     status: statusFilter !== 'all' ? statusFilter : undefined,
     payment_status: paymentFilter !== 'all' ? paymentFilter : undefined,
