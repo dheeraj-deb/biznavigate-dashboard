@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(npx create-next-app:*)",
-      "Bash(npx shadcn@latest add sheet:*)"
+      "Bash(npx shadcn@latest add sheet:*)",
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(npx prisma db pull:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(npx prisma generate)"
     ],
     "deny": [],
     "ask": []

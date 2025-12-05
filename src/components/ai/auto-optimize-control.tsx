@@ -90,7 +90,7 @@ export function AutoOptimizeControl({
   const getAggressivenessColor = (level: number) => {
     if (level <= 2) return 'text-green-600 dark:text-green-400'
     if (level === 3) return 'text-blue-600 dark:text-blue-400'
-    return 'text-orange-600 dark:text-orange-400'
+    return 'text-blue-600 dark:text-blue-400'
   }
 
   return (
@@ -241,14 +241,14 @@ export function AutoOptimizeControl({
 
             {/* Warning for aggressive settings */}
             {(settings.aggressiveness >= 4 || (settings.autoApply && settings.frequency === 'realtime')) && (
-              <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                  <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
                       High-Risk Configuration
                     </p>
-                    <p className="text-xs text-orange-700 dark:text-orange-300 mt-1">
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
                       Your current settings may cause frequent and significant changes to campaigns. Monitor closely for the first few days.
                     </p>
                   </div>

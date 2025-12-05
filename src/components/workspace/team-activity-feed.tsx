@@ -44,7 +44,7 @@ export function TeamActivityFeed({ teamMembers }: { teamMembers: TeamMember[] })
     switch (type) {
       case 'comment': return 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/40'
       case 'approval': return 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/40'
-      case 'update': return 'text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40'
+      case 'update': return 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/40'
       case 'upload': return 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/40'
       case 'created': return 'text-pink-600 dark:text-pink-400 bg-pink-100 dark:bg-pink-900/40'
     }

@@ -65,7 +65,7 @@ const getPaymentStatusColor = (status: PaymentStatus) => {
   const colors = {
     [PaymentStatus.PENDING]: 'bg-yellow-100 text-yellow-800',
     [PaymentStatus.PAID]: 'bg-green-100 text-green-800',
-    [PaymentStatus.PARTIAL]: 'bg-orange-100 text-orange-800',
+    [PaymentStatus.PARTIAL]: 'bg-blue-100 text-blue-800',
     [PaymentStatus.REFUNDED]: 'bg-gray-100 text-gray-800',
     [PaymentStatus.FAILED]: 'bg-red-100 text-red-800',
   }
@@ -336,7 +336,7 @@ export default function CustomerDetailsPage({ params }: CustomerDetailsPageProps
                             : customer.engagement_score >= 50
                             ? 'bg-yellow-600'
                             : customer.engagement_score >= 20
-                            ? 'bg-orange-600'
+                            ? 'bg-blue-600'
                             : 'bg-red-600'
                         }`}
                         style={{ width: `${customer.engagement_score}%` }}

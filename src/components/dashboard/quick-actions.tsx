@@ -41,7 +41,7 @@ const defaultActions: QuickAction[] = [
     description: 'Launch a marketing campaign',
     icon: 'Megaphone',
     href: '/campaigns/new',
-    color: 'bg-orange-500 hover:bg-orange-600',
+    color: 'bg-blue-500 hover:bg-blue-600',
   },
 ]
 

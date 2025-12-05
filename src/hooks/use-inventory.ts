@@ -479,7 +479,7 @@ export function getStockStatusColor(level: InventoryLevel): string {
   }
 
   if (reorder_point && quantity_available <= reorder_point) {
-    return 'bg-orange-100 text-orange-800 border-orange-200'
+    return 'bg-blue-100 text-blue-800 border-blue-200'
   }
 
   return 'bg-green-100 text-green-800 border-green-200'
@@ -517,10 +517,10 @@ export function getMovementTypeInfo(movementType: string): {
     add: { icon: 'Plus', color: 'text-green-600', label: 'Added' },
     deduct: { icon: 'Minus', color: 'text-red-600', label: 'Deducted' },
     adjust: { icon: 'Edit', color: 'text-blue-600', label: 'Adjusted' },
-    reserve: { icon: 'Lock', color: 'text-orange-600', label: 'Reserved' },
+    reserve: { icon: 'Lock', color: 'text-blue-600', label: 'Reserved' },
     release: { icon: 'Unlock', color: 'text-purple-600', label: 'Released' },
     transfer_in: { icon: 'ArrowDownLeft', color: 'text-blue-600', label: 'Transfer In' },
-    transfer_out: { icon: 'ArrowUpRight', color: 'text-orange-600', label: 'Transfer Out' },
+    transfer_out: { icon: 'ArrowUpRight', color: 'text-blue-600', label: 'Transfer Out' },
     sale: { icon: 'ShoppingCart', color: 'text-green-600', label: 'Sale' },
   }
 
@@ -560,6 +560,6 @@ export function formatCurrency(amount: number, currency: string = 'USD'): string
 export function getHealthScoreColor(score: number): string {
   if (score >= 80) return 'text-green-600'
   if (score >= 60) return 'text-yellow-600'
-  if (score >= 40) return 'text-orange-600'
+  if (score >= 40) return 'text-blue-600'
   return 'text-red-600'
 }

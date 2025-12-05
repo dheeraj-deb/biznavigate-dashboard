@@ -309,7 +309,7 @@ export function getNotificationIcon(type: Notification['type']) {
  */
 export function getNotificationColor(notification: Notification) {
   if (notification.priority === 'urgent') return 'text-red-600 bg-red-50'
-  if (notification.priority === 'high') return 'text-orange-600 bg-orange-50'
+  if (notification.priority === 'high') return 'text-blue-600 bg-blue-50'
 
   const colors = {
     info: 'text-blue-600 bg-blue-50',
@@ -317,7 +317,7 @@ export function getNotificationColor(notification: Notification) {
     warning: 'text-yellow-600 bg-yellow-50',
     error: 'text-red-600 bg-red-50',
     order: 'text-purple-600 bg-purple-50',
-    lead: 'text-orange-600 bg-orange-50',
+    lead: 'text-blue-600 bg-blue-50',
     inventory: 'text-blue-600 bg-blue-50',
   }
   return colors[notification.type] || 'text-gray-600 bg-gray-50'

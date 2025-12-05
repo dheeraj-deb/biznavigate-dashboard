@@ -249,7 +249,7 @@ function NotificationItem({
               </Badge>
             )}
             {notification.priority === 'high' && (
-              <Badge className="h-4 px-1 text-[10px] bg-orange-500">
+              <Badge className="h-4 px-1 text-[10px] bg-blue-500">
                 High
               </Badge>
             )}

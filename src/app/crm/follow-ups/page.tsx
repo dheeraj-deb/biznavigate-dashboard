@@ -160,7 +160,7 @@ const followupTypeConfig = {
   call: { label: 'Call', icon: Phone, color: 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400' },
   email: { label: 'Email', icon: Mail, color: 'bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400' },
   whatsapp: { label: 'WhatsApp', icon: MessageSquare, color: 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' },
-  meeting: { label: 'Meeting', icon: Users, color: 'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400' },
+  meeting: { label: 'Meeting', icon: Users, color: 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400' },
   video_call: { label: 'Video Call', icon: Video, color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400' },
 }
 
@@ -184,7 +184,7 @@ const getQualityColor = (quality?: string) => {
     case 'hot':
       return 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400'
     case 'warm':
-      return 'bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400'
+      return 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'
     case 'cold':
       return 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'
     default:

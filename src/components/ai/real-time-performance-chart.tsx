@@ -267,12 +267,12 @@ export function RealTimePerformanceChart() {
                     {data.reduce((sum, d) => sum + d.conversions, 0)}
                   </p>
                 </div>
-                <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs text-gray-600 dark:text-gray-400">Avg CTR</span>
-                    <Activity className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                    <Activity className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                  <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
                     {(data.reduce((sum, d) => sum + d.ctr, 0) / data.length).toFixed(2)}%
                   </p>
                 </div>

@@ -109,7 +109,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
       case 'proposal':
         return 'bg-yellow-100 text-yellow-700'
       case 'negotiation':
-        return 'bg-orange-100 text-orange-700'
+        return 'bg-blue-100 text-blue-700'
       case 'won':
         return 'bg-green-100 text-green-700'
       case 'lost':
@@ -124,7 +124,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
       case 'hot':
         return 'bg-red-100 text-red-700'
       case 'warm':
-        return 'bg-orange-100 text-orange-700'
+        return 'bg-blue-100 text-blue-700'
       case 'cold':
         return 'bg-blue-100 text-blue-700'
       default:

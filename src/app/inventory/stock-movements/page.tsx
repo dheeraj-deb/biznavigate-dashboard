@@ -143,10 +143,10 @@ export default function StockMovementsPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Low Stock Alerts</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                <AlertTriangle className="h-4 w-4 text-blue-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-600">{summary.lowStockCount}</div>
+                <div className="text-2xl font-bold text-blue-600">{summary.lowStockCount}</div>
                 <p className="text-xs text-muted-foreground">
                   {summary.outOfStockCount} out of stock
                 </p>
@@ -170,11 +170,11 @@ export default function StockMovementsPage() {
 
         {/* Low Stock Alerts */}
         {alerts.length > 0 && (
-          <Alert className="border-orange-200 bg-orange-50">
-            <AlertTriangle className="h-4 w-4 text-orange-600" />
-            <AlertDescription className="text-orange-900">
+          <Alert className="border-blue-200 bg-blue-50">
+            <AlertTriangle className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-900">
               <span className="font-medium">{alerts.length} items</span> need reordering.{' '}
-              <a href="/inventory" className="underline hover:text-orange-700">
+              <a href="/inventory" className="underline hover:text-blue-700">
                 View inventory
               </a>
             </AlertDescription>

@@ -30,44 +30,39 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { useCreateProduct } from '@/hooks/use-products'
+import { useAuthStore } from '@/store/auth-store'
 
-// Product type configuration
+// Product type configuration (matching backend validation)
 const PRODUCT_TYPES = {
-  physical_product: {
+  physical: {
     label: 'Physical Product',
     icon: Package,
-    color: 'bg-blue-100 text-blue-800',
+    color: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400',
     description: 'Physical goods with inventory tracking'
   },
   course: {
     label: 'Course',
     icon: GraduationCap,
-    color: 'bg-purple-100 text-purple-800',
+    color: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-400',
     description: 'Educational courses and programs'
-  },
-  room: {
-    label: 'Room/Accommodation',
-    icon: Hotel,
-    color: 'bg-green-100 text-green-800',
-    description: 'Hotel rooms, resorts, stays'
   },
   event: {
     label: 'Event',
     icon: Calendar,
-    color: 'bg-orange-100 text-orange-800',
+    color: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400',
     description: 'Events, conferences, shows'
   },
   service: {
     label: 'Service',
     icon: Briefcase,
-    color: 'bg-indigo-100 text-indigo-800',
+    color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-400',
     description: 'Professional services'
   }
 }
 
-// Business ID from seed data
-const BUSINESS_ID = '37689a7a-a45e-4c96-82ce-d695871d4e0c'
-const TENANT_ID = 'f47ac10b-58cc-4372-a567-0e02b2c3d479'
+// Fallback IDs from seed data
+const FALLBACK_BUSINESS_ID = 'dd8ae5a1-cab4-4041-849d-e108d74490d3'
+const FALLBACK_TENANT_ID = '99aff970-f498-478d-939a-a9a2fb459902'
 
 // Form schema
 const productSchema = z.object({
@@ -88,11 +83,6 @@ const productSchema = z.object({
   prerequisites: z.string().optional(),
   syllabus: z.string().optional(),
 
-  // Room specific
-  room_type: z.string().optional(),
-  amenities: z.string().optional(),
-  max_occupancy: z.string().optional(),
-
   // Event specific
   event_date: z.string().optional(),
   venue: z.string().optional(),
@@ -112,6 +102,7 @@ type ProductFormData = z.infer<typeof productSchema>
 
 export default function NewProductPage() {
   const router = useRouter()
+  const { user } = useAuthStore()
   const createProduct = useCreateProduct()
   const [selectedType, setSelectedType] = useState<string>('')
 
@@ -135,10 +126,14 @@ export default function NewProductPage() {
 
   const onSubmit = async (data: ProductFormData) => {
     try {
+      // Get business_id and tenant_id from authenticated user or use fallback
+      const businessId = user?.business_id || FALLBACK_BUSINESS_ID
+      const tenantId = user?.tenant_id || FALLBACK_TENANT_ID
+
       // Prepare product data
       const productData: any = {
-        business_id: BUSINESS_ID,
-        tenant_id: TENANT_ID,
+        business_id: businessId,
+        tenant_id: tenantId,
         product_type: data.product_type,
         name: data.name,
         description: data.description || null,
@@ -163,10 +158,6 @@ export default function NewProductPage() {
         typeSpecificData.capacity = data.capacity ? parseInt(data.capacity) : null
         typeSpecificData.prerequisites = data.prerequisites
         typeSpecificData.syllabus = data.syllabus
-      } else if (data.product_type === 'room') {
-        typeSpecificData.room_type = data.room_type
-        typeSpecificData.amenities = data.amenities?.split(',').map(a => a.trim())
-        typeSpecificData.max_occupancy = data.max_occupancy ? parseInt(data.max_occupancy) : null
       } else if (data.product_type === 'event') {
         typeSpecificData.event_date = data.event_date
         typeSpecificData.venue = data.venue
@@ -176,7 +167,7 @@ export default function NewProductPage() {
         typeSpecificData.service_duration = data.service_duration
         typeSpecificData.booking_slots = data.booking_slots
         typeSpecificData.service_type = data.service_type
-      } else if (data.product_type === 'physical_product') {
+      } else if (data.product_type === 'physical') {
         typeSpecificData.weight = data.weight
         typeSpecificData.dimensions = data.dimensions
       }
@@ -230,7 +221,7 @@ export default function NewProductPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-5">
+              <div className="grid gap-4 md:grid-cols-4">
                 {Object.entries(PRODUCT_TYPES).map(([key, config]) => {
                   const Icon = config.icon
                   const isSelected = productType === key
@@ -344,7 +335,7 @@ export default function NewProductPage() {
               </Card>
 
               {/* Physical Product Fields */}
-              {productType === 'physical_product' && (
+              {productType === 'physical' && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Inventory & Physical Details</CardTitle>
@@ -460,52 +451,6 @@ export default function NewProductPage() {
                         rows={6}
                         {...register('syllabus')}
                       />
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Room/Accommodation Fields */}
-              {productType === 'room' && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Room Details</CardTitle>
-                    <CardDescription>
-                      Accommodation specifications
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="room_type">Room Type</Label>
-                        <Input
-                          id="room_type"
-                          placeholder="e.g., Deluxe, Suite, Standard"
-                          {...register('room_type')}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="max_occupancy">Max Occupancy</Label>
-                        <Input
-                          id="max_occupancy"
-                          type="number"
-                          placeholder="Number of guests"
-                          {...register('max_occupancy')}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="amenities">Amenities</Label>
-                      <Input
-                        id="amenities"
-                        placeholder="WiFi, AC, TV, Mini Bar (comma separated)"
-                        {...register('amenities')}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Separate amenities with commas
-                      </p>
                     </div>
                   </CardContent>
                 </Card>

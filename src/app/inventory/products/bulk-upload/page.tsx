@@ -56,7 +56,7 @@ const PRODUCT_TYPES = {
   event: {
     label: 'Event',
     icon: Calendar,
-    color: 'bg-orange-100 text-orange-800',
+    color: 'bg-blue-100 text-blue-800',
     fields: ['name', 'description', 'category', 'price', 'event_date', 'venue', 'capacity', 'ticket_types']
   },
   service: {

@@ -51,7 +51,7 @@ const PRODUCT_TYPES = {
   event: {
     label: 'Event',
     icon: Calendar,
-    color: 'bg-orange-100 text-orange-800',
+    color: 'bg-blue-100 text-blue-800',
     description: 'Events, conferences, shows'
   },
   service: {
@@ -68,6 +68,7 @@ export default function ProductDetailsPage() {
   const productId = params.id as string
 
   const { data: product, isLoading, error } = useProduct(productId)
+  console.log('Product data:', product)
   const deleteProduct = useDeleteProduct()
 
   const handleDelete = async () => {

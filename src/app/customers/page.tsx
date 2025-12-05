@@ -65,8 +65,8 @@ import {
 import { useAuthStore } from '@/store/auth-store'
 
 // Fallback IDs if user is not logged in (for demo purposes)
-const FALLBACK_BUSINESS_ID = '888352a5-c3bb-431b-90a2-993b0877fbb3'
-const FALLBACK_TENANT_ID = '6dc21edc-caff-4019-b5e8-9c745d6b3ed7'
+const FALLBACK_BUSINESS_ID = 'dd8ae5a1-cab4-4041-849d-e108d74490d3'
+const FALLBACK_TENANT_ID = '99aff970-f498-478d-939a-a9a2fb459902'
 
 export default function CustomersPage() {
   const router = useRouter()

@@ -18,7 +18,12 @@ import {
 import { useCreateOrder } from '@/hooks/use-orders'
 import { useCustomers } from '@/hooks/use-customers'
 import { useProducts } from '@/hooks/use-products'
+import { useAuthStore } from '@/store/auth-store'
 import toast from 'react-hot-toast'
+
+// Fallback IDs from seed data
+const FALLBACK_BUSINESS_ID = 'dd8ae5a1-cab4-4041-849d-e108d74490d3'
+const FALLBACK_TENANT_ID = '99aff970-f498-478d-939a-a9a2fb459902'
 
 interface OrderItem {
   productId: string
@@ -43,16 +48,20 @@ interface OrderFormData {
 export default function CreateOrderPage() {
   const router = useRouter()
   const createOrder = useCreateOrder()
+  const { user } = useAuthStore()
 
   // Fetch customers and products
-  const { data: customersData, isLoading: loadingCustomers } = useCustomers()
+  const businessId = user?.business_id || FALLBACK_BUSINESS_ID
+  const tenantId = user?.tenant_id || FALLBACK_TENANT_ID
+
+  const { data: customersData, isLoading: loadingCustomers } = useCustomers({ business_id: businessId })
   const { data: productsData, isLoading: loadingProducts } = useProducts(1, 100)
 
   const [formData, setFormData] = useState<OrderFormData>({
     customerId: '',
     items: [],
     shippingAddress: '',
-    paymentMethod: 'cash',
+    paymentMethod: 'cod',
     notes: '',
     discount: 0,
     shippingCost: 0,
@@ -87,15 +96,16 @@ export default function CreateOrderPage() {
 
   // Add product to order
   const addProduct = (product: any) => {
-    const existingItem = formData.items.find(item => item.productId === product.id)
+    const productId = product.product_id || product.id
+    const existingItem = formData.items.find(item => item.productId === productId)
 
     if (existingItem) {
       // Increase quantity
-      updateItemQuantity(product.id, existingItem.quantity + 1)
+      updateItemQuantity(productId, existingItem.quantity + 1)
     } else {
       // Add new item
       const newItem: OrderItem = {
-        productId: product.id,
+        productId: productId,
         productName: product.name,
         quantity: 1,
         unitPrice: product.price,
@@ -174,23 +184,23 @@ export default function CreateOrderPage() {
       return
     }
 
-    // Prepare order data
+    // Prepare order data matching backend CreateOrderDto
     const orderData = {
-      customerId: formData.customerId,
+      business_id: businessId,
+      tenant_id: tenantId,
+      customer_id: formData.customerId,
       items: formData.items.map(item => ({
-        productId: item.productId,
+        product_id: item.productId,
         quantity: item.quantity,
-        unitPrice: item.unitPrice,
         discount: item.discount
       })),
-      subtotal,
-      tax: taxAmount,
-      discount: formData.discount,
-      shippingCost: formData.shippingCost,
-      total,
-      shippingAddress: formData.shippingAddress,
-      paymentMethod: formData.paymentMethod,
-      notes: formData.notes
+      discount_amount: formData.discount,
+      tax_amount: taxAmount,
+      shipping_fee: formData.shippingCost,
+      shipping_address: formData.shippingAddress,
+      payment_method: formData.paymentMethod,
+      notes: formData.notes,
+      source: 'manual' // Manual order created from dashboard
     }
 
     try {
@@ -202,24 +212,24 @@ export default function CreateOrderPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.back()}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-blue-50 dark:hover:bg-blue-950 rounded-lg transition-colors"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5 text-blue-600" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <ShoppingCart className="w-6 h-6" />
+                <h1 className="bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-3xl font-bold tracking-tight text-transparent dark:from-blue-400 dark:to-blue-600 flex items-center gap-2">
+                  <ShoppingCart className="w-8 h-8 text-blue-600" />
                   Create New Order
                 </h1>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Add products and customer details to create an order
                 </p>
               </div>
@@ -228,14 +238,14 @@ export default function CreateOrderPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => router.back()}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={createOrder.isPending}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white rounded-lg shadow-lg shadow-blue-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <Save className="w-4 h-4" />
                 {createOrder.isPending ? 'Creating...' : 'Create Order'}
@@ -250,21 +260,21 @@ export default function CreateOrderPage() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Customer Selection */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <User className="w-5 h-5" />
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <User className="w-5 h-5 text-blue-600" />
                 Customer Information
               </h2>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Select Customer *
                   </label>
                   <select
                     value={formData.customerId}
                     onChange={(e) => handleCustomerChange(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-blue-200 dark:border-blue-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     required
                   >
                     <option value="">Choose a customer...</option>
@@ -275,42 +285,42 @@ export default function CreateOrderPage() {
                     ))}
                   </select>
                   {loadingCustomers && (
-                    <p className="text-sm text-gray-500 mt-1">Loading customers...</p>
+                    <p className="text-sm text-blue-600 mt-1">Loading customers...</p>
                   )}
                 </div>
 
                 {selectedCustomer && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-900">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-gray-600">Phone:</span>
-                        <span className="ml-2 font-medium">{selectedCustomer.phone}</span>
+                        <span className="text-gray-600 dark:text-gray-400">Phone:</span>
+                        <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">{selectedCustomer.phone}</span>
                       </div>
                       <div>
-                        <span className="text-gray-600">Email:</span>
-                        <span className="ml-2 font-medium">{selectedCustomer.email || 'N/A'}</span>
+                        <span className="text-gray-600 dark:text-gray-400">Email:</span>
+                        <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">{selectedCustomer.email || 'N/A'}</span>
                       </div>
                       <div>
-                        <span className="text-gray-600">Total Orders:</span>
-                        <span className="ml-2 font-medium">{selectedCustomer.total_orders}</span>
+                        <span className="text-gray-600 dark:text-gray-400">Total Orders:</span>
+                        <span className="ml-2 font-medium text-blue-600 dark:text-blue-400">{selectedCustomer.total_orders}</span>
                       </div>
                       <div>
-                        <span className="text-gray-600">Total Spent:</span>
-                        <span className="ml-2 font-medium">₹{selectedCustomer.total_spent?.toLocaleString()}</span>
+                        <span className="text-gray-600 dark:text-gray-400">Total Spent:</span>
+                        <span className="ml-2 font-medium text-blue-600 dark:text-blue-400">₹{selectedCustomer.total_spent?.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Shipping Address *
                   </label>
                   <textarea
                     value={formData.shippingAddress}
                     onChange={(e) => setFormData(prev => ({ ...prev, shippingAddress: e.target.value }))}
                     rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-blue-200 dark:border-blue-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     placeholder="Enter shipping address..."
                     required
                   />
@@ -319,16 +329,16 @@ export default function CreateOrderPage() {
             </div>
 
             {/* Products Selection */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Package className="w-5 h-5" />
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <Package className="w-5 h-5 text-blue-600" />
                 Order Items
               </h2>
 
               {/* Product Search */}
               <div className="mb-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-500" />
                   <input
                     type="text"
                     value={searchTerm}
@@ -337,26 +347,26 @@ export default function CreateOrderPage() {
                       setShowProductSearch(e.target.value.length > 0)
                     }}
                     onFocus={() => searchTerm && setShowProductSearch(true)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full pl-10 pr-4 py-2 border border-blue-200 dark:border-blue-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     placeholder="Search products by name or SKU..."
                   />
 
                   {showProductSearch && filteredProducts.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-900 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {filteredProducts.map(product => (
                         <button
-                          key={product.id}
+                          key={product.product_id || product.id}
                           type="button"
                           onClick={() => addProduct(product)}
-                          className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                          className="w-full px-4 py-3 text-left hover:bg-blue-50 dark:hover:bg-blue-950/20 border-b border-gray-100 dark:border-gray-800 last:border-b-0 transition-colors"
                         >
                           <div className="flex justify-between items-start">
                             <div>
-                              <p className="font-medium text-gray-900">{product.name}</p>
-                              <p className="text-sm text-gray-600">SKU: {product.sku}</p>
-                              <p className="text-sm text-gray-600">Stock: {product.stockQuantity} {product.unit}</p>
+                              <p className="font-medium text-gray-900 dark:text-gray-100">{product.name}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">SKU: {product.sku || 'N/A'}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">Stock: {product.stock_quantity || product.stockQuantity || 0}</p>
                             </div>
-                            <p className="font-semibold text-gray-900">₹{product.price.toLocaleString()}</p>
+                            <p className="font-semibold text-blue-600 dark:text-blue-400">₹{product.price.toLocaleString()}</p>
                           </div>
                         </button>
                       ))}
@@ -364,7 +374,7 @@ export default function CreateOrderPage() {
                   )}
                 </div>
                 {loadingProducts && (
-                  <p className="text-sm text-gray-500 mt-1">Loading products...</p>
+                  <p className="text-sm text-blue-600 mt-1">Loading products...</p>
                 )}
               </div>
 
@@ -436,32 +446,33 @@ export default function CreateOrderPage() {
             </div>
 
             {/* Payment & Shipping */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-blue-600" />
                 Payment & Delivery
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Payment Method
                   </label>
                   <select
                     value={formData.paymentMethod}
                     onChange={(e) => setFormData(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-blue-200 dark:border-blue-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                   >
-                    <option value="cash">Cash</option>
-                    <option value="card">Card</option>
-                    <option value="upi">UPI</option>
-                    <option value="bank_transfer">Bank Transfer</option>
                     <option value="cod">Cash on Delivery</option>
+                    <option value="upi">UPI</option>
+                    <option value="card">Card</option>
+                    <option value="net_banking">Net Banking</option>
+                    <option value="wallet">Wallet</option>
+                    <option value="other">Other</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Shipping Cost (₹)
                   </label>
                   <input
@@ -470,20 +481,20 @@ export default function CreateOrderPage() {
                     step="0.01"
                     value={formData.shippingCost}
                     onChange={(e) => setFormData(prev => ({ ...prev, shippingCost: parseFloat(e.target.value) || 0 }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-blue-200 dark:border-blue-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                   />
                 </div>
               </div>
 
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Order Notes
                 </label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-blue-200 dark:border-blue-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                   placeholder="Add any special instructions or notes..."
                 />
               </div>
@@ -492,21 +503,21 @@ export default function CreateOrderPage() {
 
           {/* Order Summary Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <DollarSign className="w-5 h-5" />
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-6 sticky top-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-blue-600" />
                 Order Summary
               </h2>
 
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span className="font-medium">₹{subtotal.toLocaleString()}</span>
+                  <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">₹{subtotal.toLocaleString()}</span>
                 </div>
 
                 <div>
                   <div className="flex justify-between items-center text-sm mb-2">
-                    <span className="text-gray-600">Tax (%)</span>
+                    <span className="text-gray-600 dark:text-gray-400">Tax (%)</span>
                     <input
                       type="number"
                       min="0"
@@ -514,50 +525,50 @@ export default function CreateOrderPage() {
                       step="0.01"
                       value={formData.tax}
                       onChange={(e) => setFormData(prev => ({ ...prev, tax: parseFloat(e.target.value) || 0 }))}
-                      className="w-20 px-2 py-1 text-right border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-20 px-2 py-1 text-right border border-blue-200 dark:border-blue-900 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     />
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 ml-4">Tax Amount</span>
-                    <span className="font-medium">₹{taxAmount.toLocaleString()}</span>
+                    <span className="text-gray-600 dark:text-gray-400 ml-4">Tax Amount</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">₹{taxAmount.toLocaleString()}</span>
                   </div>
                 </div>
 
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Shipping</span>
-                  <span className="font-medium">₹{formData.shippingCost.toLocaleString()}</span>
+                  <span className="text-gray-600 dark:text-gray-400">Shipping</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">₹{formData.shippingCost.toLocaleString()}</span>
                 </div>
 
                 <div>
                   <div className="flex justify-between items-center text-sm mb-1">
-                    <span className="text-gray-600">Discount (₹)</span>
+                    <span className="text-gray-600 dark:text-gray-400">Discount (₹)</span>
                     <input
                       type="number"
                       min="0"
                       step="0.01"
                       value={formData.discount}
                       onChange={(e) => setFormData(prev => ({ ...prev, discount: parseFloat(e.target.value) || 0 }))}
-                      className="w-24 px-2 py-1 text-right border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-24 px-2 py-1 text-right border border-blue-200 dark:border-blue-900 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                     />
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-gray-200">
+                <div className="pt-3 border-t border-gray-200 dark:border-gray-800">
                   <div className="flex justify-between">
-                    <span className="text-base font-semibold text-gray-900">Total</span>
-                    <span className="text-lg font-bold text-blue-600">₹{total.toLocaleString()}</span>
+                    <span className="text-base font-semibold text-gray-900 dark:text-gray-100">Total</span>
+                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400">₹{total.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-2 text-sm text-gray-600">
+              <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                 <div className="flex justify-between">
                   <span>Items in cart:</span>
-                  <span className="font-medium">{formData.items.length}</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{formData.items.length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Total quantity:</span>
-                  <span className="font-medium">
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
                     {formData.items.reduce((sum, item) => sum + item.quantity, 0)}
                   </span>
                 </div>
@@ -566,7 +577,7 @@ export default function CreateOrderPage() {
               <button
                 type="submit"
                 disabled={createOrder.isPending || formData.items.length === 0}
-                className="w-full mt-6 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                className="w-full mt-6 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white rounded-lg shadow-lg shadow-blue-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
                 {createOrder.isPending ? 'Creating Order...' : 'Create Order'}
               </button>

@@ -6,7 +6,6 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Select,
   SelectContent,
@@ -27,7 +26,6 @@ import {
   Filter,
   Eye,
   Loader2,
-  AlertCircle,
   MoreVertical,
   Edit,
   CheckCircle,
@@ -38,11 +36,14 @@ import {
   CreditCard,
   ShoppingCart,
   CheckCircle2,
+  Users,
+  Clock,
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { OrderStatus, PaymentStatus } from '@/types'
 import {
   useOrders,
+  useOrderStats,
   useUpdateOrderStatus,
   useUpdateOrderPayment,
   useDeleteOrder,
@@ -50,7 +51,7 @@ import {
 import { useAuthStore } from '@/store/auth-store'
 
 // Fallback business ID from seed data
-const FALLBACK_BUSINESS_ID = '888352a5-c3bb-431b-90a2-993b0877fbb3'
+const FALLBACK_BUSINESS_ID = 'dd8ae5a1-cab4-4041-849d-e108d74490d3'
 
 const getStatusBadgeColor = (status: OrderStatus) => {
   const colors = {
@@ -68,7 +69,7 @@ const getPaymentStatusColor = (status: PaymentStatus) => {
   const colors = {
     [PaymentStatus.PENDING]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-400',
     [PaymentStatus.PAID]: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400',
-    [PaymentStatus.PARTIAL]: 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-400',
+    [PaymentStatus.PARTIAL]: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400',
     [PaymentStatus.REFUNDED]: 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-400',
     [PaymentStatus.FAILED]: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400',
   }
@@ -86,14 +87,17 @@ export default function OrdersPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
   // Fetch orders from API with filters
-  const { data: ordersResponse, isLoading, error, refetch } = useOrders({
+  const { data: ordersResponse, isLoading, refetch } = useOrders({
     business_id: user?.business_id || FALLBACK_BUSINESS_ID,
     search: searchQuery || undefined,
-    status: statusFilter !== 'all' ? statusFilter : undefined,
-    payment_status: paymentFilter !== 'all' ? paymentFilter : undefined,
+    status: statusFilter !== 'all' ? statusFilter.toLowerCase() : undefined,
+    payment_status: paymentFilter !== 'all' ? paymentFilter.toLowerCase() : undefined,
     page,
     limit: 20,
   })
+
+  // Fetch order statistics
+  const { data: orderStats } = useOrderStats(user?.business_id || FALLBACK_BUSINESS_ID)
 
   // Mutations for quick actions
   const updateStatusMutation = useUpdateOrderStatus()
@@ -103,12 +107,17 @@ export default function OrdersPage() {
   const ordersData = ordersResponse?.data || []
   const totalPages = Math.ceil((ordersResponse?.total || 0) / 20)
 
-  // Calculate statistics
+  console.log('Orders Data:', ordersResponse)
+  console.log('Order Stats:', orderStats)
+
+  // Use statistics from backend API
+  // Note: Backend doesn't have "in_transit" count, so we need to fetch all orders to calculate it
+  // For now, we'll use total_orders minus pending and completed as a rough estimate
   const stats = {
-    total: ordersData.length,
-    pending: ordersData.filter((o: any) => o.status === OrderStatus.PENDING).length,
-    inTransit: ordersData.filter((o: any) => o.status === OrderStatus.SHIPPED).length,
-    delivered: ordersData.filter((o: any) => o.status === OrderStatus.DELIVERED).length,
+    total: orderStats?.total_orders || 0,
+    pending: orderStats?.pending_orders || 0,
+    inTransit: (orderStats?.total_orders || 0) - (orderStats?.pending_orders || 0) - (orderStats?.completed_orders || 0),
+    delivered: orderStats?.completed_orders || 0,
   }
 
   // Handle quick actions
@@ -189,15 +198,6 @@ export default function OrdersPage() {
           </Button>
         </div>
 
-        {/* Error Alert */}
-        {error && (
-          <Alert variant="destructive" className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Failed to connect to backend API. Please ensure backend is running on port 3006.
-            </AlertDescription>
-          </Alert>
-        )}
 
         {/* Statistics Cards */}
         <div className="grid gap-6 md:grid-cols-4">
@@ -306,123 +306,123 @@ export default function OrdersPage() {
           </CardHeader>
 
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b text-left text-sm font-medium text-muted-foreground">
-                    <th className="pb-3">Order Number</th>
-                    <th className="pb-3">Customer</th>
-                    <th className="pb-3 text-right">
-                      <button
-                        onClick={() => toggleSort('total')}
-                        className="inline-flex items-center hover:text-foreground"
-                      >
-                        Total
-                        <ArrowUpDown className="ml-1 h-3 w-3" />
-                      </button>
-                    </th>
-                    <th className="pb-3">Order Status</th>
-                    <th className="pb-3">Payment Status</th>
-                    <th className="pb-3">
-                      <button
-                        onClick={() => toggleSort('createdAt')}
-                        className="inline-flex items-center hover:text-foreground"
-                      >
-                        Date
-                        <ArrowUpDown className="ml-1 h-3 w-3" />
-                      </button>
-                    </th>
-                    <th className="pb-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ordersData.map((order: any) => {
-                    const customerName = order.customer
-                      ? `${order.customer.firstName || ''} ${order.customer.lastName || ''}`.trim()
-                      : 'N/A'
+            <div className="space-y-3">
+              {ordersData.map((order: any) => {
+                const customerName = order.customer
+                  ? `${order.customer.firstName || ''} ${order.customer.lastName || ''}`.trim()
+                  : 'N/A'
 
-                    return (
-                      <tr key={order.id || order.order_id} className="border-b">
-                        <td className="py-4 font-mono text-sm font-medium">
-                          {order.orderNumber || order.order_number}
-                        </td>
-                        <td className="py-4">{customerName}</td>
-                        <td className="py-4 text-right font-medium">
-                          {formatCurrency(order.total)}
-                        </td>
-                        <td className="py-4">
-                          <span
-                            className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${getStatusBadgeColor(
-                              order.status
-                            )}`}
+                return (
+                  <div
+                    key={order.id || order.order_id}
+                    className="group flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-800 p-5 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md hover:shadow-blue-500/10 transition-all duration-200 bg-white dark:bg-gray-950"
+                  >
+                    <div className="flex-1 space-y-3">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/20">
+                          <Package className="h-6 w-6" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              {order.orderNumber || order.order_number}
+                            </span>
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getStatusBadgeColor(
+                                order.status
+                              )}`}
+                            >
+                              {order.status}
+                            </span>
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${getPaymentStatusColor(
+                                order.paymentStatus || order.payment_status
+                              )}`}
+                            >
+                              {order.paymentStatus || order.payment_status}
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                            <div className="flex items-center gap-1.5">
+                              <Users className="h-4 w-4 text-blue-500" />
+                              <span>{customerName}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-gray-900 dark:text-gray-100">
+                                {formatCurrency(Number(order.total || order.total_amount || 0))}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="h-4 w-4 text-blue-500" />
+                              <span>{formatDate(order.createdAt || order.created_at)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 w-9 p-0 hover:bg-blue-50 dark:hover:bg-blue-950 hover:text-blue-600"
+                        onClick={() => router.push(`/orders/${order.id || order.order_id}`)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 w-9 p-0 hover:bg-blue-50 dark:hover:bg-blue-950 hover:text-blue-600"
                           >
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="py-4">
-                          <span
-                            className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${getPaymentStatusColor(
-                              order.paymentStatus || order.payment_status
-                            )}`}
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => router.push(`/orders/${order.id || order.order_id}`)}
                           >
-                            {order.paymentStatus || order.payment_status}
-                          </span>
-                        </td>
-                        <td className="py-4 text-sm text-muted-foreground">
-                          {formatDate(order.createdAt || order.created_at)}
-                        </td>
-                        <td className="py-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Order
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {(order.paymentStatus || order.payment_status) !== PaymentStatus.PAID && (
+                            <DropdownMenuItem
+                              onClick={() => handleMarkAsPaid(order.id || order.order_id)}
+                            >
+                              <CreditCard className="mr-2 h-4 w-4" />
+                              Mark as Paid
+                            </DropdownMenuItem>
+                          )}
+                          {order.status !== OrderStatus.SHIPPED &&
+                            order.status !== OrderStatus.DELIVERED && (
                               <DropdownMenuItem
-                                onClick={() => router.push(`/orders/${order.id || order.order_id}`)}
+                                onClick={() => handleMarkAsShipped(order.id || order.order_id)}
                               >
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Details
+                                <Truck className="mr-2 h-4 w-4" />
+                                Mark as Shipped
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit Order
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              {(order.paymentStatus || order.payment_status) !== PaymentStatus.PAID && (
-                                <DropdownMenuItem
-                                  onClick={() => handleMarkAsPaid(order.id || order.order_id)}
-                                >
-                                  <CreditCard className="mr-2 h-4 w-4" />
-                                  Mark as Paid
-                                </DropdownMenuItem>
-                              )}
-                              {order.status !== OrderStatus.SHIPPED &&
-                                order.status !== OrderStatus.DELIVERED && (
-                                  <DropdownMenuItem
-                                    onClick={() => handleMarkAsShipped(order.id || order.order_id)}
-                                  >
-                                    <Truck className="mr-2 h-4 w-4" />
-                                    Mark as Shipped
-                                  </DropdownMenuItem>
-                                )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={() => handleCancelOrder(order.id || order.order_id)}
-                              >
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Cancel Order
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                            )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => handleCancelOrder(order.id || order.order_id)}
+                          >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Cancel Order
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
 
             {/* Empty State */}

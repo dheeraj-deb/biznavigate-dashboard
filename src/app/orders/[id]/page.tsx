@@ -55,7 +55,7 @@ const getPaymentStatusColor = (status: PaymentStatus) => {
   const colors = {
     [PaymentStatus.PENDING]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-400',
     [PaymentStatus.PAID]: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400',
-    [PaymentStatus.PARTIAL]: 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-400',
+    [PaymentStatus.PARTIAL]: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400',
     [PaymentStatus.REFUNDED]: 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-400',
     [PaymentStatus.FAILED]: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400',
   }
@@ -80,15 +80,15 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
   const updateStatusMutation = useUpdateOrderStatus()
   const updatePaymentMutation = useUpdateOrderPayment()
 
-  const order = orderData?.data
+  const order = orderData as any
 
   // Handle quick actions
   const handleMarkAsPaid = async () => {
     try {
       await updatePaymentMutation.mutateAsync({
         id: params.id,
-        payment_status: PaymentStatus.PAID,
-        payment_method: 'manual',
+        payment_status: 'paid',
+        payment_method: 'other',
       })
       refetch()
     } catch (error) {
@@ -96,11 +96,23 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
     }
   }
 
+  const handleMarkAsProcessing = async () => {
+    try {
+      await updateStatusMutation.mutateAsync({
+        id: params.id,
+        status: 'processing',
+      })
+      refetch()
+    } catch (error) {
+      console.error('Failed to update status:', error)
+    }
+  }
+
   const handleMarkAsShipped = async () => {
     try {
       await updateStatusMutation.mutateAsync({
         id: params.id,
-        status: OrderStatus.SHIPPED,
+        status: 'shipped',
       })
       refetch()
     } catch (error) {
@@ -112,7 +124,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
     try {
       await updateStatusMutation.mutateAsync({
         id: params.id,
-        status: OrderStatus.DELIVERED,
+        status: 'delivered',
       })
       refetch()
     } catch (error) {
@@ -125,7 +137,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
       try {
         await updateStatusMutation.mutateAsync({
           id: params.id,
-          status: OrderStatus.CANCELLED,
+          status: 'cancelled',
         })
         refetch()
       } catch (error) {
@@ -209,30 +221,53 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                 Edit Order
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              {(order.paymentStatus || order.payment_status) !== PaymentStatus.PAID && (
+
+              {/* Payment actions */}
+              {(order.paymentStatus || order.payment_status) !== PaymentStatus.PAID &&
+               (order.paymentStatus || order.payment_status) !== 'paid' && (
                 <DropdownMenuItem onClick={handleMarkAsPaid}>
                   <CreditCard className="mr-2 h-4 w-4" />
                   Mark as Paid
                 </DropdownMenuItem>
               )}
-              {order.status !== OrderStatus.SHIPPED &&
-                order.status !== OrderStatus.DELIVERED && (
-                  <DropdownMenuItem onClick={handleMarkAsShipped}>
-                    <Truck className="mr-2 h-4 w-4" />
-                    Mark as Shipped
-                  </DropdownMenuItem>
-                )}
-              {order.status === OrderStatus.SHIPPED && (
+
+              {/* Status transition actions based on current status */}
+              {/* paid → processing */}
+              {order && String(order.status).toLowerCase() === 'paid' && (
+                <DropdownMenuItem onClick={handleMarkAsProcessing}>
+                  <Package className="mr-2 h-4 w-4" />
+                  Mark as Processing
+                </DropdownMenuItem>
+              )}
+
+              {/* processing → shipped */}
+              {order && String(order.status).toLowerCase() === 'processing' && (
+                <DropdownMenuItem onClick={handleMarkAsShipped}>
+                  <Truck className="mr-2 h-4 w-4" />
+                  Mark as Shipped
+                </DropdownMenuItem>
+              )}
+
+              {/* shipped → delivered */}
+              {order && String(order.status).toLowerCase() === 'shipped' && (
                 <DropdownMenuItem onClick={handleMarkAsDelivered}>
                   <CheckCircle2 className="mr-2 h-4 w-4" />
                   Mark as Delivered
                 </DropdownMenuItem>
               )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-600" onClick={handleCancelOrder}>
-                <XCircle className="mr-2 h-4 w-4" />
-                Cancel Order
-              </DropdownMenuItem>
+
+              {/* Cancel order (allowed from most statuses except delivered/cancelled) */}
+              {order &&
+                String(order.status).toLowerCase() !== 'delivered' &&
+                String(order.status).toLowerCase() !== 'cancelled' && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-red-600" onClick={handleCancelOrder}>
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Cancel Order
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -283,11 +318,11 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                       <div className="flex-1">
                         <p className="font-medium">{item.product_name || item.productName || 'Product'}</p>
                         <p className="text-sm text-muted-foreground">
-                          Quantity: {item.quantity} × {formatCurrency(item.unit_price || item.unitPrice)}
+                          Quantity: {item.quantity} × {formatCurrency(Number(item.unit_price || item.unitPrice || 0))}
                         </p>
                       </div>
                       <p className="font-medium">
-                        {formatCurrency((item.quantity * (item.unit_price || item.unitPrice)))}
+                        {formatCurrency(Number(item.quantity || 0) * Number(item.unit_price || item.unitPrice || 0))}
                       </p>
                     </div>
                   ))}
@@ -296,29 +331,29 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                   <div className="space-y-2 border-t pt-4">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Subtotal</span>
-                      <span>{formatCurrency(order.subtotal || order.subtotal_amount || 0)}</span>
+                      <span>{formatCurrency(Number(order.subtotal || order.subtotal_amount || 0))}</span>
                     </div>
-                    {(order.tax || order.tax_amount) > 0 && (
+                    {Number(order.tax || order.tax_amount || 0) > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Tax</span>
-                        <span>{formatCurrency(order.tax || order.tax_amount)}</span>
+                        <span>{formatCurrency(Number(order.tax || order.tax_amount || 0))}</span>
                       </div>
                     )}
-                    {(order.discount || order.discount_amount) > 0 && (
+                    {Number(order.discount || order.discount_amount || 0) > 0 && (
                       <div className="flex justify-between text-sm text-green-600">
                         <span>Discount</span>
-                        <span>-{formatCurrency(order.discount || order.discount_amount)}</span>
+                        <span>-{formatCurrency(Number(order.discount || order.discount_amount || 0))}</span>
                       </div>
                     )}
-                    {(order.shippingCost || order.shipping_cost) > 0 && (
+                    {Number(order.shippingCost || order.shipping_cost || order.shipping_fee || 0) > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Shipping</span>
-                        <span>{formatCurrency(order.shippingCost || order.shipping_cost)}</span>
+                        <span>{formatCurrency(Number(order.shippingCost || order.shipping_cost || order.shipping_fee || 0))}</span>
                       </div>
                     )}
                     <div className="flex justify-between border-t pt-2 text-lg font-bold">
                       <span>Total</span>
-                      <span>{formatCurrency(order.total || order.total_amount)}</span>
+                      <span>{formatCurrency(Number(order.total || order.total_amount || 0))}</span>
                     </div>
                   </div>
                 </div>
@@ -332,6 +367,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
+                  {/* Order Placed */}
                   <div className="flex gap-4">
                     <div className="flex flex-col items-center">
                       <div className="rounded-full bg-green-100 p-2 dark:bg-green-950">
@@ -347,35 +383,74 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                     </div>
                   </div>
 
-                  {(order.paymentStatus || order.payment_status) === PaymentStatus.PAID && (
+                  {/* Payment Received */}
+                  {((order.paymentStatus || order.payment_status) === PaymentStatus.PAID ||
+                    (order.paymentStatus || order.payment_status) === 'paid' ||
+                    (order.paid_at)) && (
                     <div className="flex gap-4">
                       <div className="flex flex-col items-center">
                         <div className="rounded-full bg-green-100 p-2 dark:bg-green-950">
                           <CreditCard className="h-4 w-4 text-green-600 dark:text-green-400" />
                         </div>
-                        <div className="h-full w-0.5 bg-gray-200 dark:bg-gray-700" />
+                        {(String(order.status).toLowerCase() === 'paid' ||
+                          String(order.status).toLowerCase() === 'processing' ||
+                          String(order.status).toLowerCase() === 'shipped' ||
+                          String(order.status).toLowerCase() === 'delivered') && (
+                          <div className="h-full w-0.5 bg-gray-200 dark:bg-gray-700" />
+                        )}
                       </div>
                       <div className="pb-4">
                         <p className="font-medium">Payment Received</p>
                         <p className="text-sm text-muted-foreground">
-                          {order.payment_method || order.paymentMethod || 'Manual'}
+                          {order.paid_at ? formatDate(order.paid_at) :
+                           `${order.payment_method || order.paymentMethod || 'Manual'}`}
                         </p>
                       </div>
                     </div>
                   )}
 
-                  {order.status === OrderStatus.SHIPPED || order.status === OrderStatus.DELIVERED ? (
+                  {/* Processing */}
+                  {(String(order.status).toLowerCase() === 'processing' ||
+                    String(order.status).toLowerCase() === 'shipped' ||
+                    String(order.status).toLowerCase() === 'delivered') && (
                     <div className="flex gap-4">
                       <div className="flex flex-col items-center">
-                        <div className="rounded-full bg-green-100 p-2 dark:bg-green-950">
-                          <Truck className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <div className="rounded-full bg-blue-100 p-2 dark:bg-blue-950">
+                          <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                         </div>
-                        {order.status === OrderStatus.DELIVERED && (
+                        {(String(order.status).toLowerCase() === 'shipped' ||
+                          String(order.status).toLowerCase() === 'delivered') && (
+                          <div className="h-full w-0.5 bg-gray-200 dark:bg-gray-700" />
+                        )}
+                      </div>
+                      <div className="pb-4">
+                        <p className="font-medium">Order Processing</p>
+                        <p className="text-sm text-muted-foreground">
+                          Order is being prepared for shipment
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Shipped */}
+                  {(String(order.status).toLowerCase() === 'shipped' ||
+                    String(order.status).toLowerCase() === 'delivered') && (
+                    <div className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className="rounded-full bg-indigo-100 p-2 dark:bg-indigo-950">
+                          <Truck className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        {String(order.status).toLowerCase() === 'delivered' && (
                           <div className="h-full w-0.5 bg-gray-200 dark:bg-gray-700" />
                         )}
                       </div>
                       <div className="pb-4">
                         <p className="font-medium">Order Shipped</p>
+                        {order.shipped_at ? (
+                          <p className="text-sm text-muted-foreground">
+                            {formatDate(order.shipped_at)}
+                          </p>
+                        ) : null}
                         {order.trackingNumber || order.tracking_number ? (
                           <p className="text-sm text-muted-foreground">
                             Tracking: {order.trackingNumber || order.tracking_number}
@@ -383,9 +458,10 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                         ) : null}
                       </div>
                     </div>
-                  ) : null}
+                  )}
 
-                  {order.status === OrderStatus.DELIVERED && (
+                  {/* Delivered */}
+                  {String(order.status).toLowerCase() === 'delivered' && (
                     <div className="flex gap-4">
                       <div className="flex flex-col items-center">
                         <div className="rounded-full bg-green-100 p-2 dark:bg-green-950">
@@ -395,13 +471,15 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                       <div>
                         <p className="font-medium">Order Delivered</p>
                         <p className="text-sm text-muted-foreground">
-                          {formatDate(order.updatedAt || order.updated_at)}
+                          {order.delivered_at ? formatDate(order.delivered_at) :
+                           formatDate(order.updatedAt || order.updated_at)}
                         </p>
                       </div>
                     </div>
                   )}
 
-                  {order.status === OrderStatus.CANCELLED && (
+                  {/* Cancelled */}
+                  {String(order.status).toLowerCase() === 'cancelled' && (
                     <div className="flex gap-4">
                       <div className="flex flex-col items-center">
                         <div className="rounded-full bg-red-100 p-2 dark:bg-red-950">
@@ -410,8 +488,14 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                       </div>
                       <div>
                         <p className="font-medium">Order Cancelled</p>
-                        {order.notes && (
-                          <p className="text-sm text-muted-foreground">{order.notes}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {order.cancelled_at ? formatDate(order.cancelled_at) :
+                           formatDate(order.updatedAt || order.updated_at)}
+                        </p>
+                        {(order.cancellation_reason || order.notes) && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Reason: {order.cancellation_reason || order.notes}
+                          </p>
                         )}
                       </div>
                     </div>

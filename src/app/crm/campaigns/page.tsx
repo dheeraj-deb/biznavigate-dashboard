@@ -533,7 +533,7 @@ export default function CampaignsPage() {
       scheduled: { label: 'Scheduled', className: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' },
       active: { label: 'Active', className: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300' },
       completed: { label: 'Completed', className: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300' },
-      paused: { label: 'Paused', className: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300' },
+      paused: { label: 'Paused', className: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' },
     }
     return config[status]
   }
@@ -637,11 +637,11 @@ export default function CampaignsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Click Rate</p>
-                  <p className="mt-2 text-3xl font-bold text-orange-600 dark:text-orange-400">{stats.avgClickRate}%</p>
+                  <p className="mt-2 text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.avgClickRate}%</p>
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">{stats.totalClicked.toLocaleString()} clicks</p>
                 </div>
-                <div className="rounded-full bg-orange-100 p-3 dark:bg-orange-950">
-                  <TrendingUp className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-950">
+                  <TrendingUp className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </div>
               </div>
             </CardContent>
@@ -789,7 +789,7 @@ export default function CampaignsPage() {
                                         </div>
                                         <div>
                                           <div className="text-xs font-medium text-gray-500 dark:text-gray-500 mb-1">Replied</div>
-                                          <div className="text-lg font-bold text-orange-600 dark:text-orange-400">
+                                          <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
                                             {campaign.replied_count.toLocaleString()}
                                           </div>
                                         </div>
@@ -1105,8 +1105,8 @@ export default function CampaignsPage() {
                   {/* Target Audience Section */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 pb-2 border-b border-gray-200 dark:border-gray-800">
-                      <div className="p-1.5 rounded-md bg-orange-100 dark:bg-orange-950">
-                        <Users className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                      <div className="p-1.5 rounded-md bg-blue-100 dark:bg-blue-950">
+                        <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                       </div>
                       <h3 className="font-semibold text-gray-900 dark:text-gray-100">Target Audience</h3>
                       <Badge variant="secondary" className="ml-auto text-xs">Optional</Badge>
@@ -1726,9 +1726,9 @@ export default function CampaignsPage() {
 
                                   {/* Offer Info (if available) */}
                                   {suggestion.offerInfo && (
-                                    <div className="mb-3 p-3 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30">
+                                    <div className="mb-3 p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
                                       <div className="flex items-center gap-2 mb-2">
-                                        <Badge className="bg-orange-600 text-white text-xs">
+                                        <Badge className="bg-blue-600 text-white text-xs">
                                           🔥 Upcoming Sale Detected
                                         </Badge>
                                       </div>
@@ -1737,7 +1737,7 @@ export default function CampaignsPage() {
                                           {suggestion.offerInfo.title}
                                         </div>
                                         <div className="flex items-center gap-3 text-sm">
-                                          <span className="font-bold text-orange-600 dark:text-orange-400">
+                                          <span className="font-bold text-blue-600 dark:text-blue-400">
                                             {suggestion.offerInfo.discountPercent}
                                           </span>
                                           <span className="text-gray-600 dark:text-gray-400">

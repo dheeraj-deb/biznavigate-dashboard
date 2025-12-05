@@ -175,7 +175,7 @@ export function OptimizationRecommendations({
                             {rec.priority.toUpperCase()}
                           </Badge>
                           {rec.action_required && (
-                            <Badge className="bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800">
+                            <Badge className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
                               <AlertCircle className="h-3 w-3 mr-1" />
                               Action Needed
                             </Badge>
@@ -206,14 +206,14 @@ export function OptimizationRecommendations({
         )}
 
         {actionRequiredCount > 0 && (
-          <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
             <div className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
                   {actionRequiredCount} recommendation{actionRequiredCount > 1 ? 's' : ''} require{actionRequiredCount === 1 ? 's' : ''} immediate action
                 </p>
-                <p className="text-xs text-orange-700 dark:text-orange-300 mt-1">
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
                   These changes can significantly improve your campaign performance. Review and apply them as soon as possible.
                 </p>
               </div>

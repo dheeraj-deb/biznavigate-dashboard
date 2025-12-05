@@ -90,7 +90,7 @@ export default function PaymentsPage() {
   // Handle refund
   const handleRefund = (paymentId: string, amount?: number) => {
     if (confirm(`Are you sure you want to ${amount ? 'partially' : 'fully'} refund this payment?`)) {
-      refundPayment.mutate({ paymentId, amount })
+      refundPayment.mutate({ paymentId, payment_id: paymentId, amount })
     }
   }
 
@@ -110,7 +110,10 @@ export default function PaymentsPage() {
 
   const payments = paymentsData?.data || []
   const meta = paymentsData?.meta
-  const hasErrors = paymentsError || analyticsError
+
+  // Only show error if there's an actual network/server error, not just empty data
+  const hasErrors = (paymentsError && payments.length === 0 && !paymentsData) ||
+                    (analyticsError && !analytics)
 
   return (
     <DashboardLayout>

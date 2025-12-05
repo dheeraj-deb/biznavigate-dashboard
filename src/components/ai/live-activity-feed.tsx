@@ -138,7 +138,7 @@ export function LiveActivityFeed() {
       case 'budget_change':
         return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800'
       case 'performance_alert':
-        return 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800'
+        return 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
       case 'ai_recommendation':
         return 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
       case 'manual_override':
@@ -294,7 +294,7 @@ export function LiveActivityFeed() {
               {[
                 { label: 'Optimizations', count: events.filter((e) => e.type === 'optimization').length, color: 'text-blue-600 dark:text-blue-400' },
                 { label: 'Budget Changes', count: events.filter((e) => e.type === 'budget_change').length, color: 'text-green-600 dark:text-green-400' },
-                { label: 'Performance Alerts', count: events.filter((e) => e.type === 'performance_alert').length, color: 'text-orange-600 dark:text-orange-400' },
+                { label: 'Performance Alerts', count: events.filter((e) => e.type === 'performance_alert').length, color: 'text-blue-600 dark:text-blue-400' },
                 { label: 'AI Recommendations', count: events.filter((e) => e.type === 'ai_recommendation').length, color: 'text-purple-600 dark:text-purple-400' },
               ].map((stat) => (
                 <div key={stat.label} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">

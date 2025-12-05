@@ -601,7 +601,7 @@ export function getSegmentBadgeColor(segment: string): string {
 export function getEngagementScoreColor(score: number): string {
   if (score >= 80) return 'text-green-600'
   if (score >= 50) return 'text-yellow-600'
-  if (score >= 20) return 'text-orange-600'
+  if (score >= 20) return 'text-blue-600'
   return 'text-red-600'
 }
 

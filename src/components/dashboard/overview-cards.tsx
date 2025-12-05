@@ -50,9 +50,9 @@ export function OverviewCards({ stats }: OverviewCardsProps) {
       change: stats.inventoryChange,
       subtitle: `Value: ${formatCurrency(stats.inventoryValue)}`,
       icon: Package,
-      iconColor: 'text-orange-600 dark:text-orange-400',
-      iconBg: 'bg-orange-100 dark:bg-orange-950',
-      bgGradient: 'from-orange-500/10 to-orange-600/10',
+      iconColor: 'text-blue-600 dark:text-blue-400',
+      iconBg: 'bg-blue-100 dark:bg-blue-950',
+      bgGradient: 'from-blue-500/10 to-blue-600/10',
       changeColor: 'neutral',
     },
   ]

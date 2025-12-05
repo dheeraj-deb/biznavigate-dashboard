@@ -259,7 +259,7 @@ export function getRoleBadgeColor(role: Role | undefined): string {
     return 'bg-red-100 text-red-800 border-red-200' // All permissions (admin-like)
   }
   if (enabledCount === 3) {
-    return 'bg-orange-100 text-orange-800 border-orange-200' // Most permissions
+    return 'bg-blue-100 text-blue-800 border-blue-200' // Most permissions
   }
   if (enabledCount === 2) {
     return 'bg-blue-100 text-blue-800 border-blue-200' // Moderate permissions

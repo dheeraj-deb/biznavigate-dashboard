@@ -78,8 +78,8 @@ const quickStats = [
     change: '-5%',
     trend: 'down' as const,
     icon: MousePointerClick,
-    color: 'text-orange-600',
-    bgColor: 'bg-orange-50 dark:bg-orange-950/20',
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50 dark:bg-blue-950/20',
   },
   {
     title: 'Avg Response Time',
@@ -402,7 +402,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
-                    <Package className="h-5 w-5 text-orange-600" />
+                    <Package className="h-5 w-5 text-blue-600" />
                     Top Products / Services
                   </CardTitle>
                   <CardDescription>Most inquired products and conversion rates</CardDescription>

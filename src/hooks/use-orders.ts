@@ -28,7 +28,8 @@ export function useOrders(filters?: OrderFilters) {
     queryKey: ['orders', filters],
     queryFn: async () => {
       const response = await apiClient.get('/orders', { params: filters })
-      return response.data || { data: [], total: 0, page: 1, limit: 20 }
+      console.log('Fetched Orders:', response)
+      return response || { data: [], total: 0, page: 1, limit: 20 }
     },
     retry: 1,
     retryDelay: 1000,
@@ -130,8 +131,8 @@ export function useUpdateOrderPayment() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, payment_status }: { id: string; payment_status: string }) => {
-      const response = await apiClient.patch(`/orders/${id}/payment`, { payment_status })
+    mutationFn: async ({ id, payment_status, payment_method }: { id: string; payment_status: string; payment_method: string }) => {
+      const response = await apiClient.patch(`/orders/${id}/payment`, { payment_status, payment_method })
       return response.data
     },
     onSuccess: (_, variables) => {

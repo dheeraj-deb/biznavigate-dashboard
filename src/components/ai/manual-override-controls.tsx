@@ -136,11 +136,11 @@ export function ManualOverrideControls() {
   return (
     <div className="space-y-6">
       {/* Global Controls */}
-      <Card className="border-2 border-orange-200 dark:border-orange-800">
-        <CardHeader className="bg-orange-50 dark:bg-orange-900/20">
+      <Card className="border-2 border-blue-200 dark:border-blue-800">
+        <CardHeader className="bg-blue-50 dark:bg-blue-900/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-orange-600 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-lg bg-blue-600 flex items-center justify-center">
                 <Shield className="h-6 w-6 text-white" />
               </div>
               <div>
@@ -185,7 +185,7 @@ export function ManualOverrideControls() {
             <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Active Overrides</span>
-                <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               </div>
               <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
                 {campaigns.filter((c) => c.overrideActive).length}
@@ -203,11 +203,11 @@ export function ManualOverrideControls() {
             className={cn(
               'transition-all',
               campaign.overrideActive &&
-                'border-2 border-orange-200 dark:border-orange-800'
+                'border-2 border-blue-200 dark:border-blue-800'
             )}
           >
             <CardHeader className={cn(
-              campaign.overrideActive && 'bg-orange-50 dark:bg-orange-900/20'
+              campaign.overrideActive && 'bg-blue-50 dark:bg-blue-900/20'
             )}>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
@@ -224,7 +224,7 @@ export function ManualOverrideControls() {
                   </div>
                 </div>
                 {campaign.overrideActive && (
-                  <Badge className="bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800">
+                  <Badge className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
                     <AlertTriangle className="h-3 w-3 mr-1" />
                     Manual Override
                   </Badge>

@@ -161,7 +161,7 @@ export function usePayments(filters: PaymentQueryDto) {
           order: filters.order || 'desc',
         },
       })
-      return response.data as PaymentListResponse
+      return response as PaymentListResponse
     },
     enabled: !!filters.business_id,
     retry: 1,
@@ -330,7 +330,7 @@ export function getPaymentStatusColor(status: PaymentStatus): string {
     captured: 'bg-green-100 text-green-800 border-green-200',
     failed: 'bg-red-100 text-red-800 border-red-200',
     refunded: 'bg-purple-100 text-purple-800 border-purple-200',
-    partial_refund: 'bg-orange-100 text-orange-800 border-orange-200',
+    partial_refund: 'bg-blue-100 text-blue-800 border-blue-200',
   }
   return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200'
 }
@@ -369,7 +369,7 @@ export function getPaymentMethodInfo(method?: PaymentMethod): {
     card: { icon: 'CreditCard', label: 'Card', color: 'text-blue-600' },
     netbanking: { icon: 'Building2', label: 'Net Banking', color: 'text-green-600' },
     wallet: { icon: 'Wallet', label: 'Wallet', color: 'text-purple-600' },
-    upi: { icon: 'Smartphone', label: 'UPI', color: 'text-orange-600' },
+    upi: { icon: 'Smartphone', label: 'UPI', color: 'text-blue-600' },
     emi: { icon: 'Calendar', label: 'EMI', color: 'text-red-600' },
     cod: { icon: 'Banknote', label: 'Cash on Delivery', color: 'text-yellow-600' },
   }
@@ -470,7 +470,7 @@ export function getPaymentTimeline(payment: Payment): {
 export function getSuccessRateColor(rate: number): string {
   if (rate >= 80) return 'text-green-600'
   if (rate >= 60) return 'text-yellow-600'
-  if (rate >= 40) return 'text-orange-600'
+  if (rate >= 40) return 'text-blue-600'
   return 'text-red-600'
 }
 

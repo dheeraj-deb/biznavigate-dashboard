@@ -198,14 +198,14 @@ export default function LeadsPage() {
 
   const getCategoryStyle = (category: string) => {
     if (category === 'hot') return 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
-    if (category === 'warm') return 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
+    if (category === 'warm') return 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
     if (category === 'cold') return 'bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300'
     return 'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300'
   }
 
   const getRowCategoryColor = (category: string) => {
     if (category === 'hot') return 'bg-red-50/50 dark:bg-red-950/20 hover:bg-red-100/70 dark:hover:bg-red-950/30'
-    if (category === 'warm') return 'bg-orange-50/50 dark:bg-orange-950/20 hover:bg-orange-100/70 dark:hover:bg-orange-950/30'
+    if (category === 'warm') return 'bg-blue-50/50 dark:bg-blue-950/20 hover:bg-blue-100/70 dark:hover:bg-blue-950/30'
     if (category === 'cold') return 'bg-blue-50/50 dark:bg-blue-950/20 hover:bg-blue-100/70 dark:hover:bg-blue-950/30'
     return 'hover:bg-gray-50 dark:hover:bg-gray-900/50'
   }
@@ -454,7 +454,7 @@ export default function LeadsPage() {
                   <span className="text-gray-600 dark:text-gray-400">🔥 Hot</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-orange-100 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900" />
+                  <div className="w-4 h-4 rounded bg-blue-100 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900" />
                   <span className="text-gray-600 dark:text-gray-400">🌤️ Warm</span>
                 </div>
                 <div className="flex items-center gap-2">

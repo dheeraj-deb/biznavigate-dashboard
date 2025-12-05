@@ -11,19 +11,19 @@
     --card-foreground: 240 10% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 10%;
-    --primary: 24 95% 53%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
     --secondary: 240 5% 96%;
     --secondary-foreground: 240 10% 10%;
     --muted: 240 5% 96%;
     --muted-foreground: 240 4% 46%;
-    --accent: 24 95% 53%;
+    --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     --border: 240 6% 90%;
     --input: 240 6% 90%;
-    --ring: 24 95% 53%;
+    --ring: 217 91% 60%;
     --radius: 0.75rem;
   }
 
@@ -34,19 +34,19 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 13%;
     --popover-foreground: 0 0% 98%;
-    --primary: 24 95% 53%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
     --secondary: 240 4% 16%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 4% 16%;
     --muted-foreground: 240 5% 65%;
-    --accent: 24 95% 53%;
+    --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     --border: 240 4% 20%;
     --input: 240 4% 16%;
-    --ring: 24 95% 53%;
+    --ring: 217 91% 60%;
   }
 }
 
@@ -61,8 +61,8 @@
 
 @layer utilities {
   /* Flexfolio gradient utilities */
-  .gradient-orange {
-    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  .gradient-blue {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   }
 
   .gradient-card {
@@ -70,7 +70,7 @@
   }
 
   .gradient-text {
-    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -92,16 +92,12 @@
   }
 
   /* Subtle glow for stats */
-  .glow-orange {
-    box-shadow: 0 4px 14px rgba(255, 107, 53, 0.15);
+  .glow-blue {
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.15);
   }
 
   .glow-green {
     box-shadow: 0 4px 14px rgba(34, 197, 94, 0.15);
-  }
-
-  .glow-blue {
-    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.15);
   }
 
   .glow-purple {
