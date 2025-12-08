@@ -143,25 +143,56 @@ export default function InstagramSettingsPage() {
         </p>
       </div>
 
+      {/* Requirements Info */}
+      <Card className="mb-6 border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-blue-600" />
+            Before You Connect
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm">Make sure you have completed these steps:</p>
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
+              <p className="text-sm">Your Instagram account is a Business or Creator account</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
+              <p className="text-sm">Your Instagram is connected to a Facebook Page</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
+              <p className="text-sm">You have admin access to the Facebook Page</p>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            Need help? <a href="https://help.instagram.com/502981923235522" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Learn how to convert to a Business account</a>
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Connect New Account */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Connect Instagram Account</CardTitle>
           <CardDescription>
-            Connect your Instagram Business or Creator account via Facebook to start receiving and responding to messages.
+            Click the button below to connect your Instagram Business or Creator account
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Button
             onClick={handleConnectInstagram}
             disabled={!oauthUrl}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            size="lg"
           >
-            <Instagram className="w-4 h-4" />
+            <Instagram className="w-5 h-5" />
             Connect via Facebook
           </Button>
           <p className="text-sm text-muted-foreground mt-4">
-            Note: You need to have your Instagram account connected to a Facebook Page.
+            A popup window will open to complete the authorization process
           </p>
         </CardContent>
       </Card>

@@ -4,18 +4,12 @@ import { useState } from 'react'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog'
 import {
   Select,
@@ -25,359 +19,280 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu'
-import {
   Plus,
   Search,
-  Mail,
+  Settings,
+  MessageCircle,
+  FileText,
+  Eye,
+  X,
   Phone,
-  Building2,
-  Edit,
-  Trash2,
-  MoreVertical,
-  MessageSquare,
-  User,
-  Users,
-  Star,
+  Instagram,
   Clock,
-  CheckCircle2,
-  TrendingUp,
+  Tag,
+  ShoppingBag,
+  Calendar,
+  Filter,
 } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import Image from 'next/image'
 
-type ContactType = 'new' | 'active' | 'inactive' | 'vip'
+type Platform = 'whatsapp' | 'instagram' | 'all'
+type LeadStage = 'new' | 'in_progress' | 'converted' | 'follow_up' | 'all'
 
 interface Contact {
   id: string
-  firstName: string
-  lastName: string
-  email: string
+  name: string
   phone: string
-  company?: string
-  position?: string
-  type: ContactType
+  instagram?: string
+  platform: 'whatsapp' | 'instagram'
+  stage: LeadStage
   tags: string[]
-  notes?: string
-  lastContactedAt?: Date
-  createdAt: Date
-  source?: string
-  dealValue?: number
+  lastInteraction: string
+  avatar?: string
+  initials: string
+  orders: number
+  totalSpent: number
+  notes: string[]
+  timeline: TimelineEvent[]
+}
+
+interface TimelineEvent {
+  id: string
+  type: 'whatsapp' | 'instagram' | 'order' | 'note'
+  message: string
+  timestamp: Date
+}
+
+interface FilterState {
+  platform: Platform
+  stage: LeadStage
+  dateRange: string
+  activeTags: string[]
 }
 
 const mockContacts: Contact[] = [
   {
     id: '1',
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@acme.com',
+    name: 'Priya Sharma',
     phone: '+91 98765 43210',
-    company: 'Acme Corporation',
-    position: 'CEO',
-    type: 'vip',
-    tags: ['Enterprise', 'Decision Maker'],
-    notes: 'Interested in enterprise plan. Follow up next week.',
-    lastContactedAt: new Date('2024-11-28'),
-    createdAt: new Date('2024-01-15'),
-    source: 'WhatsApp',
-    dealValue: 500000,
+    instagram: '@priya.sharma',
+    platform: 'whatsapp',
+    stage: 'new',
+    tags: ['New Lead', 'Fashion'],
+    lastInteraction: '2h ago',
+    initials: 'PS',
+    orders: 0,
+    totalSpent: 0,
+    notes: ['Interested in summer collection', 'Follow up on Friday'],
+    timeline: [
+      {
+        id: '1',
+        type: 'whatsapp',
+        message: 'Inquired about product availability',
+        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      },
+    ],
   },
   {
     id: '2',
-    firstName: 'Jane',
-    lastName: 'Smith',
-    email: 'jane.smith@techsolutions.com',
+    name: 'Rahul Mehta',
     phone: '+91 98765 43211',
-    company: 'Tech Solutions Inc.',
-    position: 'CTO',
-    type: 'active',
-    tags: ['Tech', 'Mid-Size'],
-    notes: 'Evaluating multiple vendors.',
-    lastContactedAt: new Date('2024-11-30'),
-    createdAt: new Date('2024-02-20'),
-    source: 'Instagram',
-    dealValue: 250000,
+    instagram: '@rahul_mehta',
+    platform: 'instagram',
+    stage: 'converted',
+    tags: ['VIP', 'Repeated Buyer'],
+    lastInteraction: '1d ago',
+    initials: 'RM',
+    orders: 5,
+    totalSpent: 25000,
+    notes: ['Prefers COD', 'Always orders in bulk'],
+    timeline: [
+      {
+        id: '1',
+        type: 'order',
+        message: 'Placed order #1234 - ₹5,000',
+        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      },
+      {
+        id: '2',
+        type: 'instagram',
+        message: 'Sent DM about new arrivals',
+        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      },
+    ],
   },
   {
     id: '3',
-    firstName: 'Bob',
-    lastName: 'Johnson',
-    email: 'bob.j@startupx.io',
+    name: 'Anjali Gupta',
     phone: '+91 98765 43212',
-    company: 'StartupX',
-    position: 'Founder',
-    type: 'new',
-    tags: ['Startup'],
-    notes: 'Just reached out. Interested in basic plan.',
-    createdAt: new Date('2024-11-25'),
-    source: 'WhatsApp',
-    dealValue: 50000,
+    platform: 'whatsapp',
+    stage: 'in_progress',
+    tags: ['Follow Up', 'Electronics'],
+    lastInteraction: '5h ago',
+    initials: 'AG',
+    orders: 1,
+    totalSpent: 8000,
+    notes: ['Payment pending', 'Send reminder tomorrow'],
+    timeline: [
+      {
+        id: '1',
+        type: 'whatsapp',
+        message: 'Discussed product specifications',
+        timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000),
+      },
+    ],
   },
   {
     id: '4',
-    firstName: 'Alice',
-    lastName: 'Brown',
-    email: 'alice.brown@datacorp.com',
+    name: 'Vikram Singh',
     phone: '+91 98765 43213',
-    company: 'DataCorp',
-    position: 'VP of Sales',
-    type: 'active',
-    tags: ['Enterprise', 'Analytics'],
-    notes: 'In negotiation phase.',
-    lastContactedAt: new Date('2024-11-29'),
-    createdAt: new Date('2024-03-05'),
-    source: 'Instagram',
-    dealValue: 400000,
+    instagram: '@vikram.singh',
+    platform: 'instagram',
+    stage: 'follow_up',
+    tags: ['Follow Up'],
+    lastInteraction: '3d ago',
+    initials: 'VS',
+    orders: 2,
+    totalSpent: 12000,
+    notes: ['Interested in premium products'],
+    timeline: [],
   },
   {
     id: '5',
-    firstName: 'Michael',
-    lastName: 'Chen',
-    email: 'michael.chen@retailco.com',
+    name: 'Neha Kapoor',
     phone: '+91 98765 43214',
-    company: 'RetailCo',
-    position: 'Manager',
-    type: 'inactive',
-    tags: ['Retail'],
-    notes: 'No response in 3 months.',
-    lastContactedAt: new Date('2024-08-15'),
-    createdAt: new Date('2024-05-10'),
-    source: 'WhatsApp',
-    dealValue: 75000,
+    instagram: '@neha_kapoor',
+    platform: 'whatsapp',
+    stage: 'converted',
+    tags: ['VIP', 'Fashion', 'Repeated Buyer'],
+    lastInteraction: '30m ago',
+    initials: 'NK',
+    orders: 8,
+    totalSpent: 45000,
+    notes: ['Premium customer', 'Always leaves reviews'],
+    timeline: [
+      {
+        id: '1',
+        type: 'whatsapp',
+        message: 'Confirmed delivery address',
+        timestamp: new Date(Date.now() - 30 * 60 * 1000),
+      },
+    ],
   },
   {
     id: '6',
-    firstName: 'Sarah',
-    lastName: 'Williams',
-    email: 'sarah.w@consultingpro.com',
+    name: 'Arjun Reddy',
     phone: '+91 98765 43215',
-    company: 'Consulting Pro',
-    position: 'Partner',
-    type: 'vip',
-    tags: ['VIP', 'Consulting'],
-    notes: 'Long-term client. Very satisfied.',
-    lastContactedAt: new Date('2024-12-01'),
-    createdAt: new Date('2023-12-20'),
-    source: 'Referral',
-    dealValue: 1000000,
-  },
-  {
-    id: '7',
-    firstName: 'David',
-    lastName: 'Martinez',
-    email: 'david.m@ecommhub.com',
-    phone: '+91 98765 43216',
-    company: 'EcommHub',
-    position: 'Director',
-    type: 'new',
-    tags: ['E-commerce'],
-    notes: 'Showed interest in demo.',
-    createdAt: new Date('2024-11-28'),
-    source: 'Instagram',
-    dealValue: 120000,
-  },
-  {
-    id: '8',
-    firstName: 'Emily',
-    lastName: 'Taylor',
-    email: 'emily.t@financeplus.com',
-    phone: '+91 98765 43217',
-    company: 'FinancePlus',
-    position: 'CFO',
-    type: 'active',
-    tags: ['Finance', 'Decision Maker'],
-    notes: 'Budget approval pending.',
-    lastContactedAt: new Date('2024-11-27'),
-    createdAt: new Date('2024-10-15'),
-    source: 'WhatsApp',
-    dealValue: 350000,
+    platform: 'instagram',
+    instagram: '@arjun_reddy',
+    stage: 'new',
+    tags: ['New Lead'],
+    lastInteraction: '1h ago',
+    initials: 'AR',
+    orders: 0,
+    totalSpent: 0,
+    notes: [],
+    timeline: [
+      {
+        id: '1',
+        type: 'instagram',
+        message: 'Commented on product post',
+        timestamp: new Date(Date.now() - 60 * 60 * 1000),
+      },
+    ],
   },
 ]
 
 export default function ContactsPage() {
+  const [contacts] = useState<Contact[]>(mockContacts)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedTab, setSelectedTab] = useState<ContactType | 'all'>('all')
-  const [contacts, setContacts] = useState<Contact[]>(mockContacts)
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [showAddContact, setShowAddContact] = useState(false)
 
-  // Dialog states
-  const [showAddDialog, setShowAddDialog] = useState(false)
-  const [showEditDialog, setShowEditDialog] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [contactToDelete, setContactToDelete] = useState<string | null>(null)
-
-  // Form state
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    company: '',
-    position: '',
-    type: 'new' as ContactType,
-    tags: '',
-    notes: '',
-    source: 'WhatsApp',
-    dealValue: '',
+  const [filters, setFilters] = useState<FilterState>({
+    platform: 'all',
+    stage: 'all',
+    dateRange: 'all',
+    activeTags: [],
   })
-
-  // Reset form
-  const resetForm = () => {
-    setFormData({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      company: '',
-      position: '',
-      type: 'new',
-      tags: '',
-      notes: '',
-      source: 'WhatsApp',
-      dealValue: '',
-    })
-  }
-
-  // Calculate stats
-  const stats = {
-    all: contacts.length,
-    new: contacts.filter(c => c.type === 'new').length,
-    active: contacts.filter(c => c.type === 'active').length,
-    inactive: contacts.filter(c => c.type === 'inactive').length,
-    vip: contacts.filter(c => c.type === 'vip').length,
-  }
 
   // Filter contacts
   const filteredContacts = contacts.filter((contact) => {
     const matchesSearch =
-      contact.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      contact.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      contact.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      contact.company?.toLowerCase().includes(searchQuery.toLowerCase())
+      contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contact.phone.includes(searchQuery) ||
+      contact.instagram?.toLowerCase().includes(searchQuery.toLowerCase())
 
-    const matchesTab = selectedTab === 'all' || contact.type === selectedTab
+    const matchesPlatform =
+      filters.platform === 'all' || contact.platform === filters.platform
 
-    return matchesSearch && matchesTab
+    const matchesStage =
+      filters.stage === 'all' || contact.stage === filters.stage
+
+    const matchesTags =
+      filters.activeTags.length === 0 ||
+      filters.activeTags.some((tag) => contact.tags.includes(tag))
+
+    return matchesSearch && matchesPlatform && matchesStage && matchesTags
   })
 
-  // Add contact
-  const handleAddContact = () => {
-    if (!formData.firstName || !formData.email || !formData.phone) {
-      return
-    }
+  // Get available tags
+  const allTags = Array.from(new Set(contacts.flatMap((c) => c.tags)))
 
-    const newContact: Contact = {
-      id: (contacts.length + 1).toString(),
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-      phone: formData.phone,
-      company: formData.company,
-      position: formData.position,
-      type: formData.type,
-      tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : [],
-      notes: formData.notes,
-      source: formData.source,
-      dealValue: formData.dealValue ? parseFloat(formData.dealValue) : undefined,
-      createdAt: new Date(),
-    }
-
-    setContacts(prev => [newContact, ...prev])
-    setShowAddDialog(false)
-    resetForm()
+  // Toggle tag filter
+  const toggleTag = (tag: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      activeTags: prev.activeTags.includes(tag)
+        ? prev.activeTags.filter((t) => t !== tag)
+        : [...prev.activeTags, tag],
+    }))
   }
 
-  // Edit contact
-  const handleEditContact = () => {
-    if (!selectedContact || !formData.firstName || !formData.email || !formData.phone) {
-      return
-    }
-
-    setContacts(prev =>
-      prev.map(c =>
-        c.id === selectedContact.id
-          ? {
-              ...c,
-              firstName: formData.firstName,
-              lastName: formData.lastName,
-              email: formData.email,
-              phone: formData.phone,
-              company: formData.company,
-              position: formData.position,
-              type: formData.type,
-              tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : [],
-              notes: formData.notes,
-              source: formData.source,
-              dealValue: formData.dealValue ? parseFloat(formData.dealValue) : undefined,
-            }
-          : c
-      )
-    )
-
-    setShowEditDialog(false)
-    setSelectedContact(null)
-    resetForm()
+  // Remove tag filter
+  const removeTagFilter = (tag: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      activeTags: prev.activeTags.filter((t) => t !== tag),
+    }))
   }
 
-  // Delete contact
-  const handleDeleteContact = () => {
-    if (contactToDelete) {
-      setContacts(prev => prev.filter(c => c.id !== contactToDelete))
-      setShowDeleteDialog(false)
-      setContactToDelete(null)
-    }
-  }
-
-  // Open edit dialog
-  const openEditDialog = (contact: Contact) => {
+  // Open contact details
+  const openContactDetails = (contact: Contact) => {
     setSelectedContact(contact)
-    setFormData({
-      firstName: contact.firstName,
-      lastName: contact.lastName,
-      email: contact.email,
-      phone: contact.phone,
-      company: contact.company || '',
-      position: contact.position || '',
-      type: contact.type,
-      tags: contact.tags.join(', '),
-      notes: contact.notes || '',
-      source: contact.source || 'WhatsApp',
-      dealValue: contact.dealValue?.toString() || '',
-    })
-    setShowEditDialog(true)
+    setShowDetailsModal(true)
   }
 
-  // Quick actions
-  const handleCall = (phone: string) => {
-    window.location.href = `tel:${phone}`
-  }
-
-  const handleEmail = (email: string) => {
-    window.location.href = `mailto:${email}`
-  }
-
-  const handleWhatsApp = (phone: string) => {
-    const formattedPhone = phone.replace(/\s+/g, '')
-    window.open(`https://wa.me/${formattedPhone}`, '_blank')
-  }
-
-  // Get type badge style
-  const getTypeBadge = (type: ContactType) => {
-    switch (type) {
+  // Get stage badge color
+  const getStageBadge = (stage: LeadStage) => {
+    switch (stage) {
       case 'new':
-        return { label: 'New', className: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' }
-      case 'active':
-        return { label: 'Active', className: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300' }
-      case 'inactive':
-        return { label: 'Inactive', className: 'bg-gray-100 text-gray-700 dark:bg-gray-950 dark:text-gray-300' }
-      case 'vip':
-        return { label: 'VIP', className: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300' }
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'
+      case 'in_progress':
+        return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-400'
+      case 'converted':
+        return 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400'
+      case 'follow_up':
+        return 'bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400'
       default:
-        return { label: type, className: 'bg-gray-100 text-gray-700 dark:bg-gray-950 dark:text-gray-300' }
+        return 'bg-gray-100 text-gray-700 dark:bg-gray-950/30 dark:text-gray-400'
+    }
+  }
+
+  // Get stage label
+  const getStageLabel = (stage: LeadStage) => {
+    switch (stage) {
+      case 'new':
+        return 'New'
+      case 'in_progress':
+        return 'In Progress'
+      case 'converted':
+        return 'Converted'
+      case 'follow_up':
+        return 'Follow-Up'
+      default:
+        return stage
     }
   }
 
@@ -385,590 +300,481 @@ export default function ContactsPage() {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pb-4 border-b border-gray-200 dark:border-gray-800">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Contacts</h1>
-            <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">Manage your customer and prospect contacts</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Contacts</h1>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+              Manage your WhatsApp & Instagram contacts
+            </p>
           </div>
-          <Button
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md"
-            onClick={() => setShowAddDialog(true)}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Contact
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              className="border-gray-300 dark:border-gray-700"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
+            <Button
+              onClick={() => setShowAddContact(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Contact
+            </Button>
+          </div>
         </div>
 
-        {/* Statistics */}
-        <div className="grid gap-6 md:grid-cols-5">
-          <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Contacts</p>
-                  <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{stats.all}</p>
-                </div>
-                <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-950">
-                  <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Search & Filters */}
+        <div className="space-y-4">
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Search by name, phone, Instagram username..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-12 bg-white dark:bg-gray-950 border-gray-300 dark:border-gray-700"
+            />
+          </div>
 
-          <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">New</p>
-                  <p className="mt-2 text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.new}</p>
-                </div>
-                <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-950">
-                  <User className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Filter Chips */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Filters:
+              </span>
+            </div>
 
-          <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Repeated Buyers</p>
-                  <p className="mt-2 text-3xl font-bold text-green-600 dark:text-green-400">{stats.active}</p>
-                </div>
-                <div className="rounded-full bg-green-100 p-3 dark:bg-green-950">
-                  <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Platform Filter */}
+            <Select
+              value={filters.platform}
+              onValueChange={(value: Platform) =>
+                setFilters((prev) => ({ ...prev, platform: value }))
+              }
+            >
+              <SelectTrigger className="w-[140px] h-9 border-gray-300 dark:border-gray-700">
+                <SelectValue placeholder="Platform" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Platforms</SelectItem>
+                <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                <SelectItem value="instagram">Instagram</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Inactive</p>
-                  <p className="mt-2 text-3xl font-bold text-gray-600 dark:text-gray-400">{stats.inactive}</p>
-                </div>
-                <div className="rounded-full bg-gray-100 p-3 dark:bg-gray-950">
-                  <Clock className="h-6 w-6 text-gray-600 dark:text-gray-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Stage Filter */}
+            <Select
+              value={filters.stage}
+              onValueChange={(value: LeadStage) =>
+                setFilters((prev) => ({ ...prev, stage: value }))
+              }
+            >
+              <SelectTrigger className="w-[150px] h-9 border-gray-300 dark:border-gray-700">
+                <SelectValue placeholder="Lead Stage" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stages</SelectItem>
+                <SelectItem value="new">New</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="converted">Converted</SelectItem>
+                <SelectItem value="follow_up">Follow-Up</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">VIP</p>
-                  <p className="mt-2 text-3xl font-bold text-purple-600 dark:text-purple-400">{stats.vip}</p>
-                </div>
-                <div className="rounded-full bg-purple-100 p-3 dark:bg-purple-950">
-                  <Star className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Date Range Filter */}
+            <Select
+              value={filters.dateRange}
+              onValueChange={(value) =>
+                setFilters((prev) => ({ ...prev, dateRange: value }))
+              }
+            >
+              <SelectTrigger className="w-[140px] h-9 border-gray-300 dark:border-gray-700">
+                <SelectValue placeholder="Date Range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Tags Filter Dropdown */}
+            <Select onValueChange={toggleTag}>
+              <SelectTrigger className="w-[120px] h-9 border-gray-300 dark:border-gray-700">
+                <Tag className="h-4 w-4 mr-1" />
+                <SelectValue placeholder="Tags" />
+              </SelectTrigger>
+              <SelectContent>
+                {allTags.map((tag) => (
+                  <SelectItem key={tag} value={tag}>
+                    {tag}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Active Filter Chips */}
+          {filters.activeTags.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-gray-600 dark:text-gray-400">
+                Active filters:
+              </span>
+              {filters.activeTags.map((tag) => (
+                <Badge
+                  key={tag}
+                  className="bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 pl-2 pr-1 py-1 gap-1"
+                >
+                  {tag}
+                  <button
+                    onClick={() => removeTagFilter(tag)}
+                    className="hover:bg-blue-200 dark:hover:bg-blue-900 rounded-full p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+              <button
+                onClick={() => setFilters((prev) => ({ ...prev, activeTags: [] }))}
+                className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Contacts List */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">All Contacts</CardTitle>
-                <CardDescription className="mt-1 text-gray-600 dark:text-gray-400">
-                  View and manage your contact database
-                </CardDescription>
-              </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search contacts..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-[300px]"
-                />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as ContactType | 'all')}>
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="all">All ({stats.all})</TabsTrigger>
-                <TabsTrigger value="new">New ({stats.new})</TabsTrigger>
-                <TabsTrigger value="active">Repeated Buyers ({stats.active})</TabsTrigger>
-                <TabsTrigger value="inactive">Inactive ({stats.inactive})</TabsTrigger>
-                <TabsTrigger value="vip">VIP ({stats.vip})</TabsTrigger>
-              </TabsList>
+        <div className="grid gap-4">
+          {filteredContacts.map((contact) => (
+            <div
+              key={contact.id}
+              className="bg-white dark:bg-gray-950 rounded-xl p-5 border border-gray-200 dark:border-gray-800 hover:shadow-md transition-shadow"
+              style={{
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+              }}
+            >
+              <div className="flex items-center justify-between">
+                {/* Left: Profile Info */}
+                <div className="flex items-center gap-4 flex-1">
+                  {/* Avatar */}
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white font-semibold text-lg">
+                    {contact.initials}
+                  </div>
 
-              <TabsContent value={selectedTab} className="mt-6">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {filteredContacts.map((contact) => {
-                    const fullName = `${contact.firstName} ${contact.lastName}`.trim()
-                    const initials = `${contact.firstName[0]}${contact.lastName[0] || ''}`.toUpperCase()
-                    const typeBadge = getTypeBadge(contact.type)
-
-                    return (
-                      <Card key={contact.id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-lg font-medium text-white">
-                                {initials}
-                              </div>
-                              <div>
-                                <h3 className="font-semibold text-gray-900 dark:text-gray-100">{fullName}</h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">{contact.position || 'Contact'}</p>
-                              </div>
-                            </div>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openEditDialog(contact)}>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Edit Contact
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleCall(contact.phone)}>
-                                  <Phone className="mr-2 h-4 w-4" />
-                                  Call
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleWhatsApp(contact.phone)}>
-                                  <MessageSquare className="mr-2 h-4 w-4" />
-                                  WhatsApp
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleEmail(contact.email)}>
-                                  <Mail className="mr-2 h-4 w-4" />
-                                  Email
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setContactToDelete(contact.id)
-                                    setShowDeleteDialog(true)
-                                  }}
-                                  className="text-red-600 dark:text-red-400"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-
-                          <div className="mt-4">
-                            <Badge className={typeBadge.className}>{typeBadge.label}</Badge>
-                          </div>
-
-                          <div className="mt-4 space-y-2">
-                            {contact.email && (
-                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                <a href={`mailto:${contact.email}`} className="hover:underline truncate">
-                                  {contact.email}
-                                </a>
-                              </div>
-                            )}
-                            {contact.phone && (
-                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                <a href={`tel:${contact.phone}`} className="hover:underline">
-                                  {contact.phone}
-                                </a>
-                              </div>
-                            )}
-                            {contact.company && (
-                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                <span className="truncate">{contact.company}</span>
-                              </div>
-                            )}
-                            {contact.dealValue && (
-                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                <TrendingUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                <span>₹{contact.dealValue.toLocaleString()}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {contact.tags && contact.tags.length > 0 && (
-                            <div className="mt-4 flex flex-wrap gap-2">
-                              {contact.tags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-950 px-2 py-1 text-xs font-medium text-blue-700 dark:text-blue-300"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-
-                          <div className="mt-4 text-xs text-gray-500 dark:text-gray-500">
-                            Added {formatDate(contact.createdAt)}
-                            {contact.lastContactedAt && (
-                              <span className="ml-2">• Last contact {formatDate(contact.lastContactedAt)}</span>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
+                  {/* Contact Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-1">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">
+                        {contact.name}
+                      </h3>
+                      <Badge className={getStageBadge(contact.stage)}>
+                        {getStageLabel(contact.stage)}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-1">
+                        <Phone className="h-4 w-4" />
+                        {contact.phone}
+                      </div>
+                      {contact.instagram && (
+                        <div className="flex items-center gap-1">
+                          <Instagram className="h-4 w-4" />
+                          {contact.instagram}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1">
+                        {contact.platform === 'whatsapp' ? (
+                          <>
+                            <Image
+                              src="/icons/whatsapp.png"
+                              alt="WhatsApp"
+                              width={14}
+                              height={14}
+                              className="opacity-70"
+                            />
+                            <span>WhatsApp</span>
+                          </>
+                        ) : (
+                          <>
+                            <Image
+                              src="/icons/instagram.png"
+                              alt="Instagram"
+                              width={14}
+                              height={14}
+                              className="opacity-70"
+                            />
+                            <span>Instagram</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        {contact.lastInteraction}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {filteredContacts.length === 0 && (
-                  <div className="py-12 text-center">
-                    <Users className="mx-auto h-12 w-12 text-gray-400" />
-                    <p className="mt-4 text-gray-600 dark:text-gray-400">No contacts found</p>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+                {/* Right: Action Buttons */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-gray-300 dark:border-gray-700"
+                    onClick={() => {
+                      const phone = contact.phone.replace(/\s+/g, '')
+                      window.open(`https://wa.me/${phone}`, '_blank')
+                    }}
+                  >
+                    <MessageCircle className="h-4 w-4 mr-1" />
+                    Message
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-gray-300 dark:border-gray-700"
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    Add Note
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-blue-300 text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400"
+                    onClick={() => openContactDetails(contact)}
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    View
+                  </Button>
+                </div>
+              </div>
+
+              {/* Tags */}
+              {contact.tags.length > 0 && (
+                <div className="flex items-center gap-2 mt-3">
+                  {contact.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-900 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {filteredContacts.length === 0 && (
+            <div className="text-center py-12 bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800">
+              <Search className="mx-auto h-12 w-12 text-gray-400" />
+              <p className="mt-4 text-gray-600 dark:text-gray-400">
+                No contacts found matching your filters
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Add Contact Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      {/* Contact Details Modal */}
+      <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add New Contact</DialogTitle>
-            <DialogDescription>Create a new contact in your database</DialogDescription>
+            <DialogTitle>Contact Details</DialogTitle>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name *</Label>
-                <Input
-                  id="firstName"
-                  placeholder="John"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                />
+          {selectedContact && (
+            <div className="space-y-6">
+              {/* Profile Section */}
+              <div className="flex items-start gap-4 pb-6 border-b border-gray-200 dark:border-gray-800">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white font-semibold text-2xl">
+                  {selectedContact.initials}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {selectedContact.name}
+                    </h2>
+                    <Select defaultValue={selectedContact.stage}>
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">New</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="converted">Converted</SelectItem>
+                        <SelectItem value="follow_up">Follow-Up</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4" />
+                      {selectedContact.phone}
+                    </div>
+                    {selectedContact.instagram && (
+                      <div className="flex items-center gap-2">
+                        <Instagram className="h-4 w-4" />
+                        {selectedContact.instagram}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-3">
+                    {selectedContact.tags.map((tag) => (
+                      <Badge
+                        key={tag}
+                        className="bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
+                      >
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  placeholder="Doe"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
-                />
+
+              {/* Quick Actions */}
+              <div className="flex items-center gap-3">
+                <Button className="bg-green-600 hover:bg-green-700 text-white flex-1">
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  WhatsApp Message
+                </Button>
+                <Button className="bg-pink-600 hover:bg-pink-700 text-white flex-1">
+                  <Instagram className="h-4 w-4 mr-2" />
+                  Instagram DM
+                </Button>
+                <Button variant="outline" className="flex-1">
+                  <Tag className="h-4 w-4 mr-2" />
+                  Add Tag
+                </Button>
+                <Button variant="outline" className="flex-1">
+                  <ShoppingBag className="h-4 w-4 mr-2" />
+                  Create Order
+                </Button>
+              </div>
+
+              {/* Timeline Section */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  Activity Timeline
+                </h3>
+                <div className="space-y-4">
+                  {selectedContact.timeline.length > 0 ? (
+                    selectedContact.timeline.map((event) => (
+                      <div
+                        key={event.id}
+                        className="flex gap-3 items-start"
+                      >
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-950">
+                          {event.type === 'whatsapp' && (
+                            <Image
+                              src="/icons/whatsapp.png"
+                              alt="WhatsApp"
+                              width={16}
+                              height={16}
+                            />
+                          )}
+                          {event.type === 'instagram' && (
+                            <Image
+                              src="/icons/instagram.png"
+                              alt="Instagram"
+                              width={16}
+                              height={16}
+                            />
+                          )}
+                          {event.type === 'order' && (
+                            <ShoppingBag className="h-4 w-4 text-blue-600" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-900 dark:text-white">
+                            {event.message}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            {new Date(event.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-500">
+                      No activity yet
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Notes Section */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Notes
+                  </h3>
+                  <Button size="sm" variant="outline">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Note
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {selectedContact.notes.length > 0 ? (
+                    selectedContact.notes.map((note, index) => (
+                      <div
+                        key={index}
+                        className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg text-sm text-gray-700 dark:text-gray-300"
+                      >
+                        {note}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-500">
+                      No notes yet
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Orders Section */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Orders
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {selectedContact.orders} orders • ₹
+                      {selectedContact.totalSpent.toLocaleString()} total
+                    </p>
+                  </div>
+                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Create Order
+                  </Button>
+                </div>
+                {selectedContact.orders === 0 && (
+                  <p className="text-sm text-gray-500 dark:text-gray-500">
+                    No orders yet
+                  </p>
+                )}
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="john@example.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone *</Label>
-                <Input
-                  id="phone"
-                  placeholder="+91 98765 43210"
-                  value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="company">Company</Label>
-                <Input
-                  id="company"
-                  placeholder="Acme Corporation"
-                  value={formData.company}
-                  onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="position">Position</Label>
-                <Input
-                  id="position"
-                  placeholder="CEO"
-                  value={formData.position}
-                  onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="type">Contact Type *</Label>
-                <Select value={formData.type} onValueChange={(value: ContactType) => setFormData(prev => ({ ...prev, type: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">New</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="vip">VIP</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="source">Source</Label>
-                <Select value={formData.source} onValueChange={(value) => setFormData(prev => ({ ...prev, source: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                    <SelectItem value="Instagram">Instagram</SelectItem>
-                    <SelectItem value="Referral">Referral</SelectItem>
-                    <SelectItem value="Website">Website</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="dealValue">Deal Value (₹)</Label>
-                <Input
-                  id="dealValue"
-                  type="number"
-                  placeholder="50000"
-                  value={formData.dealValue}
-                  onChange={(e) => setFormData(prev => ({ ...prev, dealValue: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="tags">Tags (comma separated)</Label>
-              <Input
-                id="tags"
-                placeholder="Enterprise, Decision Maker"
-                value={formData.tags}
-                onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="Additional notes about this contact..."
-                rows={3}
-                value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowAddDialog(false)
-              resetForm()
-            }}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddContact}
-              disabled={!formData.firstName || !formData.email || !formData.phone}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Contact
-            </Button>
-          </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
 
-      {/* Edit Contact Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Contact</DialogTitle>
-            <DialogDescription>Update contact information</DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-firstName">First Name *</Label>
-                <Input
-                  id="edit-firstName"
-                  placeholder="John"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-lastName">Last Name</Label>
-                <Input
-                  id="edit-lastName"
-                  placeholder="Doe"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-email">Email *</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  placeholder="john@example.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-phone">Phone *</Label>
-                <Input
-                  id="edit-phone"
-                  placeholder="+91 98765 43210"
-                  value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-company">Company</Label>
-                <Input
-                  id="edit-company"
-                  placeholder="Acme Corporation"
-                  value={formData.company}
-                  onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-position">Position</Label>
-                <Input
-                  id="edit-position"
-                  placeholder="CEO"
-                  value={formData.position}
-                  onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-type">Contact Type *</Label>
-                <Select value={formData.type} onValueChange={(value: ContactType) => setFormData(prev => ({ ...prev, type: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">New</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="vip">VIP</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-source">Source</Label>
-                <Select value={formData.source} onValueChange={(value) => setFormData(prev => ({ ...prev, source: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                    <SelectItem value="Instagram">Instagram</SelectItem>
-                    <SelectItem value="Referral">Referral</SelectItem>
-                    <SelectItem value="Website">Website</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-dealValue">Deal Value (₹)</Label>
-                <Input
-                  id="edit-dealValue"
-                  type="number"
-                  placeholder="50000"
-                  value={formData.dealValue}
-                  onChange={(e) => setFormData(prev => ({ ...prev, dealValue: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-tags">Tags (comma separated)</Label>
-              <Input
-                id="edit-tags"
-                placeholder="Enterprise, Decision Maker"
-                value={formData.tags}
-                onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-notes">Notes</Label>
-              <Textarea
-                id="edit-notes"
-                placeholder="Additional notes about this contact..."
-                rows={3}
-                value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowEditDialog(false)
-              setSelectedContact(null)
-              resetForm()
-            }}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleEditContact}
-              disabled={!formData.firstName || !formData.email || !formData.phone}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              Update Contact
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      {/* Add Contact Modal */}
+      <Dialog open={showAddContact} onOpenChange={setShowAddContact}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Contact</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this contact? This action cannot be undone.
-            </DialogDescription>
+            <DialogTitle>Add New Contact</DialogTitle>
           </DialogHeader>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowDeleteDialog(false)
-              setContactToDelete(null)
-            }}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleDeleteContact}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete Contact
-            </Button>
-          </DialogFooter>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Contact form would go here...
+            </p>
+          </div>
         </DialogContent>
       </Dialog>
     </DashboardLayout>

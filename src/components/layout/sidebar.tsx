@@ -30,11 +30,11 @@ import {
   Brain,
   Zap,
   Activity,
+  Home,
 } from 'lucide-react'
 import { useState } from 'react'
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   {
     name: 'CRM',
     icon: Users,
@@ -45,7 +45,6 @@ const navigation = [
       { name: 'Contacts', href: '/crm/contacts' },
     ],
   },
-  { name: 'Campaigns', href: '/crm/campaigns', icon: TrendingUp },
   {
     name: 'Sales & Orders',
     icon: ShoppingCart,
@@ -79,8 +78,13 @@ const navigation = [
     ],
   },
   {
-    name: 'AI Optimization',
+    name: 'Automations',
     icon: Zap,
+    href: '/automations',
+  },
+  {
+    name: 'AI Optimization',
+    icon: Brain,
     children: [
       { name: 'Campaign Optimizer', href: '/campaigns/optimizer', icon: Zap },
       { name: 'Live Monitor', href: '/campaigns/live', icon: Activity },
@@ -103,7 +107,7 @@ const navigation = [
 export function Sidebar() {
   const pathname = usePathname()
   const { sidebarOpen, toggleSidebar } = useUIStore()
-  const [expandedSections, setExpandedSections] = useState<string[]>(['Lead Generation', 'CRM', 'Sales & Orders', 'Inventory', 'Analytics', 'AI Optimization', 'Settings'])
+  const [expandedSections, setExpandedSections] = useState<string[]>([])
 
   const toggleSection = (sectionName: string) => {
     setExpandedSections(prev =>
@@ -117,18 +121,23 @@ export function Sidebar() {
     <>
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-white dark:bg-gray-950 transition-transform duration-300 ease-in-out shadow-sm',
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-white dark:bg-gray-950',
           'lg:translate-x-0',
           !sidebarOpen && 'max-lg:-translate-x-full'
         )}
+        style={{
+          boxShadow: '1px 0 2px rgba(0, 0, 0, 0.02)'
+        }}
       >
         {/* Logo Header */}
         <div className="flex h-16 items-center justify-between border-b border-gray-200 dark:border-gray-800 px-6">
-          <Link href="/dashboard" className="flex items-center space-x-3">
+          <Link href="/" className="flex items-center space-x-3">
             <div className="rounded-lg bg-blue-600 p-1.5">
               <Package className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">BizNavigate</span>
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              BizNavigate
+            </span>
           </Link>
           <button
             onClick={toggleSidebar}
@@ -140,6 +149,78 @@ export function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-6">
+          {/* Home Link */}
+          <Link
+            href="/"
+            className={cn(
+              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+              pathname === '/'
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+            )}
+          >
+            <Home className="h-5 w-5 flex-shrink-0" />
+            <span>Home</span>
+          </Link>
+
+          {/* Dashboard Link */}
+          <Link
+            href="/dashboard"
+            className={cn(
+              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+              pathname === '/dashboard'
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+            )}
+          >
+            <LayoutDashboard className="h-5 w-5 flex-shrink-0" />
+            <span>Dashboard</span>
+          </Link>
+
+          {/* Separator */}
+          <div className="my-8 border-t border-gray-200 dark:border-gray-800"></div>
+
+          {/* Quick Links Section */}
+          <div className="mb-6">
+            <h3 className="px-3 mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Quick Links
+            </h3>
+            <div className="space-y-1">
+              <Link
+                href="/crm/contacts"
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+              >
+                <Users className="h-5 w-5 flex-shrink-0" />
+                <span>Contacts</span>
+              </Link>
+              <Link
+                href="/crm/campaigns"
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+              >
+                <TrendingUp className="h-5 w-5 flex-shrink-0" />
+                <span>Campaigns</span>
+              </Link>
+              <Link
+                href="/crm/inbox"
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+              >
+                <Inbox className="h-5 w-5 flex-shrink-0" />
+                <span>Live Chat</span>
+              </Link>
+              <Link
+                href="/orders"
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+              >
+                <ShoppingCart className="h-5 w-5 flex-shrink-0" />
+                <span>Orders</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Separator */}
+          <div className="my-8 border-t border-gray-200 dark:border-gray-800"></div>
+
+          {/* Main Navigation */}
           {navigation.map((item) => {
             const isExpanded = expandedSections.includes(item.name)
             const isActive = item.href === pathname
@@ -151,7 +232,7 @@ export function Sidebar() {
                   <Link
                     href={item.href}
                     className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors group',
                       isActive
                         ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
@@ -165,20 +246,20 @@ export function Sidebar() {
                     <button
                       onClick={() => toggleSection(item.name)}
                       className={cn(
-                        'flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                        'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors group',
                         hasActiveChild
                           ? 'text-blue-700 dark:text-blue-400'
                           : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                       )}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-1">
                         {item.icon && <item.icon className="h-5 w-5 flex-shrink-0" />}
                         <span>{item.name}</span>
                       </div>
                       {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                        <ChevronDown className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
                       ) : (
-                        <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                        <ChevronRight className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
                       )}
                     </button>
                     {item.children && isExpanded && (

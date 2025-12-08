@@ -35,6 +35,10 @@ import {
   Plus,
   Trash2,
   Globe,
+  Copy,
+  Check,
+  ExternalLink,
+  Code,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
@@ -59,6 +63,8 @@ const roleTemplates = [
 export default function OnboardingPage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
+  const [copiedWidget, setCopiedWidget] = useState(false)
+  const [showSkipWarning, setShowSkipWarning] = useState(false)
   const [formData, setFormData] = useState({
     // Step 1: Business Info
     businessName: '',
@@ -81,6 +87,7 @@ export default function OnboardingPage() {
     whatsappConnected: false,
     instagramUsername: '',
     instagramConnected: false,
+    websiteWidgetInstalled: false,
 
     // Step 4: Initial Products
     initialProducts: '',
@@ -94,10 +101,27 @@ export default function OnboardingPage() {
 
   const totalSteps = 6
 
+  const hasAnyChannelConnected =
+    formData.whatsappConnected ||
+    formData.instagramConnected ||
+    formData.websiteWidgetInstalled
+
   const handleNext = () => {
+    // If on Step 3 and no channels connected, show warning
+    if (currentStep === 3 && !hasAnyChannelConnected && !showSkipWarning) {
+      setShowSkipWarning(true)
+      return
+    }
+
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1)
+      setShowSkipWarning(false)
     }
+  }
+
+  const handleSkipChannels = () => {
+    setShowSkipWarning(false)
+    setCurrentStep(currentStep + 1)
   }
 
   const handleBack = () => {
@@ -130,6 +154,26 @@ export default function OnboardingPage() {
     const updatedEmployees = [...formData.employees]
     updatedEmployees[index] = { ...updatedEmployees[index], [field]: value }
     setFormData({ ...formData, employees: updatedEmployees })
+  }
+
+  const copyWidgetCode = async () => {
+    const widgetCode = `<!-- BizNavigate Chat Widget -->
+<script>
+  window.bizNavigateConfig = {
+    businessId: 'YOUR_BUSINESS_ID',
+    position: 'bottom-right',
+    primaryColor: '#3B82F6',
+  };
+</script>
+<script src="https://cdn.biznavigate.com/widget.js" async></script>`
+
+    try {
+      await navigator.clipboard.writeText(widgetCode)
+      setCopiedWidget(true)
+      setTimeout(() => setCopiedWidget(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
   }
 
   return (
@@ -413,72 +457,290 @@ export default function OnboardingPage() {
                     <Zap className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Connect Your Platforms</h3>
-                    <p className="text-gray-600 dark:text-gray-400">Connect WhatsApp and Instagram to capture leads</p>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Connect Your Channels</h3>
+                    <p className="text-gray-600 dark:text-gray-400">Choose how customers can reach you and get AI-powered responses</p>
                   </div>
                 </div>
 
-                <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/20">
+                {/* WhatsApp Business */}
+                <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/10">
                   <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <MessageSquare className="h-6 w-6 text-green-600 dark:text-green-400" />
-                      <div>
-                        <CardTitle>WhatsApp Business</CardTitle>
-                        <CardDescription>Connect your WhatsApp Business account</CardDescription>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-600">
+                          <MessageSquare className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">WhatsApp Business API</CardTitle>
+                          <CardDescription>Auto-respond to customer messages 24/7</CardDescription>
+                        </div>
                       </div>
+                      {formData.whatsappConnected && (
+                        <Badge className="bg-green-600">Connected</Badge>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <div className="bg-white dark:bg-gray-900 rounded-lg p-4 space-y-3">
+                      <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Setup Steps:</h4>
+                      <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                        <li className="flex gap-2">
+                          <span className="font-semibold text-green-600">1.</span>
+                          <span>Sign up for WhatsApp Business API at <a href="https://business.whatsapp.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">business.whatsapp.com <ExternalLink className="h-3 w-3" /></a></span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-semibold text-green-600">2.</span>
+                          <span>Verify your business phone number with WhatsApp</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-semibold text-green-600">3.</span>
+                          <span>Get your API credentials (Access Token & Phone Number ID)</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-semibold text-green-600">4.</span>
+                          <span>Click the button below and enter your credentials</span>
+                        </li>
+                      </ol>
+                    </div>
+
                     <div>
                       <Label>WhatsApp Business Number</Label>
                       <Input
                         value={formData.whatsappNumber}
                         onChange={(e) => setFormData({ ...formData, whatsappNumber: e.target.value })}
                         placeholder="+91 98765 43210"
+                        className="mt-1"
                       />
                     </div>
-                    <Button className="w-full bg-green-600 hover:bg-green-700">
+
+                    <Button
+                      className="w-full bg-green-600 hover:bg-green-700"
+                      onClick={() => router.push('/settings/whatsapp')}
+                    >
                       <MessageSquare className="mr-2 h-4 w-4" />
                       Connect WhatsApp Business
                     </Button>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      You can also skip this and connect later from Settings
-                    </p>
+
+                    <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400">
+                      <span>💡</span>
+                      <span>Benefits: Automated responses, lead capture, order updates, customer support automation</span>
+                    </div>
                   </CardContent>
                 </Card>
 
-                <Card className="border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/20">
+                {/* Instagram Business */}
+                <Card className="border-pink-200 dark:border-pink-800 bg-pink-50/50 dark:bg-pink-950/10">
                   <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <Instagram className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                      <div>
-                        <CardTitle>Instagram Business</CardTitle>
-                        <CardDescription>Connect your Instagram business profile</CardDescription>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-pink-600">
+                          <Instagram className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">Instagram DM Automation</CardTitle>
+                          <CardDescription>Respond to Instagram messages automatically</CardDescription>
+                        </div>
                       </div>
+                      {formData.instagramConnected && (
+                        <Badge className="bg-pink-600">Connected</Badge>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <div className="bg-white dark:bg-gray-900 rounded-lg p-4 space-y-3">
+                      <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Setup Steps:</h4>
+                      <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                        <li className="flex gap-2">
+                          <span className="font-semibold text-pink-600">1.</span>
+                          <span>Convert your Instagram to a Business Account (Settings → Account → Switch to Professional Account)</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-semibold text-pink-600">2.</span>
+                          <span>Connect your Instagram to a Facebook Page</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-semibold text-pink-600">3.</span>
+                          <span>Visit <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">Meta for Developers <ExternalLink className="h-3 w-3" /></a></span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-semibold text-pink-600">4.</span>
+                          <span>Create an app and enable Instagram Messaging API</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-semibold text-pink-600">5.</span>
+                          <span>Click below to authorize BizNavigate</span>
+                        </li>
+                      </ol>
+                    </div>
+
                     <div>
                       <Label>Instagram Username</Label>
                       <Input
                         value={formData.instagramUsername}
                         onChange={(e) => setFormData({ ...formData, instagramUsername: e.target.value })}
                         placeholder="@yourbusiness"
+                        className="mt-1"
                       />
                     </div>
-                    <Button className="w-full bg-purple-600 hover:bg-purple-700">
+
+                    <Button
+                      className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                      onClick={() => router.push('/settings/instagram')}
+                    >
                       <Instagram className="mr-2 h-4 w-4" />
-                      Connect via Facebook
+                      Connect via Meta
                     </Button>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      Your Instagram must be connected to a Facebook Page
-                    </p>
+
+                    <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400">
+                      <span>💡</span>
+                      <span>Benefits: Auto-reply to DMs, capture leads from comments, product inquiries automation</span>
+                    </div>
                   </CardContent>
                 </Card>
 
-                <p className="text-sm text-center text-gray-600 dark:text-gray-400">
-                  💡 Tip: Connecting these platforms now will help you capture leads automatically from day one!
-                </p>
+                {/* Website Chat Widget */}
+                <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/10">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
+                          <Code className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">Website Chat Widget</CardTitle>
+                          <CardDescription>Add AI chat to your website in 2 minutes</CardDescription>
+                        </div>
+                      </div>
+                      {formData.websiteWidgetInstalled && (
+                        <Badge className="bg-blue-600">Installed</Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="bg-white dark:bg-gray-900 rounded-lg p-4 space-y-3">
+                      <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Installation Steps:</h4>
+                      <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                        <li className="flex gap-2">
+                          <span className="font-semibold text-blue-600">1.</span>
+                          <span>Copy the code snippet below</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-semibold text-blue-600">2.</span>
+                          <span>Paste it before the closing <code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">&lt;/body&gt;</code> tag in your website</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-semibold text-blue-600">3.</span>
+                          <span>The chat widget will appear on the bottom-right corner</span>
+                        </li>
+                        <li className="flex gap-2">
+                          <span className="font-semibold text-blue-600">4.</span>
+                          <span>Customize colors and position from Settings later</span>
+                        </li>
+                      </ol>
+                    </div>
+
+                    <div className="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 relative">
+                      <pre className="text-xs text-green-400 overflow-x-auto">
+{`<!-- BizNavigate Chat Widget -->
+<script>
+  window.bizNavigateConfig = {
+    businessId: 'YOUR_BUSINESS_ID',
+    position: 'bottom-right',
+    primaryColor: '#3B82F6',
+  };
+</script>
+<script src="https://cdn.biznavigate.com/widget.js"
+        async></script>`}
+                      </pre>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="absolute top-2 right-2 bg-gray-800 hover:bg-gray-700 border-gray-700"
+                        onClick={copyWidgetCode}
+                      >
+                        {copiedWidget ? (
+                          <>
+                            <Check className="h-3 w-3 mr-1" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3 mr-1" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="widgetInstalled"
+                        checked={formData.websiteWidgetInstalled}
+                        onChange={(e) => setFormData({ ...formData, websiteWidgetInstalled: e.target.checked })}
+                        className="rounded border-gray-300"
+                      />
+                      <Label htmlFor="widgetInstalled" className="text-sm cursor-pointer">
+                        I've installed the widget on my website
+                      </Label>
+                    </div>
+
+                    <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400">
+                      <span>💡</span>
+                      <span>Benefits: 24/7 customer support, lead generation, product recommendations, multi-language support</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Zap className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                        🎯 All channels connected = More leads captured!
+                      </p>
+                      <p className="text-blue-700 dark:text-blue-300">
+                        You can skip this step and connect channels later from Settings → Integrations.
+                        But we recommend connecting at least one channel to start capturing leads immediately.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Skip Warning */}
+                {showSkipWarning && (
+                  <div className="bg-yellow-50 dark:bg-yellow-950/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg p-4 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 text-2xl">⚠️</div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-yellow-900 dark:text-yellow-100 mb-2">
+                          No channels connected yet!
+                        </h4>
+                        <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-3">
+                          Without connecting at least one channel, you won't be able to capture leads or receive customer messages.
+                          We strongly recommend connecting at least one channel now.
+                        </p>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setShowSkipWarning(false)}
+                            className="border-yellow-600 text-yellow-900 hover:bg-yellow-100 dark:text-yellow-100 dark:hover:bg-yellow-900/20"
+                          >
+                            Let me connect one
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleSkipChannels}
+                            className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                          >
+                            Skip anyway (I'll connect later)
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -661,18 +923,24 @@ export default function OnboardingPage() {
                     <CardHeader>
                       <CardTitle className="text-lg flex items-center gap-2">
                         <MessageSquare className="h-5 w-5 text-purple-600" />
-                        Platforms
+                        Connected Channels
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Badge variant={formData.whatsappNumber ? "default" : "secondary"}>
-                          WhatsApp {formData.whatsappNumber ? '✓' : '○'}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={formData.whatsappConnected ? "default" : "secondary"} className="bg-green-600">
+                          WhatsApp {formData.whatsappConnected ? '✓' : '○'}
                         </Badge>
-                        <Badge variant={formData.instagramUsername ? "default" : "secondary"}>
-                          Instagram {formData.instagramUsername ? '✓' : '○'}
+                        <Badge variant={formData.instagramConnected ? "default" : "secondary"} className="bg-pink-600">
+                          Instagram {formData.instagramConnected ? '✓' : '○'}
+                        </Badge>
+                        <Badge variant={formData.websiteWidgetInstalled ? "default" : "secondary"} className="bg-blue-600">
+                          Website {formData.websiteWidgetInstalled ? '✓' : '○'}
                         </Badge>
                       </div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                        {[formData.whatsappConnected, formData.instagramConnected, formData.websiteWidgetInstalled].filter(Boolean).length} of 3 channels connected
+                      </p>
                     </CardContent>
                   </Card>
 

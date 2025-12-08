@@ -20,7 +20,12 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-6 shadow-sm">
+    <header
+      className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-6"
+      style={{
+        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.02)'
+      }}
+    >
       <Button variant="ghost" size="icon" onClick={toggleSidebar} className="lg:hidden hover:bg-gray-100 dark:hover:bg-gray-800">
         <Menu className="h-5 w-5 text-gray-700 dark:text-gray-300" />
       </Button>

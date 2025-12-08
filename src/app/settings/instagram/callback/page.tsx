@@ -25,19 +25,30 @@ export default function InstagramCallbackPage() {
     if (error) {
       // OAuth error from backend
       setStatus('error');
-      setMessage(errorDescription || 'Authorization failed');
+
+      // Provide user-friendly error messages
+      let friendlyMessage = errorDescription || 'Authorization failed';
+      if (error === 'access_denied' || errorDescription?.includes('cancel')) {
+        friendlyMessage = 'You cancelled the Instagram connection. Please try again when you\'re ready.';
+      } else if (errorDescription?.includes('Instagram Business Account')) {
+        friendlyMessage = errorDescription;
+      } else if (errorDescription?.includes('Facebook')) {
+        friendlyMessage = errorDescription;
+      }
+
+      setMessage(friendlyMessage);
 
       if (window.opener) {
         window.opener.postMessage(
           {
             type: 'INSTAGRAM_OAUTH_ERROR',
             error: error,
-            errorDescription: errorDescription || 'Authorization failed',
+            errorDescription: friendlyMessage,
           },
           window.location.origin
         );
       }
-      setTimeout(() => window.close(), 3000);
+      setTimeout(() => window.close(), 4000);
       return;
     }
 

@@ -33,6 +33,8 @@ import {
   Settings,
   Shield,
 } from 'lucide-react'
+import { WhatsAppOnboardingWizard } from '@/components/whatsapp/whatsapp-onboarding-wizard'
+import { SimpleWhatsAppConnect } from '@/components/whatsapp/simple-whatsapp-connect'
 
 // Mock data for connected WhatsApp Business account
 const mockWhatsAppAccount = {
@@ -70,7 +72,9 @@ const mockSettings = {
 }
 
 export default function WhatsAppSettingsPage() {
-  const [isConnected, setIsConnected] = useState(true)
+  const [isConnected, setIsConnected] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [useSimpleConnect, setUseSimpleConnect] = useState(true) // Toggle between simple and advanced
   const [account] = useState(mockWhatsAppAccount)
   const [settings, setSettings] = useState(mockSettings)
   const [activeTab, setActiveTab] = useState('overview')
@@ -82,6 +86,19 @@ export default function WhatsAppSettingsPage() {
 
   const handleDisconnect = () => {
     setIsConnected(false)
+  }
+
+  const handleStartOnboarding = () => {
+    setShowOnboarding(true)
+  }
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false)
+    setIsConnected(true)
+  }
+
+  const handleOnboardingCancel = () => {
+    setShowOnboarding(false)
   }
 
   const qualityRatingConfig = {
@@ -112,99 +129,75 @@ export default function WhatsAppSettingsPage() {
           </div>
         </div>
 
-        {!isConnected ? (
+        {showOnboarding ? (
+          /* Connection Flow - Simple or Advanced */
+          useSimpleConnect ? (
+            <SimpleWhatsAppConnect onComplete={handleOnboardingComplete} />
+          ) : (
+            <WhatsAppOnboardingWizard
+              onComplete={handleOnboardingComplete}
+              onCancel={handleOnboardingCancel}
+            />
+          )
+        ) : !isConnected ? (
           /* Connection Card - Not Connected */
-          <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                Connect WhatsApp Business
-              </CardTitle>
-              <CardDescription className="text-gray-600 dark:text-gray-400">
-                Integrate WhatsApp Business API to automate customer conversations, send notifications, and capture leads
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Benefits */}
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/20">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 flex-shrink-0">
-                    <MessageSquare className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">Automated Messaging</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Send automated replies and notifications</p>
-                  </div>
+          <Card className="border-blue-200 dark:border-blue-800 bg-gradient-to-br from-white to-blue-50 dark:from-gray-950 dark:to-blue-950/20 shadow-lg">
+            <CardContent className="pt-8 pb-8">
+              <div className="text-center mb-8">
+                <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-green-600 mb-4 shadow-lg">
+                  <MessageSquare className="h-10 w-10 text-white" />
                 </div>
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-950/20">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-600 flex-shrink-0">
-                    <Zap className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">Lead Capture</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Automatically capture leads from chats</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-purple-50 dark:bg-purple-950/20">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-600 flex-shrink-0">
-                    <Shield className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">Verified Badge</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Get verified business badge</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Connection Steps */}
-              <div className="border border-gray-200 dark:border-gray-800 rounded-lg p-6 bg-gray-50 dark:bg-gray-900">
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">How to Connect:</h3>
-                <ol className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-                  <li className="flex items-start gap-3">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold flex-shrink-0">1</span>
-                    <span>Sign up for WhatsApp Business API through Meta Business Manager</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold flex-shrink-0">2</span>
-                    <span>Get your Phone Number ID and Access Token from Meta</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold flex-shrink-0">3</span>
-                    <span>Enter your credentials below and verify your webhook</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold flex-shrink-0">4</span>
-                    <span>Configure automated messages and lead capture rules</span>
-                  </li>
-                </ol>
-              </div>
-
-              {/* Connection Form */}
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="phone-number-id">WhatsApp Phone Number ID</Label>
-                  <Input id="phone-number-id" placeholder="123456789012345" />
-                </div>
-                <div>
-                  <Label htmlFor="access-token">Business Account Access Token</Label>
-                  <Input id="access-token" type="password" placeholder="EAAxxxxxxxxxxxxxxxxxx" />
-                </div>
-                <div>
-                  <Label htmlFor="business-phone">Business Phone Number</Label>
-                  <Input id="business-phone" placeholder="+1234567890" />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => setIsConnected(true)}>
-                  <MessageSquare className="mr-2 h-4 w-4" />
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">
                   Connect WhatsApp Business
+                </h2>
+                <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+                  Automate customer conversations and capture leads 24/7 with WhatsApp Business API
+                </p>
+              </div>
+
+              {/* Benefits */}
+              <div className="grid gap-4 md:grid-cols-3 mb-8">
+                <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border-2 border-blue-100 dark:border-blue-900 shadow-sm">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-950 mb-3">
+                    <MessageSquare className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Auto-Reply 24/7</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Respond instantly to every customer</p>
+                </div>
+                <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border-2 border-blue-100 dark:border-blue-900 shadow-sm">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 dark:bg-green-950 mb-3">
+                    <Zap className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Smart Lead Capture</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Save customer details automatically</p>
+                </div>
+                <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border-2 border-blue-100 dark:border-blue-900 shadow-sm">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-950 mb-3">
+                    <Shield className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Verified Business</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Build trust with green badge</p>
+                </div>
+              </div>
+
+              <div className="text-center space-y-4">
+                <Button
+                  size="lg"
+                  className="bg-green-600 hover:bg-green-700 text-white px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all"
+                  onClick={handleStartOnboarding}
+                >
+                  <MessageSquare className="mr-2 h-6 w-6" />
+                  Connect in 2 Clicks
                 </Button>
-                <Button variant="outline" asChild>
-                  <a href="https://business.facebook.com" target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Open Meta Business Manager
-                  </a>
-                </Button>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Takes less than 60 seconds • No technical knowledge required
+                </p>
+                <button
+                  onClick={() => setUseSimpleConnect(false)}
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Need manual setup? Click here for advanced options
+                </button>
               </div>
             </CardContent>
           </Card>
