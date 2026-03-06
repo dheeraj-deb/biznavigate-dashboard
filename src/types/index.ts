@@ -91,6 +91,12 @@ export interface Product {
   unit: string
   imageUrl?: string
   status: 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED'
+  // WhatsApp Catalog fields
+  in_whatsapp_catalog?: boolean
+  whatsapp_catalog_id?: string
+  whatsapp_sync_status?: 'not_synced' | 'pending' | 'syncing' | 'synced' | 'failed'
+  whatsapp_sync_error?: string
+  whatsapp_synced_at?: string
   createdAt: string
   updatedAt: string
 }

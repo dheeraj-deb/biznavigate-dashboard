@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -19,44 +20,93 @@ import {
   Phone,
 } from 'lucide-react'
 
-type ConnectionStep = 'intro' | 'connecting' | 'select-number' | 'success'
+type ConnectionStep = 'intro' | 'connecting' | 'success' | 'error'
 
 interface SimpleWhatsAppConnectProps {
   onComplete?: () => void
+  businessId: string
 }
 
-export function SimpleWhatsAppConnect({ onComplete }: SimpleWhatsAppConnectProps) {
+export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsAppConnectProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [currentStep, setCurrentStep] = useState<ConnectionStep>('intro')
-  const [selectedNumber, setSelectedNumber] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [connectedAccount, setConnectedAccount] = useState<{
+    phoneNumber: string
+    accountId: string
+  } | null>(null)
 
-  // Mock available WhatsApp numbers (in real implementation, these come from Meta API)
-  const availableNumbers = [
-    { id: '1', number: '+1 (555) 123-4567', displayName: 'Main Business Line', verified: true },
-    { id: '2', number: '+1 (555) 987-6543', displayName: 'Customer Support', verified: true },
-    { id: '3', number: '+1 (555) 456-7890', displayName: 'Sales Team', verified: false },
-  ]
+  // Check for OAuth callback success/error
+  useEffect(() => {
+    const success = searchParams.get('success')
+    const errorParam = searchParams.get('error')
+    const accountId = searchParams.get('accountId')
+    const phoneNumber = searchParams.get('phoneNumber')
+
+    if (success === 'true' && accountId && phoneNumber) {
+      setConnectedAccount({ accountId, phoneNumber })
+      setCurrentStep('success')
+    } else if (errorParam) {
+      const errorMessage = searchParams.get('message') || 'Failed to connect WhatsApp'
+      setError(errorMessage)
+      setCurrentStep('error')
+    }
+  }, [searchParams])
 
   const handleConnectWithMeta = async () => {
     setIsLoading(true)
-    // Simulate OAuth flow
-    setTimeout(() => {
+    setError(null)
+
+    try {
+      // Validate businessId
+      if (!businessId) {
+        throw new Error('Business ID not found. Please ensure you are logged in.')
+      }
+
+      // Get OAuth URL from backend
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3006'
+      const token = localStorage.getItem('biznavigate_auth_token')
+
+      if (!token) {
+        throw new Error('Not authenticated. Please log in first.')
+      }
+
+      const response = await fetch(
+        `${apiUrl}/whatsapp/oauth/url?businessId=${businessId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to get OAuth URL')
+      }
+
+      const data = await response.json()
+
+      if (!data.success || !data.data?.url) {
+        throw new Error('Invalid response from server')
+      }
+
+      // Redirect to Facebook OAuth
+      setCurrentStep('connecting')
+      window.location.href = data.data.url
+    } catch (err) {
       setIsLoading(false)
-      setCurrentStep('select-number')
-    }, 2000)
+      setError(err instanceof Error ? err.message : 'Failed to connect')
+      setCurrentStep('error')
+    }
   }
 
-  const handleSelectNumber = (numberId: string) => {
-    setSelectedNumber(numberId)
-  }
-
-  const handleConfirmConnection = async () => {
-    setIsLoading(true)
-    // Simulate API call to connect
-    setTimeout(() => {
-      setIsLoading(false)
-      setCurrentStep('success')
-    }, 1500)
+  const handleRetry = () => {
+    setCurrentStep('intro')
+    setError(null)
+    setIsLoading(false)
   }
 
   const handleFinish = () => {
@@ -131,7 +181,7 @@ export function SimpleWhatsAppConnect({ onComplete }: SimpleWhatsAppConnectProps
                     2
                   </div>
                   <p className="text-blue-900 dark:text-blue-100 font-medium">
-                    Choose your WhatsApp Business number
+                    Authorize BizNavigate on Facebook
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -151,6 +201,15 @@ export function SimpleWhatsAppConnect({ onComplete }: SimpleWhatsAppConnectProps
                 <strong>Don't have WhatsApp Business yet?</strong> No problem! We'll help you set it up during this process.
               </AlertDescription>
             </Alert>
+
+            {error && (
+              <Alert className="border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 mb-6">
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-900 dark:text-red-100">
+                  {error}
+                </AlertDescription>
+              </Alert>
+            )}
 
             <div className="text-center">
               <Button
@@ -180,124 +239,91 @@ export function SimpleWhatsAppConnect({ onComplete }: SimpleWhatsAppConnectProps
         </Card>
       )}
 
-      {currentStep === 'select-number' && (
+      {currentStep === 'connecting' && (
         <Card className="border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-950 shadow-xl">
-          <CardHeader>
-            <div className="flex items-center justify-between mb-2">
-              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400">
-                Step 2 of 2
-              </Badge>
-              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                <CheckCircle2 className="h-4 w-4" />
-                <span className="text-sm font-medium">Connected to Meta</span>
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              Select Your WhatsApp Number
-            </CardTitle>
-            <CardDescription className="text-gray-600 dark:text-gray-400">
-              Choose which WhatsApp Business number you want to connect to BizNavigate
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
-              <Info className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-900 dark:text-blue-100">
-                We found {availableNumbers.length} WhatsApp Business number{availableNumbers.length !== 1 ? 's' : ''} in your Meta account.
-              </AlertDescription>
-            </Alert>
-
-            <div className="space-y-3">
-              {availableNumbers.map((number) => (
-                <button
-                  key={number.id}
-                  onClick={() => handleSelectNumber(number.id)}
-                  className={`w-full text-left p-5 rounded-xl border-2 transition-all ${
-                    selectedNumber === number.id
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 shadow-md'
-                      : 'border-gray-200 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700 bg-white dark:bg-gray-900'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4">
-                      <div className={`flex h-12 w-12 items-center justify-center rounded-lg flex-shrink-0 ${
-                        selectedNumber === number.id
-                          ? 'bg-blue-600'
-                          : 'bg-gray-100 dark:bg-gray-800'
-                      }`}>
-                        <Phone className={`h-6 w-6 ${
-                          selectedNumber === number.id
-                            ? 'text-white'
-                            : 'text-gray-600 dark:text-gray-400'
-                        }`} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-bold text-lg text-gray-900 dark:text-gray-100">
-                            {number.number}
-                          </p>
-                          {number.verified && (
-                            <Badge className="bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 text-xs">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Verified
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {number.displayName}
-                        </p>
-                      </div>
-                    </div>
-                    {selectedNumber === number.id && (
-                      <CheckCircle2 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {!availableNumbers.some(n => n.verified) && (
-              <Alert className="border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-800">
-                <AlertCircle className="h-4 w-4 text-yellow-600" />
-                <AlertDescription className="text-yellow-900 dark:text-yellow-100">
-                  <strong>Unverified numbers:</strong> You'll need to verify your number with Meta before you can send messages.
-                  We'll guide you through this after connection.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
-              <Button
-                variant="outline"
-                onClick={() => setCurrentStep('intro')}
-                disabled={isLoading}
-              >
-                Back
-              </Button>
-              <Button
-                size="lg"
-                className="bg-green-600 hover:bg-green-700 text-white"
-                onClick={handleConfirmConnection}
-                disabled={!selectedNumber || isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="mr-2 h-5 w-5" />
-                    Connect This Number
-                  </>
-                )}
-              </Button>
+          <CardContent className="pt-12 pb-12">
+            <div className="text-center">
+              <Loader2 className="h-16 w-16 animate-spin text-blue-600 mx-auto mb-6" />
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+                Redirecting to Meta...
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Please complete the authorization on Facebook
+              </p>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {currentStep === 'success' && (
+      {currentStep === 'error' && (
+        <Card className="border-red-200 dark:border-red-800 bg-white dark:bg-gray-950 shadow-xl">
+          <CardContent className="pt-10 pb-10">
+            <div className="text-center mb-8">
+              <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-red-100 dark:bg-red-950 mb-4">
+                <AlertCircle className="h-10 w-10 text-red-600 dark:text-red-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+                Connection Failed
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 max-w-xl mx-auto mb-4">
+                {error || 'Something went wrong while connecting to WhatsApp'}
+              </p>
+
+              {/* Show specific help for phone number error */}
+              {error?.includes('No phone numbers found') && (
+                <div className="bg-blue-50 dark:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-6 mb-6 text-left max-w-2xl mx-auto">
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
+                    <Info className="h-5 w-5" />
+                    How to fix this:
+                  </h4>
+                  <ol className="space-y-2 text-sm text-blue-900 dark:text-blue-100">
+                    <li className="flex items-start gap-2">
+                      <span className="font-bold mt-0.5">1.</span>
+                      <span>Go to <a href="https://business.facebook.com/wa/manage/phone-numbers/" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-700">WhatsApp Manager</a></span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-bold mt-0.5">2.</span>
+                      <span>Click "Add Phone Number" and follow the verification steps</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-bold mt-0.5">3.</span>
+                      <span>Wait for approval (usually instant for test numbers)</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-bold mt-0.5">4.</span>
+                      <span>Come back and click "Try Again" below</span>
+                    </li>
+                  </ol>
+                </div>
+              )}
+
+              <div className="flex items-center justify-center gap-3">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={handleRetry}
+                >
+                  <ArrowRight className="mr-2 h-5 w-5 rotate-180" />
+                  Try Again
+                </Button>
+                {error?.includes('No phone numbers found') && (
+                  <Button
+                    size="lg"
+                    variant="default"
+                    asChild
+                  >
+                    <a href="https://business.facebook.com/wa/manage/phone-numbers/" target="_blank" rel="noopener noreferrer">
+                      Open WhatsApp Manager
+                    </a>
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {currentStep === 'success' && connectedAccount && (
         <Card className="border-green-200 dark:border-green-800 bg-gradient-to-br from-white to-green-50 dark:from-gray-950 dark:to-green-950/20 shadow-xl">
           <CardContent className="pt-10 pb-10">
             <div className="text-center mb-8">
@@ -319,7 +345,7 @@ export function SimpleWhatsAppConnect({ onComplete }: SimpleWhatsAppConnectProps
                 </div>
                 <p className="font-bold text-gray-900 dark:text-gray-100 mb-1">Number Active</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {availableNumbers.find(n => n.id === selectedNumber)?.number}
+                  {connectedAccount.phoneNumber}
                 </p>
               </div>
 

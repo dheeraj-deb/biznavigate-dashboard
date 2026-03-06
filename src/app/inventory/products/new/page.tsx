@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -28,9 +28,15 @@ import {
   Calendar,
   Briefcase,
   Sparkles,
+  Upload,
+  X,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { useCreateProduct } from '@/hooks/use-products'
 import { useAuthStore } from '@/store/auth-store'
+import { apiClient } from '@/lib/api-client'
+import toast from 'react-hot-toast'
+import Image from 'next/image'
 
 // Product type configuration (matching backend validation)
 const PRODUCT_TYPES = {
@@ -105,6 +111,11 @@ export default function NewProductPage() {
   const { user } = useAuthStore()
   const createProduct = useCreateProduct()
   const [selectedType, setSelectedType] = useState<string>('')
+  const [images, setImages] = useState<File[]>([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
+  const [primaryImageIndex, setPrimaryImageIndex] = useState<number>(0)
+  const [uploadingImages, setUploadingImages] = useState<boolean>(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const {
     register,
@@ -124,11 +135,81 @@ export default function NewProductPage() {
   const trackInventory = watch('track_inventory')
   const isActive = watch('is_active')
 
+  // Image handling functions
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+
+    // Add new images to existing ones
+    setImages(prev => [...prev, ...files])
+
+    // Create previews
+    files.forEach(file => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreviews(prev => [...prev, reader.result as string])
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handleRemoveImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index))
+    setImagePreviews(prev => prev.filter((_, i) => i !== index))
+
+    // Adjust primary image index if needed
+    if (primaryImageIndex === index) {
+      setPrimaryImageIndex(0)
+    } else if (primaryImageIndex > index) {
+      setPrimaryImageIndex(prev => prev - 1)
+    }
+  }
+
+  const handleSetPrimary = (index: number) => {
+    setPrimaryImageIndex(index)
+  }
+
   const onSubmit = async (data: ProductFormData) => {
     try {
       // Get business_id and tenant_id from authenticated user or use fallback
       const businessId = user?.business_id || FALLBACK_BUSINESS_ID
       const tenantId = user?.tenant_id || FALLBACK_TENANT_ID
+
+      // Upload images to S3 if any
+      let imageUrls: string[] = []
+      if (imagePreviews.length > 0) {
+        setUploadingImages(true)
+        toast.loading(`Uploading ${imagePreviews.length} image(s) to S3...`, {
+          id: 'upload-images',
+        })
+
+        try {
+          const uploadResponse = await apiClient.post('/s3/upload-base64-multiple', {
+            images: imagePreviews,
+            folder: 'products',
+          })
+
+          console.log('Upload response:', uploadResponse)
+          console.log('Upload response data:', uploadResponse.data)
+
+          imageUrls = uploadResponse.data.map((item: any) => item.url)
+
+          toast.success(`${imageUrls.length} image(s) uploaded successfully`, {
+            id: 'upload-images',
+          })
+        } catch (error: any) {
+          console.error('Failed to upload images:', error)
+          console.error('Error response:', error.response)
+          console.error('Error message:', error.message)
+          toast.error(`Failed to upload images: ${error.response?.data?.message || error.message}`, {
+            id: 'upload-images',
+          })
+          setUploadingImages(false)
+          return // Abort product creation if image upload fails
+        } finally {
+          setUploadingImages(false)
+        }
+      }
 
       // Prepare product data
       const productData: any = {
@@ -177,10 +258,20 @@ export default function NewProductPage() {
         productData.metadata = typeSpecificData
       }
 
+      // Add S3 image URLs if images were uploaded
+      if (imageUrls.length > 0) {
+        productData.primary_image_url = imageUrls[primaryImageIndex]
+        productData.images = imageUrls
+      }
+
       await createProduct.mutateAsync(productData)
+
+      toast.success('Product created successfully')
+
       router.push('/inventory/products')
     } catch (error) {
       console.error('Failed to create product:', error)
+      toast.error('Failed to create product. Please try again.')
     }
   }
 
@@ -331,6 +422,99 @@ export default function NewProductPage() {
                       />
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Product Images */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Product Images</CardTitle>
+                  <CardDescription>
+                    Add images for your product. The first image will be set as primary by default.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Image Upload Area */}
+                  <div
+                    className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleImageSelect}
+                    />
+                    <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                    <p className="text-sm font-medium mb-1">Click to upload images</p>
+                    <p className="text-xs text-muted-foreground">
+                      PNG, JPG, GIF up to 10MB each
+                    </p>
+                  </div>
+
+                  {/* Image Previews */}
+                  {imagePreviews.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {imagePreviews.map((preview, index) => (
+                        <div
+                          key={index}
+                          className={`relative group rounded-lg overflow-hidden border-2 ${
+                            index === primaryImageIndex
+                              ? 'border-primary'
+                              : 'border-gray-200 dark:border-gray-800'
+                          }`}
+                        >
+                          <div className="aspect-square relative">
+                            <Image
+                              src={preview}
+                              alt={`Product image ${index + 1}`}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+
+                          {/* Image Actions */}
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            {index !== primaryImageIndex && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleSetPrimary(index)}
+                                className="text-xs"
+                              >
+                                Set Primary
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleRemoveImage(index)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+
+                          {/* Primary Badge */}
+                          {index === primaryImageIndex && (
+                            <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded">
+                              Primary
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {imagePreviews.length === 0 && (
+                    <div className="text-center py-8 text-sm text-muted-foreground">
+                      <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                      <p>No images uploaded yet</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -596,13 +780,13 @@ export default function NewProductPage() {
                   type="button"
                   variant="outline"
                   onClick={() => router.push('/inventory/products')}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || uploadingImages}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Product
+                <Button type="submit" disabled={isSubmitting || uploadingImages}>
+                  {(isSubmitting || uploadingImages) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {uploadingImages ? 'Uploading Images...' : isSubmitting ? 'Creating...' : 'Create Product'}
                 </Button>
               </div>
             </>

@@ -111,6 +111,7 @@ export enum WorkflowNodeType {
 // ----------------------------------------------------------------------------
 
 export interface BaseNodeData {
+  nodeId: string,
   label: string;
   description?: string;
   icon?: string;

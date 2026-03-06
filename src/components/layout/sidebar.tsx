@@ -31,6 +31,7 @@ import {
   Zap,
   Activity,
   Home,
+  FileText,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -43,6 +44,7 @@ const navigation = [
       { name: 'Social Inbox', href: '/crm/inbox', icon: Inbox },
       { name: 'Follow-Ups', href: '/crm/follow-ups' },
       { name: 'Contacts', href: '/crm/contacts' },
+      { name: 'Campaigns', href: '/crm/campaigns', icon: Mail },
     ],
   },
   {
@@ -60,6 +62,7 @@ const navigation = [
     icon: Package,
     children: [
       { name: 'Products', href: '/inventory/products' },
+      { name: 'WhatsApp Catalog', href: '/inventory/catalog', icon: MessageSquare },
       { name: 'Categories', href: '/inventory/categories' },
       { name: 'Suppliers', href: '/inventory/suppliers' },
       { name: 'Stock Movements', href: '/inventory/stock-movements' },
@@ -97,6 +100,7 @@ const navigation = [
       { name: 'General', href: '/settings' },
       { name: 'Business Profile', href: '/settings/business' },
       { name: 'WhatsApp', href: '/settings/whatsapp', icon: MessageSquare },
+      { name: 'WA Templates', href: '/settings/whatsapp-templates', icon: FileText },
       { name: 'Instagram', href: '/settings/instagram', icon: Instagram },
       { name: 'Mini Website', href: '/settings/website', icon: Globe },
       { name: 'Roles & Permissions', href: '/settings/roles' },

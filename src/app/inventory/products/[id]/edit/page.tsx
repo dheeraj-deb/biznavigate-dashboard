@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -28,42 +28,54 @@ import {
   Calendar,
   Briefcase,
   Sparkles,
+  Upload,
+  X,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { useProduct, useUpdateProduct } from '@/hooks/use-products'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle } from 'lucide-react'
+import { apiClient } from '@/lib/api-client'
+import toast from 'react-hot-toast'
+import Image from 'next/image'
 
-// Product type configuration
+// Product type configuration (matching backend validation)
 const PRODUCT_TYPES = {
-  physical_product: {
+  physical: {
     label: 'Physical Product',
     icon: Package,
-    color: 'bg-blue-100 text-blue-800',
+    color: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400',
     description: 'Physical goods with inventory tracking'
   },
   course: {
     label: 'Course',
     icon: GraduationCap,
-    color: 'bg-purple-100 text-purple-800',
+    color: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-400',
     description: 'Educational courses and programs'
   },
   room: {
     label: 'Room/Accommodation',
     icon: Hotel,
-    color: 'bg-green-100 text-green-800',
+    color: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400',
     description: 'Hotel rooms, resorts, stays'
   },
   event: {
     label: 'Event',
     icon: Calendar,
-    color: 'bg-blue-100 text-blue-800',
+    color: 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-400',
     description: 'Events, conferences, shows'
   },
   service: {
     label: 'Service',
     icon: Briefcase,
-    color: 'bg-indigo-100 text-indigo-800',
+    color: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-400',
     description: 'Professional services'
+  },
+  digital: {
+    label: 'Digital Product',
+    icon: Sparkles,
+    color: 'bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-400',
+    description: 'Digital downloads and subscriptions'
   }
 }
 
@@ -116,6 +128,13 @@ export default function EditProductPage() {
   const { data: product, isLoading, error } = useProduct(productId)
   const updateProduct = useUpdateProduct()
 
+  const [images, setImages] = useState<File[]>([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
+  const [existingImages, setExistingImages] = useState<string[]>([])
+  const [primaryImageIndex, setPrimaryImageIndex] = useState<number>(0)
+  const [uploadingImages, setUploadingImages] = useState<boolean>(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const {
     register,
     handleSubmit,
@@ -165,11 +184,104 @@ export default function EditProductPage() {
         weight: metadata.weight || '',
         dimensions: metadata.dimensions || '',
       })
+
+      // Load existing images
+      const productImages = (product as any).product_images || []
+      const imageUrls = productImages.map((img: any) => img.file_path)
+      setExistingImages(imageUrls)
+
+      // Set primary image index based on primary_image_url
+      if ((product as any).primary_image_url) {
+        const primaryIndex = imageUrls.indexOf((product as any).primary_image_url)
+        if (primaryIndex >= 0) {
+          setPrimaryImageIndex(primaryIndex)
+        }
+      }
     }
   }, [product, reset])
 
+  // Image upload handlers
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+
+    setImages(prev => [...prev, ...files])
+
+    // Create previews
+    files.forEach(file => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreviews(prev => [...prev, reader.result as string])
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handleRemoveNewImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index))
+    setImagePreviews(prev => prev.filter((_, i) => i !== index))
+
+    // Adjust primary image index if needed
+    const totalExisting = existingImages.length
+    const newImageGlobalIndex = totalExisting + index
+    if (primaryImageIndex === newImageGlobalIndex) {
+      setPrimaryImageIndex(0)
+    } else if (primaryImageIndex > newImageGlobalIndex) {
+      setPrimaryImageIndex(prev => prev - 1)
+    }
+  }
+
+  const handleRemoveExistingImage = (index: number) => {
+    setExistingImages(prev => prev.filter((_, i) => i !== index))
+
+    // Adjust primary image index if needed
+    if (primaryImageIndex === index) {
+      setPrimaryImageIndex(0)
+    } else if (primaryImageIndex > index) {
+      setPrimaryImageIndex(prev => prev - 1)
+    }
+  }
+
+  const handleSetPrimary = (index: number) => {
+    setPrimaryImageIndex(index)
+  }
+
   const onSubmit = async (data: ProductFormData) => {
     try {
+      // Upload new images to S3 if any
+      let newImageUrls: string[] = []
+      if (imagePreviews.length > 0) {
+        setUploadingImages(true)
+        toast.loading(`Uploading ${imagePreviews.length} new image(s) to S3...`, {
+          id: 'upload-images',
+        })
+
+        try {
+          const uploadResponse = await apiClient.post('/s3/upload-base64-multiple', {
+            images: imagePreviews,
+            folder: 'products',
+          })
+
+          newImageUrls = uploadResponse.data.map((item: any) => item.url)
+
+          toast.success(`${newImageUrls.length} image(s) uploaded successfully`, {
+            id: 'upload-images',
+          })
+        } catch (error) {
+          console.error('Failed to upload images:', error)
+          toast.error('Failed to upload images. Product update aborted.', {
+            id: 'upload-images',
+          })
+          setUploadingImages(false)
+          return // Abort product update if image upload fails
+        } finally {
+          setUploadingImages(false)
+        }
+      }
+
+      // Combine existing images with new uploaded images
+      const allImageUrls = [...existingImages, ...newImageUrls]
+
       // Prepare product data
       const productData: any = {
         product_type: data.product_type,
@@ -209,7 +321,7 @@ export default function EditProductPage() {
         typeSpecificData.service_duration = data.service_duration
         typeSpecificData.booking_slots = data.booking_slots
         typeSpecificData.service_type = data.service_type
-      } else if (data.product_type === 'physical_product') {
+      } else if (data.product_type === 'physical') {
         typeSpecificData.weight = data.weight
         typeSpecificData.dimensions = data.dimensions
       }
@@ -219,10 +331,19 @@ export default function EditProductPage() {
         productData.metadata = typeSpecificData
       }
 
+      // Add images if any exist
+      if (allImageUrls.length > 0) {
+        productData.primary_image_url = allImageUrls[primaryImageIndex]
+        productData.images = allImageUrls
+      }
+
       await updateProduct.mutateAsync({ id: productId, data: productData })
+
+      toast.success('Product updated successfully')
       router.push('/inventory/products')
     } catch (error) {
       console.error('Failed to update product:', error)
+      toast.error('Failed to update product. Please try again.')
     }
   }
 
@@ -305,6 +426,19 @@ export default function EditProductPage() {
                 <div className="flex items-center gap-3 rounded-lg border-2 border-primary bg-primary/5 p-4 w-fit">
                   {(() => {
                     const config = PRODUCT_TYPES[productType as keyof typeof PRODUCT_TYPES]
+                    if (!config) {
+                      return (
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-full p-3 bg-gray-100 text-gray-800">
+                            <Package className="h-6 w-6" />
+                          </div>
+                          <div>
+                            <p className="font-medium capitalize">{productType.replace(/_/g, ' ')}</p>
+                            <p className="text-sm text-muted-foreground">Product type</p>
+                          </div>
+                        </div>
+                      )
+                    }
                     const Icon = config.icon
                     return (
                       <>
@@ -323,6 +457,124 @@ export default function EditProductPage() {
                 </div>
               )}
               <input type="hidden" {...register('product_type')} />
+            </CardContent>
+          </Card>
+
+          {/* Product Images */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Product Images</CardTitle>
+              <CardDescription>
+                Update images for your product. Click on an image to set it as primary.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Existing and New Images Grid */}
+              {(existingImages.length > 0 || imagePreviews.length > 0) && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Existing Images */}
+                  {existingImages.map((url, index) => (
+                    <div
+                      key={`existing-${index}`}
+                      className={`relative group rounded-lg border-2 overflow-hidden cursor-pointer transition-all ${
+                        primaryImageIndex === index
+                          ? 'border-blue-500 ring-2 ring-blue-200'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => handleSetPrimary(index)}
+                    >
+                      <div className="aspect-square relative bg-gray-50">
+                        <Image
+                          src={url}
+                          alt={`Product image ${index + 1}`}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                      {primaryImageIndex === index && (
+                        <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                          Primary
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRemoveExistingImage(index)
+                        }}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* New Images */}
+                  {imagePreviews.map((preview, index) => {
+                    const globalIndex = existingImages.length + index
+                    return (
+                      <div
+                        key={`new-${index}`}
+                        className={`relative group rounded-lg border-2 overflow-hidden cursor-pointer transition-all ${
+                          primaryImageIndex === globalIndex
+                            ? 'border-blue-500 ring-2 ring-blue-200'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => handleSetPrimary(globalIndex)}
+                      >
+                        <div className="aspect-square relative bg-gray-50">
+                          <Image
+                            src={preview}
+                            alt={`New image ${index + 1}`}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                        {primaryImageIndex === globalIndex ? (
+                          <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                            Primary (New)
+                          </div>
+                        ) : (
+                          <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                            New
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRemoveNewImage(index)
+                          }}
+                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Upload Area */}
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 transition-colors"
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
+                <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                <p className="mt-2 text-sm text-gray-600">
+                  Click to upload or drag and drop
+                </p>
+                <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+              </div>
             </CardContent>
           </Card>
 
@@ -713,9 +965,9 @@ export default function EditProductPage() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Update Product
+            <Button type="submit" disabled={isSubmitting || uploadingImages}>
+              {(isSubmitting || uploadingImages) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {uploadingImages ? 'Uploading Images...' : 'Update Product'}
             </Button>
           </div>
         </form>

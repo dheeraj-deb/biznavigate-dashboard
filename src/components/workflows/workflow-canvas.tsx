@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import ReactFlow, {
   Background,
   Controls,
@@ -9,6 +9,7 @@ import ReactFlow, {
   Edge,
   Connection,
   addEdge,
+  applyEdgeChanges,
   useNodesState,
   useEdgesState,
   NodeTypes,
@@ -24,6 +25,7 @@ import { WaitNode } from './nodes/WaitNode'
 import { EndNode } from './nodes/EndNode'
 import { Button } from '@/components/ui/button'
 import { Maximize2, Minimize2 } from 'lucide-react'
+import { useWorkflowNodes } from '@/hooks/use-workflow-nodes'
 
 interface WorkflowCanvasProps {
   nodes: Node<WorkflowNodeData>[]
@@ -49,8 +51,32 @@ export function WorkflowCanvas({
   onNodeSelect,
 }: WorkflowCanvasProps) {
   const [nodes, setNodes, handleNodesChange] = useNodesState(initialNodes)
-  const [edges, setEdges, handleEdgesChange] = useEdgesState(initialEdges)
+  const [edges, setEdges] = useEdgesState(initialEdges)
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
+
+  // Sync nodes from parent:
+  // - Initial load (canvas empty): replace entirely with parent nodes
+  // - Subsequent updates (e.g. Apply): only sync `data`, preserve position/selection
+  useEffect(() => {
+    if (initialNodes.length === 0) return
+    setNodes((current) => {
+      if (current.length === 0) return initialNodes
+      return current.map((n) => {
+        const parent = initialNodes.find((p) => p.id === n.id)
+        return parent ? { ...n, data: parent.data } : n
+      })
+    })
+  }, [initialNodes])
+
+  // Sync edges from parent on initial load
+  useEffect(() => {
+    if (initialEdges.length === 0) return
+    setEdges((current) => {
+      if (current.length === 0) return initialEdges
+      return current
+    })
+  }, [initialEdges])
+  const { data, isLoading, isError, error } = useWorkflowNodes()
 
   // Update parent when nodes change
   const onNodesChangeWrapper = useCallback(
@@ -64,22 +90,23 @@ export function WorkflowCanvas({
     [handleNodesChange, nodes, onNodesChange]
   )
 
-  // Update parent when edges change
+  // Update parent when edges change (deletions, selections, etc.)
   const onEdgesChangeWrapper = useCallback(
     (changes: any) => {
-      handleEdgesChange(changes)
-      setTimeout(() => {
-        onEdgesChange(edges)
-      }, 0)
+      setEdges((eds) => {
+        const next = applyEdgeChanges(changes, eds)
+        onEdgesChange(next)
+        return next
+      })
     },
-    [handleEdgesChange, edges, onEdgesChange]
+    [setEdges, onEdgesChange]
   )
 
   const onConnect = useCallback(
     (connection: Connection) => {
       const newEdge = {
         ...connection,
-        id: `e${connection.source}-${connection.target}`,
+        id: `e${connection.source}-${connection.sourceHandle ?? 'default'}-${connection.target}`,
         type: 'smoothstep',
         animated: true,
         markerEnd: {
@@ -88,12 +115,13 @@ export function WorkflowCanvas({
           height: 20,
         },
       }
-      setEdges((eds) => addEdge(newEdge, eds))
-      setTimeout(() => {
-        onEdgesChange([...edges, newEdge as Edge])
-      }, 0)
+      setEdges((eds) => {
+        const next = addEdge(newEdge, eds)
+        onEdgesChange(next)
+        return next
+      })
     },
-    [setEdges, edges, onEdgesChange]
+    [setEdges, onEdgesChange]
   )
 
   const onNodeClick = useCallback(
@@ -129,6 +157,10 @@ export function WorkflowCanvas({
 
       const nodeData = JSON.parse(event.dataTransfer.getData('application/nodedata'))
 
+      console.log("ndoeData", nodeData);
+
+      console.log("type", type)
+
       const newNode: Node<WorkflowNodeData> = {
         id: `${type}-${Date.now()}`,
         type,
@@ -140,6 +172,7 @@ export function WorkflowCanvas({
       setTimeout(() => {
         onNodesChange([...nodes, newNode])
       }, 0)
+      onNodeSelect(newNode);
     },
     [setNodes, nodes, onNodesChange]
   )

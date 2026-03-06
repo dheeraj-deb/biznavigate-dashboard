@@ -6,6 +6,7 @@ export const getLayoutedElements = (
   edges: Edge[],
   direction: 'TB' | 'LR' = 'TB'
 ) => {
+
   const dagreGraph = new dagre.graphlib.Graph()
   dagreGraph.setDefaultEdgeLabel(() => ({}))
 

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,6 +36,7 @@ import {
 } from 'lucide-react'
 import { WhatsAppOnboardingWizard } from '@/components/whatsapp/whatsapp-onboarding-wizard'
 import { SimpleWhatsAppConnect } from '@/components/whatsapp/simple-whatsapp-connect'
+import { useAuthStore } from '@/store/auth-store'
 
 // Mock data for connected WhatsApp Business account
 const mockWhatsAppAccount = {
@@ -72,29 +74,194 @@ const mockSettings = {
 }
 
 export default function WhatsAppSettingsPage() {
+  const { user } = useAuthStore()
+  const searchParams = useSearchParams()
   const [isConnected, setIsConnected] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [useSimpleConnect, setUseSimpleConnect] = useState(true) // Toggle between simple and advanced
-  const [account] = useState(mockWhatsAppAccount)
+  const [account, setAccount] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [settings, setSettings] = useState(mockSettings)
   const [activeTab, setActiveTab] = useState('overview')
+
+  console.log(account, isConnected)
+
+  // Get businessId from authenticated user
+  const businessId = user?.business_id || ''
+
+  // Check for OAuth callback success and show onboarding if needed
+  useEffect(() => {
+    // Wait for initial loading to complete before checking OAuth callback
+    if (isLoading) return
+
+    const success = searchParams.get('success')
+    const accountId = searchParams.get('accountId')
+
+    if (success === 'true' && accountId) {
+      // OAuth was successful, show the onboarding success screen
+      // Only show if not already connected
+      if (!isConnected && !account) {
+        setShowOnboarding(true)
+      }
+    }
+  }, [searchParams, isConnected, account, isLoading])
+
+  // Fetch real WhatsApp accounts from backend
+  useEffect(() => {
+    const fetchWhatsAppAccounts = async () => {
+      if (!businessId) {
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3006'
+        const token = localStorage.getItem('biznavigate_auth_token')
+
+        if (!token) {
+          setIsLoading(false)
+          return
+        }
+
+        const response = await fetch(
+          `${apiUrl}/whatsapp/accounts?businessId=${businessId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          }
+        )
+
+
+        if (response.ok) {
+          const accounts = await response.json()
+          const data = accounts?.data || []
+
+          if (data && data?.length > 0) {
+            // Use the first active account
+            const activeAccount = data.find((acc: any) => acc.is_active) || data[0]
+            setAccount({
+              account_id: activeAccount.account_id,
+              phone_number: activeAccount.username,
+              display_phone_number: activeAccount.username,
+              display_name: activeAccount.display_name || 'WhatsApp Business',
+              phone_number_id: activeAccount.page_id,
+              whatsapp_business_account_id: activeAccount.instagram_business_account_id,
+              quality_rating: 'GREEN', // TODO: Get from API if available
+              messaging_limit_tier: 'TIER_1K', // TODO: Get from API if available
+              is_verified: true,
+              is_active: activeAccount.is_active,
+              webhook_verified: true,
+              last_message_at: activeAccount.updated_at,
+              created_at: activeAccount.created_at,
+              api_key_id: activeAccount.page_id,
+            })
+            setIsConnected(true)
+          } else {
+            setIsConnected(false)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch WhatsApp accounts:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchWhatsAppAccounts()
+  }, [businessId])
 
   const handleCopyWebhookUrl = () => {
     const webhookUrl = `https://api.biznavigate.com/webhooks/whatsapp/${account.account_id}`
     navigator.clipboard.writeText(webhookUrl)
   }
 
-  const handleDisconnect = () => {
-    setIsConnected(false)
+  const handleDisconnect = async () => {
+    if (!account) return
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3006'
+      const token = localStorage.getItem('biznavigate_auth_token')
+
+      const response = await fetch(
+        `${apiUrl}/whatsapp/accounts/${account.account_id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ businessId }),
+        }
+      )
+
+      if (response.ok) {
+        setAccount(null)
+        setIsConnected(false)
+      }
+    } catch (error) {
+      console.error('Failed to disconnect WhatsApp account:', error)
+    }
   }
 
   const handleStartOnboarding = () => {
     setShowOnboarding(true)
   }
 
-  const handleOnboardingComplete = () => {
+  const handleOnboardingComplete = async () => {
     setShowOnboarding(false)
-    setIsConnected(true)
+
+    // Clear URL params
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, '', '/settings/whatsapp')
+    }
+
+    // Refetch accounts to show newly connected account
+    setIsLoading(true)
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3006'
+      const token = localStorage.getItem('biznavigate_auth_token')
+
+      const response = await fetch(
+        `${apiUrl}/whatsapp/accounts?businessId=${businessId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      )
+
+      if (response.ok) {
+        const accounts = await response.json()
+
+        if (accounts && accounts.length > 0) {
+          const activeAccount = accounts.find((acc: any) => acc.is_active) || accounts[0]
+          setAccount({
+            account_id: activeAccount.account_id,
+            phone_number: activeAccount.username,
+            display_phone_number: activeAccount.username,
+            display_name: activeAccount.display_name || 'WhatsApp Business',
+            phone_number_id: activeAccount.page_id,
+            whatsapp_business_account_id: activeAccount.instagram_business_account_id,
+            quality_rating: 'GREEN',
+            messaging_limit_tier: 'TIER_1K',
+            is_verified: true,
+            is_active: activeAccount.is_active,
+            webhook_verified: true,
+            last_message_at: activeAccount.updated_at,
+            created_at: activeAccount.created_at,
+            api_key_id: activeAccount.page_id,
+          })
+          setIsConnected(true)
+        } else {
+          setIsConnected(false)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch accounts after connection:', error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleOnboardingCancel = () => {
@@ -129,10 +296,44 @@ export default function WhatsAppSettingsPage() {
           </div>
         </div>
 
-        {showOnboarding ? (
+        {isLoading ? (
+          /* Loading State */
+          <Card>
+            <CardContent className="pt-8 pb-8">
+              <div className="text-center">
+                <RefreshCw className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-spin" />
+                <p className="text-gray-600 dark:text-gray-400">Loading WhatsApp account...</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : !businessId ? (
+          /* No Business ID - Show Error */
+          <Card className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20">
+            <CardContent className="pt-8 pb-8">
+              <div className="text-center">
+                <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-950 mb-4">
+                  <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+                  Business Account Required
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  You need to be associated with a business account to connect WhatsApp.
+                  Please contact your administrator or create a business account first.
+                </p>
+                <Button onClick={() => window.location.href = '/dashboard'}>
+                  Go to Dashboard
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : showOnboarding ? (
           /* Connection Flow - Simple or Advanced */
           useSimpleConnect ? (
-            <SimpleWhatsAppConnect onComplete={handleOnboardingComplete} />
+            <SimpleWhatsAppConnect
+              onComplete={handleOnboardingComplete}
+              businessId={businessId}
+            />
           ) : (
             <WhatsAppOnboardingWizard
               onComplete={handleOnboardingComplete}
@@ -201,7 +402,7 @@ export default function WhatsAppSettingsPage() {
               </div>
             </CardContent>
           </Card>
-        ) : (
+        ) : account && isConnected ? (
           /* Connected State - Tabs */
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList>
@@ -555,7 +756,7 @@ export default function WhatsAppSettingsPage() {
               </Card>
             </TabsContent>
           </Tabs>
-        )}
+        ) : null}
 
         {/* Help Card */}
         <Card className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20">

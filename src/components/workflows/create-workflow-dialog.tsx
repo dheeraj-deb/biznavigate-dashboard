@@ -5,147 +5,216 @@ import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Sparkles, Lightbulb, ArrowRight, Loader2 } from 'lucide-react'
+import { Label } from '@/components/ui/label'
+import {
+  Sparkles,
+  PenLine,
+  ArrowRight,
+  ArrowLeft,
+  Loader2,
+} from 'lucide-react'
+import { useAuthStore } from '@/store/auth-store'
+import { useInitiateWorkflow } from '@/hooks/use-workflows'
 
 interface CreateWorkflowDialogProps {
   open: boolean
   onClose: () => void
 }
 
-const examples = [
-  'When a new lead comes from Instagram, send them a WhatsApp message with our product catalog, wait 2 hours, then if they don\'t reply, assign to sales team and create a follow-up task for tomorrow',
-  'Send a review request WhatsApp message 3 days after order delivery. If they reply with 5 stars, tag them as "happy customer", otherwise create a support ticket',
-  'Every day at 10 AM, find customers who haven\'t ordered in 60 days and send them a 20% discount code on WhatsApp',
-  'When a lead status changes to "converted", send a thank you WhatsApp message and add them to the "Premium Customers" segment',
-  'When someone sends a WhatsApp message for the first time, create a new lead, send auto-reply, and schedule a follow-up for the next business day',
-]
+type Step = 'details' | 'method' | 'ai-prompt'
 
 export function CreateWorkflowDialog({ open, onClose }: CreateWorkflowDialogProps) {
+  const [step, setStep] = useState<Step>('details')
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [prompt, setPrompt] = useState('')
-  const [isGenerating, setIsGenerating] = useState(false)
   const router = useRouter()
 
-  const handleGenerate = async () => {
-    if (!prompt.trim()) return
+  const { user } = useAuthStore()
+  const { mutateAsync: initiateWorkflow, isPending } = useInitiateWorkflow()
 
-    setIsGenerating(true)
-
-    // Simulate AI generation (replace with actual API call)
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-
-    // Mock: Navigate to builder with generated workflow
-    const workflowId = `new-${Date.now()}`
-    router.push(`/automations/builder/${workflowId}?prompt=${encodeURIComponent(prompt)}`)
-
-    setIsGenerating(false)
+  const handleClose = () => {
+    setStep('details')
+    setName('')
+    setDescription('')
+    setPrompt('')
     onClose()
   }
 
-  const handleExampleClick = (example: string) => {
-    setPrompt(example)
+  const handleManualCreate = async () => {
+    const result = await initiateWorkflow({
+      workflow_name: name,
+      business_id: user?.business_id ?? '',
+      description: description || undefined,
+    })
+    router.push(`/automations/builder/${result.workflow_id}`)
+    handleClose()
+  }
+
+  const handleGenerate = async () => {
+    if (!prompt.trim()) return
+    const result = await initiateWorkflow({
+      workflow_name: name,
+      business_id: user?.business_id ?? '',
+      description: description || undefined,
+    })
+    const query = new URLSearchParams({ prompt })
+    router.push(`/automations/builder/${result.workflow_id}?${query.toString()}`)
+    handleClose()
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-2xl flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-blue-600" />
-            Create New Automation
+          <DialogTitle className="text-xl font-semibold">
+            {step === 'details' && 'Create New Automation'}
+            {step === 'method' && 'How do you want to build?'}
+            {step === 'ai-prompt' && 'Describe your automation'}
           </DialogTitle>
-          <DialogDescription className="text-base">
-            Describe what you want to automate in plain English, and AI will build the workflow for you
-          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Input Area */}
-          <div className="space-y-2">
-            <label
-              htmlFor="workflow-prompt"
-              className="text-sm font-medium text-gray-900 dark:text-gray-100"
-            >
-              Describe your automation
-            </label>
-            <Textarea
-              id="workflow-prompt"
-              placeholder="Example: When a new lead comes from Instagram, send them a WhatsApp message with our product catalog..."
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              rows={6}
-              className="resize-none text-base"
-            />
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              Be specific about triggers, actions, conditions, and timing
+        {/* Step 1: Name & Description */}
+        {step === 'details' && (
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="workflow-name">Workflow Name <span className="text-red-500">*</span></Label>
+              <Input
+                id="workflow-name"
+                placeholder="e.g. Lead Follow-up, Order Confirmation..."
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && name.trim() && setStep('method')}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="workflow-description">
+                Description <span className="text-gray-400 font-normal">(optional)</span>
+              </Label>
+              <Textarea
+                id="workflow-description"
+                placeholder="Briefly describe what this workflow does..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={handleClose}>Cancel</Button>
+              <Button onClick={() => setStep('method')} disabled={!name.trim()}>
+                Next
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Choose method */}
+        {step === 'method' && (
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Choose how you want to create{' '}
+              <span className="font-medium text-gray-900 dark:text-gray-100">{name}</span>
             </p>
-          </div>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Manual */}
+              <button
+                onClick={handleManualCreate}
+                disabled={isPending}
+                className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center group-hover:bg-gray-200 dark:group-hover:bg-gray-700 transition-colors">
+                  {isPending ? (
+                    <Loader2 className="h-6 w-6 text-gray-600 dark:text-gray-400 animate-spin" />
+                  ) : (
+                    <PenLine className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+                  )}
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Build Manually</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Drag and drop nodes to design your workflow</p>
+                </div>
+              </button>
 
-          {/* Examples Section */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-              <Lightbulb className="h-4 w-4 text-yellow-600" />
-              Examples to get you started
+              {/* AI */}
+              <button
+                onClick={() => setStep('ai-prompt')}
+                disabled={isPending}
+                className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-blue-200 dark:border-blue-800 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-900 transition-colors">
+                  <Sparkles className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Generate with AI</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Describe in plain English and let AI build it</p>
+                </div>
+              </button>
             </div>
-            <div className="space-y-2">
-              {examples.map((example, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleExampleClick(example)}
-                  className="w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-colors group"
-                >
-                  <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 group-hover:text-blue-700 dark:group-hover:text-blue-400">
-                    {example}
-                  </p>
-                </button>
-              ))}
+
+            <div className="flex justify-start pt-1">
+              <Button variant="ghost" size="sm" onClick={() => setStep('details')} disabled={isPending}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
             </div>
           </div>
+        )}
 
-          {/* Info Box */}
-          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
-              💡 Tips for best results:
-            </h4>
-            <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-              <li>• Start with the trigger (when something happens)</li>
-              <li>• Describe the actions to take</li>
-              <li>• Include conditions (if/then) if needed</li>
-              <li>• Mention timing for delays or schedules</li>
-              <li>• Be specific about WhatsApp messages, tags, assignments, etc.</li>
-            </ul>
+        {/* Step 3: AI Prompt */}
+        {step === 'ai-prompt' && (
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Describe what{' '}
+              <span className="font-medium text-gray-900 dark:text-gray-100">{name}</span>{' '}
+              should do
+            </p>
+            <div className="space-y-1.5">
+              <Textarea
+                placeholder="e.g. When a new lead comes in from WhatsApp, send them a greeting message, wait 1 hour, then if they haven't replied assign to the sales team..."
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                rows={6}
+                className="resize-none"
+                autoFocus
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Be specific about triggers, actions, conditions, and timing
+              </p>
+            </div>
+            <div className="flex items-center justify-between pt-1">
+              <Button variant="ghost" size="sm" onClick={() => setStep('method')} disabled={isPending}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+              <Button
+                onClick={handleGenerate}
+                disabled={!prompt.trim() || isPending}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Generate Workflow
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={onClose} disabled={isGenerating}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleGenerate}
-              disabled={!prompt.trim() || isGenerating}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating Workflow...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Workflow
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   )

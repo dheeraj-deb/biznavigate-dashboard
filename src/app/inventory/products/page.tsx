@@ -342,10 +342,11 @@ export default function ProductsPage() {
                   const typeConfig = getProductTypeConfig(product.product_type)
                   const Icon = typeConfig.icon
                   const isLowStock = product.stock_quantity && product.stock_quantity < 10
+                  const productId = product.product_id || product.id
 
                   return (
                     <div
-                      key={product.product_id || product.id}
+                      key={productId}
                       className="group flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-800 p-5 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md hover:shadow-blue-500/10 transition-all duration-200 bg-white dark:bg-gray-950"
                     >
                       <div className="flex-1 space-y-3">
@@ -406,9 +407,7 @@ export default function ProductsPage() {
                           variant="ghost"
                           size="sm"
                           className="h-9 w-9 p-0 hover:bg-blue-50 dark:hover:bg-blue-950 hover:text-blue-600"
-                          onClick={() =>
-                            router.push(`/inventory/products/${product.product_id || product.id}`)
-                          }
+                          onClick={() => router.push(`/inventory/products/${productId}`)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -416,9 +415,7 @@ export default function ProductsPage() {
                           variant="ghost"
                           size="sm"
                           className="h-9 w-9 p-0 hover:bg-blue-50 dark:hover:bg-blue-950 hover:text-blue-600"
-                          onClick={() =>
-                            router.push(`/inventory/products/${product.product_id || product.id}/edit`)
-                          }
+                          onClick={() => router.push(`/inventory/products/${productId}/edit`)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -426,7 +423,7 @@ export default function ProductsPage() {
                           variant="ghost"
                           size="sm"
                           className="h-9 w-9 p-0 hover:bg-red-50 dark:hover:bg-red-950 hover:text-red-600"
-                          onClick={() => handleDelete(product.product_id || product.id)}
+                          onClick={() => handleDelete(productId)}
                           disabled={deleteProduct.isPending}
                         >
                           <Trash2 className="h-4 w-4" />
