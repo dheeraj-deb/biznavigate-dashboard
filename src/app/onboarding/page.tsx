@@ -2,18 +2,10 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
+
 import {
   Building2,
   Users,
@@ -22,25 +14,15 @@ import {
   CheckCircle2,
   ArrowRight,
   ArrowLeft,
-  Instagram,
-  MessageSquare,
-  Mail,
-  Phone,
-  MapPin,
-  Briefcase,
   GraduationCap,
   Hotel,
   Calendar,
-  Utensils,
   Plus,
   Trash2,
-  Globe,
-  Copy,
-  Check,
-  ExternalLink,
-  Code,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { AppLogo } from '@/components/ui/app-logo'
+import toast from 'react-hot-toast'
 
 // Business type options
 const businessTypes = [
@@ -48,8 +30,6 @@ const businessTypes = [
   { value: 'education', label: 'Education / Courses', icon: GraduationCap, description: 'Offer courses, training, or educational services' },
   { value: 'hospitality', label: 'Hotels / Resorts', icon: Hotel, description: 'Manage rooms, bookings, and accommodations' },
   { value: 'events', label: 'Events / Venues', icon: Calendar, description: 'Organize events, manage venues and tickets' },
-  { value: 'food', label: 'Restaurant / Food Service', icon: Utensils, description: 'Food delivery, catering, or restaurant' },
-  { value: 'services', label: 'Professional Services', icon: Briefcase, description: 'Consulting, freelancing, or service-based business' },
 ]
 
 // Role templates
@@ -60,11 +40,51 @@ const roleTemplates = [
   { name: 'Inventory Manager', permissions: ['products', 'inventory'], description: 'Manage products and stock' },
 ]
 
+const INDIAN_CITIES = ['Agartala', 'Agra', 'Ahmedabad', 'Ahmednagar', 'Aizawl', 'Ajmer', 'Akola', 'Aligarh', 'Allahabad', 'Alwar', 'Ambala', 'Amravati', 'Amritsar', 'Anand', 'Anantapur', 'Asansol', 'Aurangabad', 'Avadi', 'Bally', 'Bangalore', 'Baranagar', 'Barasat', 'Bardhaman', 'Bareilly', 'Bathinda', 'Begusarai', 'Belgaum', 'Bellary', 'Berhampur', 'Bhagalpur', 'Bharatpur', 'Bhatpara', 'Bhavnagar', 'Bhilai', 'Bhilwara', 'Bhiwandi', 'Bhopal', 'Bhubaneswar', 'Bhuj', 'Bikaner', 'Bilaspur', 'Bokaro', 'Chandigarh', 'Chandrapur', 'Chennai', 'Coimbatore', 'Cuttack', 'Darbhanga', 'Davanagere', 'Dehradun', 'Delhi', 'Deoghar', 'Dhanbad', 'Dhule', 'Dindigul', 'Durg', 'Durgapur', 'Erode', 'Etawah', 'Faridabad', 'Farrukhabad', 'Fatehpur', 'Firozabad', 'Gandhidham', 'Gandhinagar', 'Gangtok', 'Gaya', 'Ghaziabad', 'Gopalpur', 'Gorakhpur', 'Gulbarga', 'Guntur', 'Gurgaon', 'Guwahati', 'Gwalior', 'Haldia', 'Hapur', 'Haridwar', 'Hisar', 'Hoshiarpur', 'Howrah', 'Hubli', 'Hyderabad', 'Imphal', 'Indore', 'Jabalpur', 'Jaipur', 'Jalandhar', 'Jalgaon', 'Jalna', 'Jamalpur', 'Jammu', 'Jamnagar', 'Jamshedpur', 'Jhansi', 'Jodhpur', 'Junagadh', 'Kadapa', 'Kakinada', 'Kalyan', 'Kamarhati', 'Kanchipuram', 'Kannur', 'Kanpur', 'Karnal', 'Kharagpur', 'Kochi', 'Kolhapur', 'Kolkata', 'Kollam', 'Korba', 'Kota', 'Kottayam', 'Kozhikode', 'Kulti', 'Kurnool', 'Latur', 'Loni', 'Lucknow', 'Ludhiana', 'Madurai', 'Malappuram', 'Malegaon', 'Mangalore', 'Mango', 'Mathura', 'Mau', 'Meerut', 'Mira-Bhayandar', 'Mirzapur', 'Moradabad', 'Mumbai', 'Muzaffarnagar', 'Muzaffarpur', 'Mysore', 'Nadiad', 'Nagaon', 'Nagpur', 'Naihati', 'Nanded', 'Nashik', 'Navi Mumbai', 'Nellore', 'New Delhi', 'Nizamabad', 'Noida', 'Ozhukarai', 'Pali', 'Panihati', 'Panipat', 'Parbhani', 'Patiala', 'Patna', 'Phagwara', 'Pimpri-Chinchwad', 'Pondicherry', 'Pune', 'Purnia', 'Raebareli', 'Raichur', 'Raipur', 'Rajahmundry', 'Rajkot', 'Ramagundam', 'Rampur', 'Ranchi', 'Ratlam', 'Raurkela', 'Rewa', 'Rohtak', 'Rourkela', 'Sagar', 'Saharanpur', 'Salem', 'Sangli', 'Satna', 'Secunderabad', 'Shahjahanpur', 'Shimla', 'Shivamogga', 'Sikar', 'Siliguri', 'Solapur', 'Sonipat', 'South Dumdum', 'Sri Ganganagar', 'Srinagar', 'Surat', 'Thane', 'Thiruvananthapuram', 'Thoothukudi', 'Thrissur', 'Tiruchirappalli', 'Tirunelveli', 'Tirupati', 'Tiruppur', 'Tiruvottiyur', 'Tumkur', 'Udaipur', 'Ujjain', 'Ulhasnagar', 'Vadodara', 'Varanasi', 'Vasai-Virar', 'Vellore', 'Vijayanagaram', 'Vijayawada', 'Visakhapatnam', 'Warangal', 'Yamunanagar']
+
+const PRODUCT_SUGGESTIONS: Record<string, string[]> = {
+  retail: ['T-Shirts', 'Jeans', 'Sneakers', 'Accessories', 'Electronics'],
+  education: ['Web Development', 'Digital Marketing', 'Data Science', 'Design', 'Language'],
+  hospitality: ['Deluxe Room', 'Suite', 'Family Room', 'Standard Room', 'Villa'],
+  events: ['Weddings', 'Corporate Events', 'Birthdays', 'Concerts', 'Exhibitions'],
+  services: ['Consulting', 'Development', 'Design', 'Marketing', 'Support'],
+  default: ['Item 1', 'Item 2', 'Item 3', 'Item 4', 'Item 5']
+}
+
+const CATEGORY_SUGGESTIONS: Record<string, string[]> = {
+  retail: ['Clothing', 'Shoes', 'Electronics', 'Home & Garden'],
+  education: ['Technology', 'Business', 'Arts', 'Science'],
+  hospitality: ['Accommodation', 'Dining', 'Experiences', 'Spa'],
+  events: ['Private', 'Corporate', 'Social', 'Public'],
+  services: ['B2B', 'B2C', 'Retainer', 'One-off'],
+  default: ['Category 1', 'Category 2', 'Category 3', 'Category 4']
+}
+
+const BUSINESS_DESCRIPTION_TEMPLATES: Record<string, string> = {
+  retail: "We are a premium retail business specializing in [Products]. We pride ourselves on offering high-quality items and exceptional customer service to our community.",
+  education: "We are an educational institution offering comprehensive courses in [Products]. Our goal is to empower students with practical skills and knowledge.",
+  hospitality: "We are a top-tier hospitality provider offering comfortable stays in our [Products]. We ensure every guest experiences luxury, comfort, and outstanding service.",
+  events: "We are a professional event management company specializing in [Products]. We turn visions into unforgettable experiences with meticulous planning.",
+  services: "We provide expert [Products] services to our clients. We focus on delivering tailored solutions and achieving exceptional results.",
+  default: "We are a dedicated business offering [Products]. We focus on quality, reliability, and ensuring the best possible experience for our customers."
+}
+
+const AUDIENCE_SUGGESTIONS: Record<string, string[]> = {
+  retail: ['Fashion Enthusiasts', 'Bargain Hunters', 'Tech Savvy', 'Parents'],
+  education: ['Students', 'Professionals', 'Career Changers', 'Lifelong Learners'],
+  hospitality: ['Tourists', 'Business Travelers', 'Families', 'Couples'],
+  events: ['Corporate Clients', 'Engaged Couples', 'Families', 'Music Fans'],
+  services: ['Local Businesses', 'Startups', 'Homeowners', 'Enterprise'],
+  default: ['Local Residents', 'Online Shoppers', 'General Public', 'B2B Clients']
+}
 export default function OnboardingPage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
-  const [copiedWidget, setCopiedWidget] = useState(false)
-  const [showSkipWarning, setShowSkipWarning] = useState(false)
+  const [citySearch, setCitySearch] = useState('')
+  const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const filteredCities = INDIAN_CITIES.filter(c => c.toLowerCase().includes(citySearch.toLowerCase()))
   const [formData, setFormData] = useState({
     // Step 1: Business Info
     businessName: '',
@@ -82,14 +102,7 @@ export default function OnboardingPage() {
       { name: '', email: '', role: 'Sales Manager', phone: '' }
     ],
 
-    // Step 3: Platform Connections
-    whatsappNumber: '',
-    whatsappConnected: false,
-    instagramUsername: '',
-    instagramConnected: false,
-    websiteWidgetInstalled: false,
-
-    // Step 4: Initial Products
+    // Step 3: Initial Products
     initialProducts: '',
     productCategories: '',
 
@@ -99,41 +112,66 @@ export default function OnboardingPage() {
     aiTone: 'professional',
   })
 
-  const totalSteps = 6
+  const totalSteps = 5
 
-  const hasAnyChannelConnected =
-    formData.whatsappConnected ||
-    formData.instagramConnected ||
-    formData.websiteWidgetInstalled
-
-  const handleNext = () => {
-    // If on Step 3 and no channels connected, show warning
-    if (currentStep === 3 && !hasAnyChannelConnected && !showSkipWarning) {
-      setShowSkipWarning(true)
-      return
+  const validateStep = (step: number) => {
+    const newErrors: Record<string, string> = {}
+    
+    if (step === 1) {
+      if (!formData.businessName.trim()) newErrors.businessName = 'Business Name is required'
+      if (!formData.email.trim() || !/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Valid email is required'
+      if (!formData.phone.trim()) newErrors.phone = 'Phone number is required'
+      if (!formData.businessType) newErrors.businessType = 'Business Type is required'
+      if (!formData.city.trim()) newErrors.city = 'City is required'
+    } else if (step === 2) {
+      if (!formData.employees[0].name.trim()) newErrors.employeeName = 'Employee name is required'
+      if (!formData.employees[0].email.trim() || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.employees[0].email)) newErrors.employeeEmail = 'Valid employee email is required'
+    } else if (step === 3) {
+      if (!formData.productCategories.trim()) newErrors.productCategories = 'Please select at least one category'
+      if (!formData.initialProducts.trim()) newErrors.initialProducts = 'Please enter or select at least one product'
+    } else if (step === 4) {
+      if (!formData.businessDescription.trim()) newErrors.businessDescription = 'Business description is required'
+      if (!formData.targetAudience.trim()) newErrors.targetAudience = 'Target audience is required'
     }
 
-    if (currentStep < totalSteps) {
-      setCurrentStep(currentStep + 1)
-      setShowSkipWarning(false)
-    }
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
   }
 
-  const handleSkipChannels = () => {
-    setShowSkipWarning(false)
-    setCurrentStep(currentStep + 1)
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      if (currentStep < totalSteps) {
+        setCurrentStep(currentStep + 1)
+      }
+    } else {
+      toast('Please complete all required fields', {
+        id: 'validation-error-toast',
+        icon: '⚠️',
+        position: 'top-center',
+        style: {
+          borderRadius: '12px',
+          background: '#1e293b',
+          color: '#fff',
+          border: '1px solid rgba(255,255,255,0.1)',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+          fontSize: '13px',
+          fontWeight: 500,
+        },
+      })
+    }
   }
 
   const handleBack = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
+      setErrors({}) // clear errors on back
     }
   }
 
   const handleComplete = () => {
     // Submit onboarding data
-    console.log('Onboarding data:', formData)
-    router.push('/dashboard')
+    toast.success('Onboarding complete!', { icon: '🚀' })
+    router.push('/settings/integrations')
   }
 
   const addEmployee = () => {
@@ -156,54 +194,57 @@ export default function OnboardingPage() {
     setFormData({ ...formData, employees: updatedEmployees })
   }
 
-  const copyWidgetCode = async () => {
-    const widgetCode = `<!-- BizNavigate Chat Widget -->
-<script>
-  window.bizNavigateConfig = {
-    businessId: 'YOUR_BUSINESS_ID',
-    position: 'bottom-right',
-    primaryColor: '#3B82F6',
-  };
-</script>
-<script src="https://cdn.biznavigate.com/widget.js" async></script>`
-
-    try {
-      await navigator.clipboard.writeText(widgetCode)
-      setCopiedWidget(true)
-      setTimeout(() => setCopiedWidget(false), 2000)
-    } catch (err) {
-      console.error('Failed to copy:', err)
+  const toggleSelection = (field: 'initialProducts' | 'productCategories' | 'targetAudience', item: string) => {
+    const currentStr = formData[field] || ''
+    const currentItems = currentStr.split(',').map(s => s.trim()).filter(Boolean)
+    
+    if (currentItems.includes(item)) {
+      setFormData({ ...formData, [field]: currentItems.filter(i => i !== item).join(', ') })
+      setErrors({ ...errors, [field]: '' })
+    } else {
+      setFormData({ ...formData, [field]: [...currentItems, item].join(', ') })
+      setErrors({ ...errors, [field]: '' })
     }
   }
 
+  const injectDescriptionTemplate = () => {
+    const template = BUSINESS_DESCRIPTION_TEMPLATES[formData.businessType || 'default'] || BUSINESS_DESCRIPTION_TEMPLATES['default']
+    const products = formData.initialProducts ? formData.initialProducts : 'our core offerings'
+    const finalDesc = template.replace('[Products]', products)
+    setFormData({ ...formData, businessDescription: finalDesc })
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-950 dark:to-gray-900">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="h-screen bg-slate-50 text-slate-900 selection:bg-blue-600/20 font-sans overflow-hidden relative flex flex-col">
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_0%,#000_70%,transparent_100%)] opacity-60 pointer-events-none" />
+      <div className="container relative z-10 mx-auto px-4 py-6 max-w-4xl flex flex-col h-full flex-1 min-h-0">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="rounded-lg bg-blue-600 p-2">
-              <Package className="h-6 w-6 text-white" />
+        <div className="text-center mb-4 flex-shrink-0">
+          <div className="mb-3 flex w-full justify-center animate-in fade-in slide-in-from-top-4 duration-700 ease-out">
+            <div className="group flex items-center gap-3 cursor-pointer">
+              <div className="relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-500 group-hover:shadow-[0_8px_30px_rgba(37,99,235,0.2)] group-hover:-translate-y-0.5">
+                <AppLogo className="h-10 w-10 shadow-lg rounded-[12px]" />
+              </div>
+              <span className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">
+                BizNavigo
+              </span>
             </div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              BizNavigate
-            </h1>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+          <h2 className="text-[22px] font-semibold tracking-tight text-[#4B4B4B] mb-1">
             Welcome! Let's set up your business
           </h2>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-[13px] text-[#6E6E6E]">
             This will only take a few minutes. We'll help you get started quickly.
           </p>
         </div>
 
         {/* Progress Bar */}
-        <div className="mb-8">
+        <div className="mb-4 flex-shrink-0">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <span className="text-[13px] font-bold text-[#4B4B4B]">
               Step {currentStep} of {totalSteps}
             </span>
-            <span className="text-sm text-gray-600 dark:text-gray-400">
+            <span className="text-[13px] text-[#6E6E6E]">
               {Math.round((currentStep / totalSteps) * 100)}% Complete
             </span>
           </div>
@@ -216,129 +257,125 @@ export default function OnboardingPage() {
         </div>
 
         {/* Step Content */}
-        <Card className="border-gray-200 dark:border-gray-800 shadow-lg mb-6">
-          <CardContent className="p-8">
+        <Card className="border-slate-200/60 shadow-[0_8px_40px_-15px_rgba(0,0,0,0.05)] bg-white/80 backdrop-blur-xl mb-4 relative z-20 flex-1 min-h-0 flex flex-col">
+          <CardContent className="p-6 flex-1 overflow-y-auto custom-scrollbar min-h-0">
             {/* Step 1: Business Information */}
             {currentStep === 1 && (
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-950">
-                    <Building2 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Business Information</h3>
-                    <p className="text-gray-600 dark:text-gray-400">Tell us about your business</p>
-                  </div>
-                </div>
-
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="md:col-span-2">
-                    <Label htmlFor="businessName">Business Name *</Label>
-                    <Input
-                      id="businessName"
-                      value={formData.businessName}
-                      onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
-                      placeholder="Enter your business name"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <Label>Business Type *</Label>
-                    <div className="grid gap-3 md:grid-cols-2 mt-2">
-                      {businessTypes.map((type) => {
-                        const Icon = type.icon
-                        return (
-                          <Card
-                            key={type.value}
-                            className={`cursor-pointer transition-all ${
-                              formData.businessType === type.value
-                                ? 'border-blue-600 dark:border-blue-400 bg-blue-50 dark:bg-blue-950/20'
-                                : 'border-gray-200 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700'
-                            }`}
-                            onClick={() => setFormData({ ...formData, businessType: type.value })}
-                          >
-                            <CardContent className="p-4">
-                              <div className="flex items-start gap-3">
-                                <Icon className={`h-5 w-5 flex-shrink-0 ${
-                                  formData.businessType === type.value ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600'
-                                }`} />
-                                <div>
-                                  <div className="font-semibold text-sm">{type.label}</div>
-                                  <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{type.description}</div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="phone">Business Phone *</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-[#4B4B4B]">Business Name*</label>
                       <Input
-                        id="phone"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="+91 98765 43210"
-                        className="pl-10"
+                        id="businessName"
+                        value={formData.businessName}
+                        onChange={(e) => { setFormData({ ...formData, businessName: e.target.value }); setErrors({ ...errors, businessName: '' }) }}
+                        placeholder="Enter your business name"
+                        className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.businessName ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
                       />
+                      {errors.businessName && <p className="mt-1 text-xs text-red-500 font-medium">{errors.businessName}</p>}
                     </div>
-                  </div>
 
-                  <div>
-                    <Label htmlFor="email">Business Email *</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-[#4B4B4B]">Business Email*</label>
                       <Input
                         id="email"
                         type="email"
                         value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setErrors({ ...errors, email: '' }) }}
                         placeholder="contact@business.com"
-                        className="pl-10"
+                        className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.email ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
                       />
+                      {errors.email && <p className="mt-1 text-xs text-red-500 font-medium">{errors.email}</p>}
                     </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-[#4B4B4B]">Business Phone*</label>
+                    <Input
+                      id="phone"
+                      value={formData.phone}
+                      onChange={(e) => { setFormData({ ...formData, phone: e.target.value }); setErrors({ ...errors, phone: '' }) }}
+                      placeholder="+91 98765 43210"
+                      className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.phone ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
+                    />
+                    {errors.phone && <p className="mt-1 text-xs text-red-500 font-medium">{errors.phone}</p>}
                   </div>
 
-                  <div>
-                    <Label htmlFor="website">Website (Optional)</Label>
-                    <div className="relative">
-                      <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="website"
-                        value={formData.website}
-                        onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                        placeholder="https://yourbusiness.com"
-                        className="pl-10"
-                      />
-                    </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-[#4B4B4B]">Website (Optional)</label>
+                    <Input
+                      id="website"
+                      value={formData.website}
+                      onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                      placeholder="https://yourbusiness.com"
+                      className="h-10 w-full bg-transparent border-[#989898] text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] transition-colors shadow-none rounded-[4px]"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-bold text-[#4B4B4B]">Business Type*</label>
+                  <select
+                      id="businessType"
+                      value={formData.businessType}
+                      onChange={(e) => { setFormData({ ...formData, businessType: e.target.value }); setErrors({ ...errors, businessType: '' }) }}
+                      className={`h-10 w-full bg-transparent border text-[#4B4B4B] rounded-[4px] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 transition-colors shadow-none appearance-none bg-[length:10px_10px] bg-no-repeat bg-[position:right_12px_center] ${errors.businessType ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500 bg-custom-chevron-error text-red-900 focus:ring-red-500 focus:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] bg-custom-chevron'}`}
+                  >
+                      <option value="" disabled hidden>Select Business Type</option>
+                      {businessTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                  {errors.businessType && <p className="mt-1 text-xs text-red-500 font-medium">{errors.businessType}</p>}
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-1.5 relative">
+                    <label className="text-[13px] font-bold text-[#4B4B4B]">City*</label>
+                    <Input
+                      id="city"
+                      value={citySearch}
+                      onChange={(e) => {
+                        setCitySearch(e.target.value)
+                        setFormData({ ...formData, city: e.target.value })
+                        setIsCityDropdownOpen(true)
+                        setErrors({ ...errors, city: '' })
+                      }}
+                      onFocus={() => setIsCityDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setIsCityDropdownOpen(false), 200)}
+                      placeholder="Search city e.g. Mumbai"
+                      className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.city ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
+                    />
+                    {errors.city && <p className="mt-1 text-xs text-red-500 font-medium">{errors.city}</p>}
+                    {isCityDropdownOpen && (
+                      <div className="absolute top-[60px] w-full left-0 z-[100] max-h-48 overflow-y-auto bg-white border border-[#989898] rounded-[4px] shadow-lg custom-scrollbar">
+                        {filteredCities.length > 0 ? filteredCities.map((city) => (
+                          <div
+                            key={city}
+                            className="px-4 py-2 cursor-pointer hover:bg-slate-100 text-[13px] text-[#4B4B4B]"
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              setCitySearch(city)
+                              setFormData({ ...formData, city: city })
+                              setIsCityDropdownOpen(false)
+                            }}
+                          >
+                            {city}
+                          </div>
+                        )) : (
+                          <div className="px-4 py-2 text-[13px] text-[#989898]">No cities found</div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  <div>
-                    <Label htmlFor="city">City *</Label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="city"
-                        value={formData.city}
-                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                        placeholder="Mumbai"
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Textarea
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-[#4B4B4B]">Address Workspace</label>
+                    <Input
                       id="address"
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      placeholder="Enter your business address"
-                      rows={2}
+                      placeholder="Enter specific address line"
+                      className="h-10 w-full bg-transparent border-[#989898] text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] transition-colors shadow-none rounded-[4px]"
                     />
                   </div>
                 </div>
@@ -347,615 +384,317 @@ export default function OnboardingPage() {
 
             {/* Step 2: Team Setup */}
             {currentStep === 2 && (
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-100 dark:bg-green-950">
-                    <Users className="h-6 w-6 text-green-600 dark:text-green-400" />
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-950">
+                    <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Team Setup</h3>
-                    <p className="text-gray-600 dark:text-gray-400">Add your team members and assign roles</p>
+                    <h3 className="text-xl font-bold text-[#4B4B4B]">Team Setup</h3>
+                    <p className="text-[13px] text-[#6E6E6E]">Add your team members and assign roles</p>
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {formData.employees.map((employee, index) => (
-                    <Card key={index} className="border-gray-200 dark:border-gray-800">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-4">
-                          <div className="flex-1 grid gap-4 md:grid-cols-2">
-                            <div>
-                              <Label>Name</Label>
-                              <Input
-                                value={employee.name}
-                                onChange={(e) => updateEmployee(index, 'name', e.target.value)}
-                                placeholder="Employee name"
-                              />
-                            </div>
-                            <div>
-                              <Label>Email</Label>
-                              <Input
-                                type="email"
-                                value={employee.email}
-                                onChange={(e) => updateEmployee(index, 'email', e.target.value)}
-                                placeholder="email@example.com"
-                              />
-                            </div>
-                            <div>
-                              <Label>Phone</Label>
-                              <Input
-                                value={employee.phone}
-                                onChange={(e) => updateEmployee(index, 'phone', e.target.value)}
-                                placeholder="+91 98765 43210"
-                              />
-                            </div>
-                            <div>
-                              <Label>Role</Label>
-                              <Select
-                                value={employee.role}
-                                onValueChange={(value) => updateEmployee(index, 'role', value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {roleTemplates.map((role) => (
-                                    <SelectItem key={role.name} value={role.name}>
-                                      {role.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
+                    <div key={index} className="flex items-start gap-4 pb-3 border-b border-[#E5E5E5] last:border-0">
+                      <div className="flex-1 grid gap-4 md:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <label className="text-[13px] font-bold text-[#4B4B4B]">Name</label>
+                          <Input
+                            value={employee.name}
+                            onChange={(e) => { updateEmployee(index, 'name', e.target.value); if (index === 0) setErrors({ ...errors, employeeName: '' }) }}
+                            placeholder="Employee name"
+                            className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${(index === 0 && errors.employeeName) ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
+                          />
+                          {index === 0 && errors.employeeName && <p className="mt-1 text-xs text-red-500 font-medium">{errors.employeeName}</p>}
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[13px] font-bold text-[#4B4B4B]">Email</label>
+                          <Input
+                            type="email"
+                            value={employee.email}
+                            onChange={(e) => { updateEmployee(index, 'email', e.target.value); if (index === 0) setErrors({ ...errors, employeeEmail: '' }) }}
+                            placeholder="email@example.com"
+                            className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${(index === 0 && errors.employeeEmail) ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
+                          />
+                          {index === 0 && errors.employeeEmail && <p className="mt-1 text-xs text-red-500 font-medium">{errors.employeeEmail}</p>}
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[13px] font-bold text-[#4B4B4B]">Phone</label>
+                          <Input
+                            value={employee.phone}
+                            onChange={(e) => updateEmployee(index, 'phone', e.target.value)}
+                            placeholder="+91 98765 43210"
+                            className="h-10 w-full bg-transparent border-[#989898] text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] transition-colors shadow-none rounded-[4px]"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[13px] font-bold text-[#4B4B4B]">Role</label>
+                          <select
+                            value={employee.role}
+                            onChange={(e) => updateEmployee(index, 'role', e.target.value)}
+                            className="h-10 w-full bg-transparent border border-[#989898] text-[#4B4B4B] rounded-[4px] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] transition-colors shadow-none appearance-none bg-custom-chevron bg-[length:10px_10px] bg-no-repeat bg-[position:right_12px_center]"
+                          >
+                            {roleTemplates.map((role) => (
+                              <option key={role.name} value={role.name}>
+                                {role.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="pt-7">
                           {formData.employees.length > 1 && (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => removeEmployee(index)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                              className="text-red-500 hover:text-red-700 hover:bg-transparent"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
-                        </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   ))}
 
                   <Button
                     variant="outline"
                     onClick={addEmployee}
-                    className="w-full border-dashed"
+                    className="w-full border-dashed border-[#989898] text-[#4B4B4B] hover:border-[#0066FF] hover:text-[#0066FF] hover:bg-transparent shadow-none"
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Add Team Member
                   </Button>
                 </div>
-
-                <div className="mt-6">
-                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">Available Roles</h4>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {roleTemplates.map((role) => (
-                      <Card key={role.name} className="border-gray-200 dark:border-gray-800">
-                        <CardContent className="p-3">
-                          <div className="font-semibold text-sm">{role.name}</div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{role.description}</div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
               </div>
             )}
 
-            {/* Step 3: Platform Connections */}
+            {/* Step 3: Initial Products/Services */}
             {currentStep === 3 && (
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 dark:bg-purple-950">
-                    <Zap className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Connect Your Channels</h3>
-                    <p className="text-gray-600 dark:text-gray-400">Choose how customers can reach you and get AI-powered responses</p>
-                  </div>
-                </div>
-
-                {/* WhatsApp Business */}
-                <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/10">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-600">
-                          <MessageSquare className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">WhatsApp Business API</CardTitle>
-                          <CardDescription>Auto-respond to customer messages 24/7</CardDescription>
-                        </div>
-                      </div>
-                      {formData.whatsappConnected && (
-                        <Badge className="bg-green-600">Connected</Badge>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="bg-white dark:bg-gray-900 rounded-lg p-4 space-y-3">
-                      <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Setup Steps:</h4>
-                      <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                        <li className="flex gap-2">
-                          <span className="font-semibold text-green-600">1.</span>
-                          <span>Sign up for WhatsApp Business API at <a href="https://business.whatsapp.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">business.whatsapp.com <ExternalLink className="h-3 w-3" /></a></span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="font-semibold text-green-600">2.</span>
-                          <span>Verify your business phone number with WhatsApp</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="font-semibold text-green-600">3.</span>
-                          <span>Get your API credentials (Access Token & Phone Number ID)</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="font-semibold text-green-600">4.</span>
-                          <span>Click the button below and enter your credentials</span>
-                        </li>
-                      </ol>
-                    </div>
-
-                    <div>
-                      <Label>WhatsApp Business Number</Label>
-                      <Input
-                        value={formData.whatsappNumber}
-                        onChange={(e) => setFormData({ ...formData, whatsappNumber: e.target.value })}
-                        placeholder="+91 98765 43210"
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <Button
-                      className="w-full bg-green-600 hover:bg-green-700"
-                      onClick={() => router.push('/settings/whatsapp')}
-                    >
-                      <MessageSquare className="mr-2 h-4 w-4" />
-                      Connect WhatsApp Business
-                    </Button>
-
-                    <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400">
-                      <span>💡</span>
-                      <span>Benefits: Automated responses, lead capture, order updates, customer support automation</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Instagram Business */}
-                <Card className="border-pink-200 dark:border-pink-800 bg-pink-50/50 dark:bg-pink-950/10">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-pink-600">
-                          <Instagram className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">Instagram DM Automation</CardTitle>
-                          <CardDescription>Respond to Instagram messages automatically</CardDescription>
-                        </div>
-                      </div>
-                      {formData.instagramConnected && (
-                        <Badge className="bg-pink-600">Connected</Badge>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="bg-white dark:bg-gray-900 rounded-lg p-4 space-y-3">
-                      <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Setup Steps:</h4>
-                      <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                        <li className="flex gap-2">
-                          <span className="font-semibold text-pink-600">1.</span>
-                          <span>Convert your Instagram to a Business Account (Settings → Account → Switch to Professional Account)</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="font-semibold text-pink-600">2.</span>
-                          <span>Connect your Instagram to a Facebook Page</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="font-semibold text-pink-600">3.</span>
-                          <span>Visit <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1">Meta for Developers <ExternalLink className="h-3 w-3" /></a></span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="font-semibold text-pink-600">4.</span>
-                          <span>Create an app and enable Instagram Messaging API</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="font-semibold text-pink-600">5.</span>
-                          <span>Click below to authorize BizNavigate</span>
-                        </li>
-                      </ol>
-                    </div>
-
-                    <div>
-                      <Label>Instagram Username</Label>
-                      <Input
-                        value={formData.instagramUsername}
-                        onChange={(e) => setFormData({ ...formData, instagramUsername: e.target.value })}
-                        placeholder="@yourbusiness"
-                        className="mt-1"
-                      />
-                    </div>
-
-                    <Button
-                      className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                      onClick={() => router.push('/settings/instagram')}
-                    >
-                      <Instagram className="mr-2 h-4 w-4" />
-                      Connect via Meta
-                    </Button>
-
-                    <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400">
-                      <span>💡</span>
-                      <span>Benefits: Auto-reply to DMs, capture leads from comments, product inquiries automation</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Website Chat Widget */}
-                <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/10">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
-                          <Code className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">Website Chat Widget</CardTitle>
-                          <CardDescription>Add AI chat to your website in 2 minutes</CardDescription>
-                        </div>
-                      </div>
-                      {formData.websiteWidgetInstalled && (
-                        <Badge className="bg-blue-600">Installed</Badge>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="bg-white dark:bg-gray-900 rounded-lg p-4 space-y-3">
-                      <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Installation Steps:</h4>
-                      <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                        <li className="flex gap-2">
-                          <span className="font-semibold text-blue-600">1.</span>
-                          <span>Copy the code snippet below</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="font-semibold text-blue-600">2.</span>
-                          <span>Paste it before the closing <code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">&lt;/body&gt;</code> tag in your website</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="font-semibold text-blue-600">3.</span>
-                          <span>The chat widget will appear on the bottom-right corner</span>
-                        </li>
-                        <li className="flex gap-2">
-                          <span className="font-semibold text-blue-600">4.</span>
-                          <span>Customize colors and position from Settings later</span>
-                        </li>
-                      </ol>
-                    </div>
-
-                    <div className="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 relative">
-                      <pre className="text-xs text-green-400 overflow-x-auto">
-{`<!-- BizNavigate Chat Widget -->
-<script>
-  window.bizNavigateConfig = {
-    businessId: 'YOUR_BUSINESS_ID',
-    position: 'bottom-right',
-    primaryColor: '#3B82F6',
-  };
-</script>
-<script src="https://cdn.biznavigate.com/widget.js"
-        async></script>`}
-                      </pre>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="absolute top-2 right-2 bg-gray-800 hover:bg-gray-700 border-gray-700"
-                        onClick={copyWidgetCode}
-                      >
-                        {copiedWidget ? (
-                          <>
-                            <Check className="h-3 w-3 mr-1" />
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3 w-3 mr-1" />
-                            Copy
-                          </>
-                        )}
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="widgetInstalled"
-                        checked={formData.websiteWidgetInstalled}
-                        onChange={(e) => setFormData({ ...formData, websiteWidgetInstalled: e.target.checked })}
-                        className="rounded border-gray-300"
-                      />
-                      <Label htmlFor="widgetInstalled" className="text-sm cursor-pointer">
-                        I've installed the widget on my website
-                      </Label>
-                    </div>
-
-                    <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-400">
-                      <span>💡</span>
-                      <span>Benefits: 24/7 customer support, lead generation, product recommendations, multi-language support</span>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Zap className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                        🎯 All channels connected = More leads captured!
-                      </p>
-                      <p className="text-blue-700 dark:text-blue-300">
-                        You can skip this step and connect channels later from Settings → Integrations.
-                        But we recommend connecting at least one channel to start capturing leads immediately.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Skip Warning */}
-                {showSkipWarning && (
-                  <div className="bg-yellow-50 dark:bg-yellow-950/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-lg p-4 animate-in fade-in slide-in-from-top-2">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 text-2xl">⚠️</div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-yellow-900 dark:text-yellow-100 mb-2">
-                          No channels connected yet!
-                        </h4>
-                        <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-3">
-                          Without connecting at least one channel, you won't be able to capture leads or receive customer messages.
-                          We strongly recommend connecting at least one channel now.
-                        </p>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setShowSkipWarning(false)}
-                            className="border-yellow-600 text-yellow-900 hover:bg-yellow-100 dark:text-yellow-100 dark:hover:bg-yellow-900/20"
-                          >
-                            Let me connect one
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={handleSkipChannels}
-                            className="bg-yellow-600 hover:bg-yellow-700 text-white"
-                          >
-                            Skip anyway (I'll connect later)
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Step 4: Initial Products/Services */}
-            {currentStep === 4 && (
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 mb-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-950">
                     <Package className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                    <h3 className="text-xl font-bold text-[#4B4B4B]">
                       {formData.businessType === 'education' ? 'Initial Courses' :
                        formData.businessType === 'hospitality' ? 'Room Types' :
                        formData.businessType === 'events' ? 'Event Types' :
                        formData.businessType === 'services' ? 'Services Offered' : 'Initial Products'}
                     </h3>
-                    <p className="text-gray-600 dark:text-gray-400">Tell us what you offer (you can add more later)</p>
+                    <p className="text-[13px] text-[#6E6E6E]">Tell us what you offer (you can add more later)</p>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <Label>
+                <div className="space-y-3">
+                  <div className="space-y-1.5 border border-[#E5E5E5] p-4 rounded-[4px]">
+                    <label className="text-[13px] font-bold text-[#4B4B4B] block mb-2">
                       {formData.businessType === 'education' ? 'What courses do you offer?' :
                        formData.businessType === 'hospitality' ? 'What room types do you have?' :
                        formData.businessType === 'events' ? 'What events do you organize?' :
                        formData.businessType === 'services' ? 'What services do you provide?' :
                        'What products do you sell?'}
-                    </Label>
-                    <Textarea
+                       <span className="text-xs font-normal ml-2 italic text-[#6E6E6E]">(Click suggestions or type custom)</span>
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                       {(PRODUCT_SUGGESTIONS[formData.businessType || 'retail'] || PRODUCT_SUGGESTIONS['retail']).map(item => {
+                         const isSelected = (formData.initialProducts || '').split(',').map(s=>s.trim()).includes(item);
+                         return (
+                           <button
+                             key={item}
+                             type="button"
+                             onClick={() => toggleSelection('initialProducts', item)}
+                             className={`px-3 py-1.5 rounded-full text-[12px] font-medium cursor-pointer transition-colors border ${
+                               isSelected 
+                               ? 'bg-[#0066FF] text-white border-[#0066FF]' 
+                               : 'bg-transparent text-[#4B4B4B] border-[#E5E5E5] hover:border-[#0066FF] hover:text-[#0066FF]'
+                             }`}
+                           >
+                              {item}
+                           </button>
+                         )
+                       })}
+                    </div>
+                    <Input
                       value={formData.initialProducts}
-                      onChange={(e) => setFormData({ ...formData, initialProducts: e.target.value })}
+                      onChange={(e) => { setFormData({ ...formData, initialProducts: e.target.value }); setErrors({ ...errors, initialProducts: '' }) }}
                       placeholder={
-                        formData.businessType === 'education' ? 'e.g., Web Development, Digital Marketing, Data Science' :
-                        formData.businessType === 'hospitality' ? 'e.g., Deluxe Room, Suite, Family Room' :
-                        formData.businessType === 'events' ? 'e.g., Weddings, Corporate Events, Birthday Parties' :
-                        formData.businessType === 'services' ? 'e.g., Consulting, Design, Development' :
-                        'e.g., T-Shirts, Shoes, Accessories'
+                        formData.businessType === 'education' ? 'Select from above or type comma separated...' :
+                        formData.businessType === 'hospitality' ? 'Select from above or type comma separated...' :
+                        formData.businessType === 'events' ? 'Select from above or type comma separated...' :
+                        formData.businessType === 'services' ? 'Select from above or type comma separated...' :
+                        'Select from above or type comma separated...'
                       }
-                      rows={4}
+                      className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.initialProducts ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
                     />
-                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      Separate each item with a comma
-                    </p>
+                    {errors.initialProducts && <p className="mt-1 text-xs text-red-500 font-medium">{errors.initialProducts}</p>}
                   </div>
 
-                  <div>
-                    <Label>Categories</Label>
+                  <div className="space-y-1.5 border border-[#E5E5E5] p-4 rounded-[4px]">
+                    <label className="text-[13px] font-bold text-[#4B4B4B] block mb-2">Categories <span className="text-xs font-normal ml-2 italic text-[#6E6E6E]">(Click suggestions or type custom)</span></label>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                       {(CATEGORY_SUGGESTIONS[formData.businessType || 'retail'] || CATEGORY_SUGGESTIONS['retail']).map(item => {
+                         const isSelected = (formData.productCategories || '').split(',').map(s=>s.trim()).includes(item);
+                         return (
+                           <button
+                             key={item}
+                             type="button"
+                             onClick={() => toggleSelection('productCategories', item)}
+                             className={`px-3 py-1.5 rounded-full text-[12px] font-medium cursor-pointer transition-colors border ${
+                               isSelected 
+                               ? 'bg-[#0066FF] text-white border-[#0066FF]' 
+                               : 'bg-transparent text-[#4B4B4B] border-[#E5E5E5] hover:border-[#0066FF] hover:text-[#0066FF]'
+                             }`}
+                           >
+                              {item}
+                           </button>
+                         )
+                       })}
+                    </div>
                     <Input
                       value={formData.productCategories}
-                      onChange={(e) => setFormData({ ...formData, productCategories: e.target.value })}
-                      placeholder="e.g., Electronics, Clothing, Food"
+                      onChange={(e) => { setFormData({ ...formData, productCategories: e.target.value }); setErrors({ ...errors, productCategories: '' }) }}
+                      placeholder="Select from above or type comma separated..."
+                      className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.productCategories ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
                     />
-                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      Separate categories with commas
-                    </p>
+                    {errors.productCategories && <p className="mt-1 text-xs text-red-500 font-medium">{errors.productCategories}</p>}
                   </div>
-                </div>
-
-                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <p className="text-sm text-blue-900 dark:text-blue-100">
-                    <strong>Don't worry!</strong> You can add detailed product information, pricing, and images later from the Products page.
-                  </p>
                 </div>
               </div>
             )}
 
-            {/* Step 5: AI Configuration */}
-            {currentStep === 5 && (
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 mb-6">
+            {/* Step 4: AI Configuration */}
+            {currentStep === 4 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-950">
                     <Zap className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">AI Assistant Setup</h3>
-                    <p className="text-gray-600 dark:text-gray-400">Configure your AI chatbot for customer interactions</p>
+                    <h3 className="text-xl font-bold text-[#4B4B4B]">AI Assistant Setup</h3>
+                    <p className="text-[13px] text-[#6E6E6E]">Configure your AI chatbot for customer interactions</p>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <Label>Business Description</Label>
+                <div className="space-y-2">
+                  <div className="space-y-1.5 border border-[#E5E5E5] p-3 rounded-[4px]">
+                    <div className="flex items-center justify-between mb-1">
+                       <label className="text-[12px] font-bold text-[#4B4B4B]">Business Description</label>
+                       <button
+                          type="button"
+                          onClick={injectDescriptionTemplate}
+                          className="text-[11px] text-[#0066FF] hover:text-[#0052CC] font-medium flex items-center gap-1 cursor-pointer"
+                       >
+                         ✨ Use smart template
+                       </button>
+                    </div>
                     <Textarea
                       value={formData.businessDescription}
-                      onChange={(e) => setFormData({ ...formData, businessDescription: e.target.value })}
+                      onChange={(e) => { setFormData({ ...formData, businessDescription: e.target.value }); setErrors({ ...errors, businessDescription: '' }) }}
                       placeholder="Describe your business in a few sentences. This helps the AI understand your business better..."
-                      rows={4}
+                      className={`w-full bg-transparent text-[13px] text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] resize-none ${errors.businessDescription ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
+                      rows={2}
                     />
+                    {errors.businessDescription && <p className="mt-1 text-xs text-red-500 font-medium">{errors.businessDescription}</p>}
                   </div>
 
-                  <div>
-                    <Label>Target Audience</Label>
-                    <Input
-                      value={formData.targetAudience}
-                      onChange={(e) => setFormData({ ...formData, targetAudience: e.target.value })}
-                      placeholder="e.g., Young professionals, Students, Small business owners"
-                    />
+                  <div className="space-y-1.5 border border-[#E5E5E5] p-3 rounded-[4px]">
+                      <label className="text-[12px] font-bold text-[#4B4B4B] block mb-1">Target Audience <span className="text-[11px] font-normal ml-2 italic text-[#6E6E6E]">(Click suggestions or type custom)</span></label>
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                         {(AUDIENCE_SUGGESTIONS[formData.businessType || 'retail'] || AUDIENCE_SUGGESTIONS['retail']).map(item => {
+                           const isSelected = (formData.targetAudience || '').split(',').map(s=>s.trim()).includes(item);
+                           return (
+                             <button
+                               key={item}
+                               type="button"
+                               onClick={() => toggleSelection('targetAudience', item)}
+                               className={`px-3 py-1.5 rounded-full text-[12px] font-medium cursor-pointer transition-colors border ${
+                                 isSelected 
+                                 ? 'bg-[#0066FF] text-white border-[#0066FF]' 
+                                 : 'bg-transparent text-[#4B4B4B] border-[#E5E5E5] hover:border-[#0066FF] hover:text-[#0066FF]'
+                               }`}
+                             >
+                                {item}
+                             </button>
+                           )
+                         })}
+                      </div>
+                      <Input
+                        value={formData.targetAudience}
+                        onChange={(e) => { setFormData({ ...formData, targetAudience: e.target.value }); setErrors({ ...errors, targetAudience: '' }) }}
+                        placeholder="Select from above or type comma separated..."
+                        className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.targetAudience ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
+                      />
+                      {errors.targetAudience && <p className="mt-1 text-xs text-red-500 font-medium">{errors.targetAudience}</p>}
                   </div>
 
-                  <div>
-                    <Label>AI Conversation Tone</Label>
-                    <Select
-                      value={formData.aiTone}
-                      onValueChange={(value) => setFormData({ ...formData, aiTone: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="professional">Professional - Formal and business-like</SelectItem>
-                        <SelectItem value="friendly">Friendly - Warm and conversational</SelectItem>
-                        <SelectItem value="casual">Casual - Relaxed and informal</SelectItem>
-                        <SelectItem value="enthusiastic">Enthusiastic - Energetic and excited</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                  <div className="space-y-1.5 border border-[#E5E5E5] p-3 rounded-[4px]">
 
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Zap className="h-5 w-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-semibold text-indigo-900 dark:text-indigo-100 mb-1">AI will help you:</p>
-                      <ul className="space-y-1 text-indigo-700 dark:text-indigo-300">
-                        <li>• Answer customer questions 24/7</li>
-                        <li>• Qualify and capture leads automatically</li>
-                        <li>• Provide product recommendations</li>
-                        <li>• Handle common support queries</li>
-                      </ul>
+                    <div className="space-y-1">
+                      <label className="text-[12px] font-bold text-[#4B4B4B]">AI Conversation Tone</label>
+                      <select
+                        value={formData.aiTone}
+                        onChange={(e) => setFormData({ ...formData, aiTone: e.target.value })}
+                        className="h-10 w-full bg-transparent border border-[#989898] text-[#4B4B4B] rounded-[4px] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] transition-colors shadow-none appearance-none bg-custom-chevron bg-[length:10px_10px] bg-no-repeat bg-[position:right_12px_center]"
+                      >
+                        <option value="professional">Professional</option>
+                        <option value="friendly">Friendly</option>
+                        <option value="casual">Casual</option>
+                        <option value="enthusiastic">Enthusiastic</option>
+                      </select>
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Step 6: Confirmation */}
-            {currentStep === 6 && (
-              <div className="space-y-6">
-                <div className="text-center mb-8">
-                  <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-950 mb-4">
-                    <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400" />
+            {/* Step 5: Confirmation */}
+            {currentStep === 5 && (
+              <div className="space-y-4">
+                <div className="text-center mb-6">
+                  <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mb-2">
+                    <CheckCircle2 className="h-8 w-8 text-green-600" />
                   </div>
-                  <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">You're All Set!</h3>
-                  <p className="text-gray-600 dark:text-gray-400">Review your setup and start using BizNavigate</p>
+                  <h3 className="text-[22px] font-semibold tracking-tight text-[#4B4B4B] mb-1">You're All Set!</h3>
+                  <p className="text-[13px] text-[#6E6E6E]">Review your setup and start using BizNavigo</p>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Card className="border-gray-200 dark:border-gray-800">
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Building2 className="h-5 w-5 text-blue-600" />
-                        Business Details
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="border border-[#E5E5E5] rounded-[4px] p-4 text-[13px]">
+                    <div className="flex items-center gap-2 font-bold mb-2 text-[#4B4B4B]">
+                      <Building2 className="h-4 w-4 text-blue-600" /> Business Details
+                    </div>
+                    <div className="space-y-1 text-[#6E6E6E]">
                       <div><strong>Name:</strong> {formData.businessName}</div>
                       <div><strong>Type:</strong> {businessTypes.find(t => t.value === formData.businessType)?.label}</div>
                       <div><strong>City:</strong> {formData.city}</div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
-                  <Card className="border-gray-200 dark:border-gray-800">
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Users className="h-5 w-5 text-green-600" />
-                        Team Members
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
+                  <div className="border border-[#E5E5E5] rounded-[4px] p-4 text-[13px]">
+                    <div className="flex items-center gap-2 font-bold mb-2 text-[#4B4B4B]">
+                      <Users className="h-4 w-4 text-green-600" /> Team Members
+                    </div>
+                    <div className="space-y-1 text-[#6E6E6E]">
                       <div><strong>Total:</strong> {formData.employees.length} team members</div>
                       {formData.employees.slice(0, 2).map((emp, i) => (
                         <div key={i}>{emp.name || `Member ${i + 1}`} - {emp.role}</div>
                       ))}
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
-                  <Card className="border-gray-200 dark:border-gray-800">
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5 text-purple-600" />
-                        Connected Channels
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={formData.whatsappConnected ? "default" : "secondary"} className="bg-green-600">
-                          WhatsApp {formData.whatsappConnected ? '✓' : '○'}
-                        </Badge>
-                        <Badge variant={formData.instagramConnected ? "default" : "secondary"} className="bg-pink-600">
-                          Instagram {formData.instagramConnected ? '✓' : '○'}
-                        </Badge>
-                        <Badge variant={formData.websiteWidgetInstalled ? "default" : "secondary"} className="bg-blue-600">
-                          Website {formData.websiteWidgetInstalled ? '✓' : '○'}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                        {[formData.whatsappConnected, formData.instagramConnected, formData.websiteWidgetInstalled].filter(Boolean).length} of 3 channels connected
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="border-gray-200 dark:border-gray-800">
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Zap className="h-5 w-5 text-indigo-600" />
-                        AI Assistant
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
+                  <div className="border border-[#E5E5E5] rounded-[4px] p-4 text-[13px]">
+                    <div className="flex items-center gap-2 font-bold mb-2 text-[#4B4B4B]">
+                      <Zap className="h-4 w-4 text-indigo-600" /> AI Assistant
+                    </div>
+                    <div className="space-y-1 text-[#6E6E6E]">
                       <div><strong>Tone:</strong> {formData.aiTone}</div>
-                      <div><strong>Status:</strong> Ready to help customers</div>
-                    </CardContent>
-                  </Card>
+                      <div><strong>Status:</strong> Ready</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -963,27 +702,22 @@ export default function OnboardingPage() {
         </Card>
 
         {/* Navigation Buttons */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between relative z-10 flex-shrink-0 mt-auto">
           <Button
             variant="outline"
             onClick={handleBack}
             disabled={currentStep === 1}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 border-[#E5E5E5] text-[#4B4B4B] rounded-full shadow-none px-6"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
 
           <div className="flex items-center gap-2">
-            {currentStep < 3 && (
-              <Button variant="ghost" onClick={() => setCurrentStep(6)}>
-                Skip to End
-              </Button>
-            )}
             {currentStep < totalSteps ? (
               <Button
                 onClick={handleNext}
-                className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                className="bg-[#0066FF] hover:bg-[#0052CC] shadow-none flex items-center gap-2 rounded-full px-6 text-white"
               >
                 Continue
                 <ArrowRight className="h-4 w-4" />
@@ -991,7 +725,7 @@ export default function OnboardingPage() {
             ) : (
               <Button
                 onClick={handleComplete}
-                className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
+                className="bg-[#2EB865] hover:bg-[#20944F] shadow-none flex items-center gap-2 rounded-full px-6 text-white"
               >
                 <CheckCircle2 className="h-4 w-4" />
                 Complete Setup

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -10,7 +10,8 @@ import toast from 'react-hot-toast'
 import { useAuthStore } from '@/store/auth-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft } from 'lucide-react'
+import { AppLogo } from '@/components/ui/app-logo'
+import { Zap, Sparkles, Lock } from 'lucide-react'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -23,6 +24,16 @@ export default function LoginPage() {
   const router = useRouter()
   const login = useAuthStore((state) => state.login)
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({ x: e.clientX, y: e.clientY })
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [])
 
   const {
     register,
@@ -36,144 +47,256 @@ export default function LoginPage() {
     setIsLoading(true)
     try {
       console.log('Logging in with credentials:')
-
       await login(data)
-      toast.success('Login successful!')
-      router.push('/dashboard')
-    } catch (error: any) {
-      toast.error(error.message || 'Login failed. Please check your credentials.')
+      toast.success('Login successful!', {
+        icon: '🚀',
+        style: {
+          borderRadius: '10px',
+          background: '#fff',
+          color: '#18181b',
+          border: '1px solid rgba(0,0,0,0.05)',
+          boxShadow: '0 10px 40px -10px rgba(0,0,0,0.1)',
+        },
+      })
+      router.push('/onboarding')
+    } catch (error: unknown) {
+      toast(error instanceof Error ? error.message : 'Authentication failed. Please check your credentials.', {
+        icon: '⚠️',
+        position: 'top-center',
+        style: {
+          borderRadius: '12px',
+          background: '#1e293b',
+          color: '#fff',
+          border: '1px solid rgba(255,255,255,0.1)',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+          fontSize: '13px',
+          fontWeight: 500,
+        },
+      })
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Left Side - Form */}
-      <div className="flex w-full flex-col lg:w-1/2">
-        <div className="flex flex-1 items-center justify-center px-6 py-12">
-          <div className="w-full max-w-md">
-            {/* Logo */}
-            <div className="mb-12">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded bg-black">
-                  <div className="grid h-5 w-5 grid-cols-2 gap-[2px]">
-                    <div className="rounded-[1px] bg-white"></div>
-                    <div className="rounded-[1px] bg-white"></div>
-                    <div className="rounded-[1px] bg-white"></div>
-                    <div className="rounded-[1px] bg-white"></div>
-                  </div>
-                </div>
-                <span className="text-lg font-semibold">BizNavigate</span>
+    <div className="flex h-screen flex-row-reverse bg-slate-50 text-slate-900 selection:bg-blue-600/20 font-sans overflow-hidden">
+      {/* Dynamic Cursor Glow (Subtle in Light Mode) */}
+      <div 
+        className="pointer-events-none fixed inset-0 z-50 transition-opacity duration-300"
+        style={{
+          background: `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(37, 99, 235, 0.02), transparent 40%)`
+        }}
+      />
+
+      {/* Premium Form Section (Now on the Right) */}
+      <div className="relative flex w-full flex-col lg:w-1/2 z-10 border-l border-slate-200/60 bg-white/80 backdrop-blur-3xl shadow-[-10px_0_50px_-15px_rgba(0,0,0,0.05)] h-screen">
+        {/* Subtle grid pattern for light theme */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_0%,#000_70%,transparent_100%)] opacity-60" />
+        
+        <div className="flex flex-col px-6 py-4 relative z-10 w-full h-full mx-auto justify-center items-center overflow-hidden">
+          
+          {/* Logo (Moved Outside Form Box) */}
+          <div className="mb-6 flex-shrink-0 flex w-full max-w-[480px] justify-center lg:justify-start lg:pl-4 animate-in fade-in slide-in-from-top-4 duration-700 ease-out">
+            <div className="group flex items-center gap-3 cursor-pointer">
+              <div className="relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-500 group-hover:shadow-[0_8px_30px_rgba(37,99,235,0.2)] group-hover:-translate-y-0.5">
+                <AppLogo className="h-10 w-10 shadow-lg rounded-[12px]" />
               </div>
+              <span className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">
+                BizNavigo
+              </span>
+            </div>
+          </div>
+
+          <div className="w-full max-w-[480px] bg-white/50 backdrop-blur-xl border border-slate-200/60 p-6 sm:p-8 rounded-3xl shadow-[0_8px_40px_-15px_rgba(0,0,0,0.05)] animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out">
+            {/* Header */}
+            <div className="space-y-1 mb-4 text-center lg:text-left">
+              <h1 className="text-[22px] font-semibold tracking-tight text-[#4B4B4B]">
+                Welcome back
+              </h1>
+              <p className="text-[13px] text-[#6E6E6E]">
+                Enter your credentials to access your autonomous workspace.
+              </p>
             </div>
 
             {/* Sign In Form */}
-            <div className="space-y-6">
-              <div>
-                <h1 className="text-3xl font-semibold text-gray-900">Sign in</h1>
-                <p className="mt-2 text-gray-600">Enter your email and password to continue.</p>
-              </div>
-
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <div>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Email"
-                    className="h-12 border-gray-300"
-                    {...register('email')}
-                    disabled={isLoading}
-                  />
-                  {errors.email && (
-                    <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Password"
-                    className="h-12 border-gray-300"
-                    {...register('password')}
-                    disabled={isLoading}
-                  />
-                  {errors.password && (
-                    <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-                  )}
-                </div>
-
-                <Button
-                  type="submit"
-                  className="h-12 w-full bg-blue-600 font-medium text-white hover:bg-blue-700"
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[12px] font-bold text-[#4B4B4B]">
+                  E-mail*
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="mail@example.com"
+                  className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${
+                    errors.email 
+                      ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' 
+                      : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'
+                  }`}
+                  {...register('email')}
                   disabled={isLoading}
-                >
-                  {isLoading ? 'Signing in...' : 'Sign in'}
-                </Button>
-              </form>
-
-              <div className="text-center text-sm text-gray-600">
-                Need an account?{' '}
-                <Link href="/auth/register" className="font-medium text-gray-900 hover:underline">
-                  Sign up here
-                </Link>
+                />
+                {errors.email && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">
+                    {errors.email.message}
+                  </p>
+                )}
               </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[12px] font-bold text-[#4B4B4B]">
+                    Password*
+                  </label>
+                  <Link href="/auth/forgot-password" className="text-[13px] font-bold text-[#4B4B4B] hover:text-[#0066FF] transition-colors underline decoration-[#4B4B4B] underline-offset-2">
+                    Forgot password?
+                  </Link>
+                </div>
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  className={`h-10 w-full bg-transparent text-[#4B4B4B] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${
+                    errors.password 
+                      ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' 
+                      : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'
+                  }`}
+                  {...register('password')}
+                  disabled={isLoading}
+                />
+                {errors.password && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">
+                    {errors.password.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 mt-2">
+                <input 
+                  type="checkbox" 
+                  id="showPassword" 
+                  className="h-3.5 w-3.5 border-[#989898] text-[#0066FF] focus:ring-[#0066FF] rounded-[2px]"
+                  checked={showPassword}
+                  onChange={(e) => setShowPassword(e.target.checked)}
+                />
+                <label htmlFor="showPassword" className="text-[13px] text-[#4B4B4B] select-none cursor-pointer">
+                  Show password
+                </label>
+              </div>
+
+              <Button
+                type="submit"
+                className="h-10 px-8 bg-[#0066FF] text-white hover:bg-[#0052CC] rounded-full shadow-none w-auto mt-4"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <div className="h-5 w-5 border-2 border-slate-400 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <span className="font-semibold text-sm">Sign in</span>
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-4 text-center">
+              <p className="text-[13px] text-[#4B4B4B]">
+                Don't have an account?{' '}
+                <Link href="/auth/register" className="font-bold underline decoration-[#4B4B4B] underline-offset-2 hover:text-[#0066FF] transition-colors">
+                  Create Account
+                </Link>
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right Side - Visual Content */}
-      <div className="relative hidden overflow-hidden bg-gradient-to-br from-blue-400 via-blue-500 to-blue-800 lg:flex lg:w-1/2">
-        {/* Decorative Background Elements */}
-        <div className="absolute inset-0">
-          {/* Curved shapes */}
-          <div className="absolute right-0 top-0 h-[600px] w-[600px] -translate-y-1/4 translate-x-1/4 rounded-full bg-blue-700/30 blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 h-[500px] w-[500px] -translate-x-1/4 translate-y-1/4 rounded-full bg-blue-900/30 blur-3xl"></div>
-
-          {/* Diagonal stripes effect */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="absolute left-0 top-1/4 h-48 w-full -rotate-12 scale-150 transform bg-gradient-to-br from-blue-900 to-transparent"></div>
-            <div className="absolute left-0 top-1/2 h-48 w-full -rotate-12 scale-150 transform bg-gradient-to-br from-blue-800 to-transparent"></div>
-          </div>
+      {/* Right Side - Ambient Animated Section (Light Theme) */}
+      <div className="relative hidden w-1/2 lg:flex lg:flex-col lg:justify-between overflow-hidden bg-white">
+        {/* Complex Animated Background Orbs for Light Theme */}
+        <div className="absolute inset-0 z-0">
+          <div className="absolute top-[-10%] right-[-10%] w-[700px] h-[700px] rounded-full bg-blue-200/50 blur-[100px] mix-blend-multiply animate-[pulse_8s_ease-in-out_infinite_alternate]" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-slate-200/60 blur-[100px] mix-blend-multiply animate-[pulse_10s_ease-in-out_infinite_alternate_reverse]" />
+          <div className="absolute top-[30%] left-[20%] w-[500px] h-[500px] rounded-full bg-blue-50/40 blur-[90px] mix-blend-multiply animate-[pulse_12s_ease-in-out_infinite_alternate]" />
+          <div className="absolute top-[40%] right-[30%] w-[400px] h-[400px] rounded-full bg-blue-100/50 blur-[80px] mix-blend-multiply animate-[pulse_9s_ease-in-out_infinite_alternate_reverse]" />
         </div>
 
-        {/* Content Showcase */}
-        <div className="relative z-10 flex w-full flex-col items-center justify-between px-12 py-12">
-          <div className="flex flex-1 flex-col items-center justify-center">
-            {/* Integration Badge */}
-            <div className="mb-8">
-              <span className="inline-block rounded-full border border-white/30 bg-white/20 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
-                WHAT&apos;S NEW?
+        {/* Glass overlay with subtle noise */}
+        <div className="absolute inset-0 z-0 opacity-[0.03] bg-noise-filter" />
+
+        <div className="relative z-10 flex w-full flex-col h-full justify-between p-12">
+          {/* Top Badge */}
+          <div className="flex justify-end animate-in fade-in slide-in-from-right-8 duration-1000">
+            <div className="flex items-center gap-2 rounded-full border border-slate-200/60 bg-white/70 shadow-sm py-1.5 px-4 backdrop-blur-md">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
+              <span className="text-xs font-semibold text-slate-700">Systems Operational</span>
+            </div>
+          </div>
+
+          {/* Center Showcase */}
+          <div className="flex flex-col flex-1 items-center justify-center animate-in fade-in zoom-in-95 duration-1000 delay-300">
+            {/* Holographic Element Representation */}
+            <div className="relative w-80 h-80 flex items-center justify-center mb-12">
+              <div className="absolute inset-0 rounded-full border border-slate-200 animate-[spin_30s_linear_infinite]" />
+              <div className="absolute inset-6 rounded-full border border-dashed border-blue-300 animate-[spin_40s_linear_infinite_reverse]" />
+              <div className="absolute inset-14 rounded-full border border-slate-100 backdrop-blur-sm bg-white/20 animate-[pulse_4s_ease-in-out_infinite_alternate]" />
+              
+              <div className="absolute shadow-[0_0_80px_20px_rgba(37,99,235,0.15)] rounded-full h-20 w-20" />
+              
+              <div className="relative z-10 bg-white/90 border border-slate-200/60 backdrop-blur-xl p-6 rounded-2xl shadow-xl flex flex-col items-center gap-4 transform transition-transform hover:-translate-y-2 hover:shadow-2xl duration-500">
+                <div className="p-3 bg-blue-100 rounded-xl">
+                  <Sparkles className="h-8 w-8 text-blue-600" />
+                </div>
+                <div className="text-center">
+                  <div className="text-slate-900 font-bold text-lg mb-1">Deep Analytics</div>
+                  <div className="text-blue-600 font-medium text-xs">v4.0.0 Initiated</div>
+                </div>
+              </div>
+
+              {/* Orbital badges */}
+              <div className="absolute top-[10%] right-[10%] bg-white/90 backdrop-blur-md border border-slate-200/60 p-2.5 rounded-xl shadow-lg animate-bounce" style={{animationDuration: '3s'}}>
+                 <Lock className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div className="absolute bottom-[20%] left-[5%] bg-white/90 backdrop-blur-md border border-slate-200/60 p-3 rounded-xl shadow-lg animate-bounce" style={{animationDuration: '4s', animationDelay: '1s'}}>
+                 <Zap className="h-5 w-5 text-amber-500" />
+              </div>
             </div>
 
-            {/* Main Content */}
-            <div className="max-w-xl space-y-4 text-center text-white">
-              <h2 className="text-4xl font-bold leading-tight">15 new integrations added</h2>
-              <p className="text-lg text-white/90">
-                You asked <span className="font-semibold">and we listened!</span> We&apos;ve added a
-                bunch of new integrations to speed up your workflow.
+            <div className="max-w-md text-center space-y-3">
+              <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
+                Get started with <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-700">BizNavigo.</span>
+              </h2>
+              <p className="text-base font-medium text-slate-500 leading-relaxed">
+                Unlock autonomous growth, unified metrics, and an ecosystem built for modern enterprises.
               </p>
             </div>
           </div>
 
-          {/* Carousel Indicators with Navigation Arrows */}
-          <div className="flex items-center gap-6">
-            <button className="flex h-10 w-10 items-center justify-center text-white/80 transition-colors hover:text-white">
-              <ArrowLeft className="h-6 w-6" />
-            </button>
-
-            <div className="flex gap-2">
-              <div className="h-1 w-12 rounded-full bg-white"></div>
-              <div className="h-1 w-12 rounded-full bg-white/40"></div>
-              <div className="h-1 w-12 rounded-full bg-white/40"></div>
-            </div>
-
-            <button className="flex h-10 w-10 items-center justify-center text-white/80 transition-colors hover:text-white">
-              <ArrowLeft className="h-6 w-6 rotate-180" />
-            </button>
+          {/* Bottom Testimonial / Features */}
+          <div className="grid grid-cols-2 gap-4 mt-auto animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-500">
+             <div className="bg-white/60 border border-slate-200/60 rounded-2xl p-4 backdrop-blur-xl shadow-sm hover:shadow-md hover:bg-white/80 transition-all duration-300">
+               <div className="flex items-center gap-3 mb-2">
+                 <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-xs font-bold shadow-sm">JD</div>
+                 <div>
+                   <div className="text-sm font-bold text-slate-900">John Doe</div>
+                   <div className="text-xs font-medium text-slate-500">CEO, TechCorp</div>
+                 </div>
+               </div>
+               <p className="text-xs font-medium text-slate-600 leading-snug">"BizNavigo completely overhauled our internal operations."</p>
+             </div>
+             
+             <div className="bg-white/60 border border-slate-200/60 rounded-2xl p-4 backdrop-blur-xl shadow-sm hover:shadow-md hover:bg-white/80 transition-all duration-300">
+               <div className="flex items-center gap-3 mb-2">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                    <Zap className="h-4 w-4" />
+                  </div>
+                  <div>
+                     <div className="text-sm font-bold text-slate-900">Lightning Fast</div>
+                     <div className="text-xs font-medium text-slate-500">Edge Network</div>
+                  </div>
+               </div>
+               <p className="text-xs font-medium text-slate-600 leading-snug">Global distribution ensures your data is exactly where you need it.</p>
+             </div>
           </div>
         </div>
       </div>
