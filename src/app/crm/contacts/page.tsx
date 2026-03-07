@@ -71,7 +71,7 @@ function useContacts(q: ContactsQuery) {
   return useQuery({
     queryKey: ['contacts', q],
     queryFn: async () => {
-      const response = await apiClient.get<any>('/contacts', {
+      const response = await apiClient.get<any>('/customers', {
         params: {
           search: q.search || undefined,
           sort_by: q.sortBy,
@@ -102,7 +102,7 @@ function useCreateContact() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (data: CreateContactPayload) => {
-      const response = await apiClient.post<Contact>('/contacts', data)
+      const response = await apiClient.post<Contact>('/customers', data)
       return response.data as Contact
     },
     onSuccess: () => {
@@ -150,18 +150,18 @@ function avatarColor(id: string): string {
 const EMPTY_FORM = { name: '', phone: '', email: '', whatsapp_number: '', platform_user_id: '' }
 
 export default function ContactsPage() {
-  const [searchQuery, setSearchQuery]       = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
-  const [showAddContact, setShowAddContact]   = useState(false)
+  const [showAddContact, setShowAddContact] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
 
-  const [sortBy, setSortBy]         = useState('created_at')
-  const [sortOrder, setSortOrder]   = useState<'asc' | 'desc'>('desc')
-  const [page, setPage]             = useState(1)
+  const [sortBy, setSortBy] = useState('created_at')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [page, setPage] = useState(1)
   const LIMIT = 20
 
   const { data, isLoading } = useContacts({

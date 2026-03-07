@@ -234,11 +234,27 @@ export default function SocialInboxPage() {
     phone: '',
     platform: 'whatsapp' as Platform,
   })
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [conversations, selectedMessage])
+
+  // Close sidebar on mobile when a chat is selected
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsSidebarOpen(!selectedMessage)
+      } else {
+        setIsSidebarOpen(true)
+      }
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [selectedMessage])
 
   // Handle opening specific chat from URL parameters
   useEffect(() => {
@@ -304,7 +320,7 @@ export default function SocialInboxPage() {
 
   const filteredMessages = messages.filter((msg) => {
     const matchesSearch = msg.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         msg.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+      msg.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesSearch
   })
 
@@ -331,12 +347,12 @@ export default function SocialInboxPage() {
       prev.map(msg =>
         msg.id === selectedMessage.id
           ? {
-              ...msg,
-              status: 'replied' as MessageStatus,
-              lastMessage: replyText,
-              timestamp: new Date(),
-              unreadCount: 0,
-            }
+            ...msg,
+            status: 'replied' as MessageStatus,
+            lastMessage: replyText,
+            timestamp: new Date(),
+            unreadCount: 0,
+          }
           : msg
       )
     )
@@ -345,12 +361,12 @@ export default function SocialInboxPage() {
     setSelectedMessage(prev =>
       prev
         ? {
-            ...prev,
-            status: 'replied' as MessageStatus,
-            lastMessage: replyText,
-            timestamp: new Date(),
-            unreadCount: 0,
-          }
+          ...prev,
+          status: 'replied' as MessageStatus,
+          lastMessage: replyText,
+          timestamp: new Date(),
+          unreadCount: 0,
+        }
         : null
     )
 
@@ -416,318 +432,474 @@ export default function SocialInboxPage() {
 
   return (
     <DashboardLayout>
-      <div className="flex h-[calc(100vh-4rem)] flex-col">
-        {/* Header */}
-        <div className="border-b bg-white dark:bg-gray-950 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Social Inbox</h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Manage all your customer conversations in one place
-              </p>
-            </div>
-            <Button size="sm" onClick={() => setShowNewConversationDialog(true)}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              New Conversation
-            </Button>
-          </div>
+      {/* Container simulating a native app window */}
+      <div className="flex h-[calc(100vh-6rem)] flex-col bg-white dark:bg-slate-950 overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm shadow-slate-200/20">
 
-          {/* Search Only */}
-          <div className="mt-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                placeholder="Search conversations..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-        </div>
+        {/* Main Interface */}
+        <div className="flex flex-1 overflow-hidden relative">
 
-        {/* Main Content */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Messages List */}
-          <div className="w-96 overflow-y-auto border-r bg-gray-50 dark:bg-gray-900">
-            <div className="p-2">
+          {/* Conversation List Sidebar */}
+          <div className={cn(
+            "flex flex-col border-r border-slate-200/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 transition-all duration-300 absolute inset-y-0 left-0 z-20 lg:relative",
+            isSidebarOpen ? "w-full sm:w-96 translate-x-0" : "-translate-x-full lg:translate-x-0 lg:w-96"
+          )}>
+
+            {/* Sidebar Header */}
+            <div className="p-4 border-b border-slate-200/60 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl z-10 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-slate-100 dark:to-slate-400 tracking-tight">
+                  Inbox
+                </h2>
+                <div className="flex items-center gap-1.5">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
+                    <Filter className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    className="h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all hover:shadow"
+                    onClick={() => setShowNewConversationDialog(true)}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Search */}
+              <div className="relative group">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                <Input
+                  placeholder="Search messages..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-10 bg-slate-100/50 dark:bg-slate-800/50 border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500/50 focus:ring-blue-500/20 transition-all rounded-xl shadow-none"
+                />
+              </div>
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
               {filteredMessages.map((message) => (
-                <Card
+                <div
                   key={message.id}
                   className={cn(
-                    'mb-2 cursor-pointer transition-all hover:shadow-md',
+                    'group relative flex cursor-pointer items-start gap-3 rounded-xl p-3 transition-all duration-200 ease-out',
                     selectedMessage?.id === message.id
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20'
-                      : 'bg-white dark:bg-gray-950'
+                      ? 'bg-blue-50 dark:bg-blue-500/10 shadow-sm shadow-blue-500/5'
+                      : 'hover:bg-slate-100/80 dark:hover:bg-slate-800/80 active:scale-[0.98]'
                   )}
                   onClick={() => handleSelectMessage(message)}
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="relative">
-                        <Avatar>
-                          <AvatarImage src={message.contactAvatar} alt={message.contactName} />
-                          <AvatarFallback>{message.contactName[0]}</AvatarFallback>
-                        </Avatar>
-                        <div className="absolute -bottom-1 -right-1 rounded-full bg-white p-0.5 dark:bg-gray-950">
-                          {getPlatformIcon(message.platform)}
-                        </div>
-                      </div>
+                  {/* Selection Indicator Line */}
+                  <div className={cn(
+                    "absolute left-0 top-1/2 -translate-y-1/2 w-1 rounded-r-full transition-all duration-300",
+                    selectedMessage?.id === message.id ? "h-8 bg-blue-500" : "h-0 bg-transparent"
+                  )} />
 
-                      <div className="flex-1 overflow-hidden">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                            {message.contactName}
-                          </h3>
-                          {message.isStarred && <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />}
-                        </div>
+                  <div className="relative flex-shrink-0">
+                    <Avatar className={cn(
+                      "h-12 w-12 border-2 transition-all duration-300",
+                      selectedMessage?.id === message.id ? "border-blue-100 dark:border-blue-900/50 shadow-md shadow-blue-500/20" : "border-transparent"
+                    )}>
+                      <AvatarImage src={message.contactAvatar} alt={message.contactName} />
+                      <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 text-slate-600 dark:text-slate-300 font-medium">
+                        {message.contactName.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
 
-                        <p className="mt-1 truncate text-sm text-gray-600 dark:text-gray-400">
-                          {message.lastMessage}
-                        </p>
+                    {/* Platform Icon Badge */}
+                    <div className={cn(
+                      "absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white dark:border-slate-950 shadow-sm transition-transform group-hover:scale-110",
+                      message.platform === 'whatsapp' ? 'bg-emerald-100 dark:bg-emerald-950/50' :
+                        message.platform === 'instagram' ? 'bg-pink-100 dark:bg-pink-950/50' : 'bg-blue-100 dark:bg-blue-950/50'
+                    )}>
+                      {getPlatformIcon(message.platform)}
+                    </div>
+                  </div>
 
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          {getPlatformBadge(message.platform)}
-                          {getStatusBadge(message.status)}
-                          {message.priority && (
-                            <Badge variant="secondary" className="text-xs">
-                              {message.priority}
-                            </Badge>
-                          )}
-                        </div>
-
-                        {message.tags && message.tags.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {message.tags.map((tag) => (
-                              <Badge
-                                key={tag}
-                                variant="outline"
-                                className="text-xs"
-                              >
-                                <Tag className="mr-1 h-2.5 w-2.5" />
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-500">
-                          <span>{formatDistanceToNow(message.timestamp, { addSuffix: true })}</span>
-                          {message.unreadCount && message.unreadCount > 0 && (
-                            <Badge className="h-5 rounded-full bg-blue-600 px-2 text-xs">
-                              {message.unreadCount}
-                            </Badge>
-                          )}
-                        </div>
+                  <div className="flex flex-1 flex-col overflow-hidden min-w-0 py-0.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className={cn(
+                        "truncate text-[15px] font-medium transition-colors",
+                        selectedMessage?.id === message.id
+                          ? "text-blue-900 dark:text-blue-100"
+                          : "text-slate-900 dark:text-slate-100"
+                      )}>
+                        {message.contactName}
+                      </h3>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {message.isStarred && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />}
+                        <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 tabular-nums">
+                          {formatDistanceToNow(message.timestamp, { addSuffix: false }).replace('about ', '')}
+                        </span>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+
+                    <p className={cn(
+                      "mt-1 truncate text-[13px] leading-relaxed transition-colors",
+                      message.status === 'unread'
+                        ? (selectedMessage?.id === message.id ? "font-medium text-blue-800 dark:text-blue-200" : "font-semibold text-slate-900 dark:text-slate-100")
+                        : (selectedMessage?.id === message.id ? "text-blue-600/80 dark:text-blue-300/80" : "text-slate-500 dark:text-slate-400")
+                    )}>
+                      {message.lastMessage}
+                    </p>
+
+                    <div className="mt-2.5 flex items-center gap-1.5 min-w-0">
+                      {getStatusBadge(message.status)}
+                      {message.priority === 'high' && (
+                        <Badge variant="outline" className="text-[10px] uppercase font-semibold tracking-wide px-1.5 py-0 h-4 border border-orange-200 text-orange-600 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-900/50 dark:text-orange-400">
+                          High
+                        </Badge>
+                      )}
+
+                      <div className="ml-auto flex items-center gap-1 flex-shrink-0">
+                        {message.tags?.slice(0, 1).map((tag) => (
+                          <div key={tag} className="flex items-center text-[10px] uppercase tracking-wide font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-sm">
+                            {tag}
+                          </div>
+                        ))}
+                        {message.unreadCount && message.unreadCount > 0 && (
+                          <Badge className="ml-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-blue-500 px-1 text-[10px] font-bold text-white shadow-sm shadow-blue-500/20">
+                            {message.unreadCount}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               ))}
 
               {filteredMessages.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <MessageSquare className="mb-3 h-12 w-12 text-gray-400" />
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No conversations found</p>
-                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                    Try adjusting your search or filters
+                <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/50 mb-4">
+                    <MessageSquare className="h-8 w-8 text-slate-400" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">No conversations</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-[200px]">
+                    Try adjusting your search or start a new conversation.
                   </p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Conversation View */}
+          {/* Conversation View Area */}
           {selectedMessage ? (
-            <div className="flex flex-1 flex-col bg-white dark:bg-gray-950">
-              {/* Conversation Header */}
-              <div className="flex items-center justify-between border-b px-6 py-4">
+            <div className={cn(
+              "flex flex-1 flex-col bg-[#F9FAFB] dark:bg-[#0B1120] relative w-full h-full",
+              !isSidebarOpen && "fixed inset-0 z-30 lg:relative"
+            )}>
+              {/* Optional Subtle Pattern Background for Chat Area */}
+              <div className="absolute inset-0 z-0 opacity-[0.03] dark:opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+
+              {/* Chat Header */}
+              <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/80 bg-white/95 dark:bg-slate-950/95 px-4 py-3 sm:px-6 backdrop-blur-xl z-10 sticky top-0 shadow-sm shadow-slate-200/5 dark:shadow-none">
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10">
+                  {/* Mobile Back Button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="lg:hidden -ml-2 h-9 w-9 text-slate-500"
+                    onClick={() => {
+                      setSelectedMessage(null)
+                      setIsSidebarOpen(true)
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+                  </Button>
+
+                  <Avatar className="h-10 w-10 border border-slate-100 dark:border-slate-800 shadow-sm">
                     <AvatarImage src={selectedMessage.contactAvatar} alt={selectedMessage.contactName} />
-                    <AvatarFallback>{selectedMessage.contactName[0]}</AvatarFallback>
+                    <AvatarFallback className="bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 text-blue-700 dark:text-blue-300 font-medium">
+                      {selectedMessage.contactName[0]}
+                    </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <h2 className="font-semibold text-gray-900 dark:text-gray-100">
+                  <div className="flex flex-col justify-center">
+                    <h2 className="text-[15px] font-semibold tracking-tight text-slate-900 dark:text-slate-50">
                       {selectedMessage.contactName}
                     </h2>
-                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                      {getPlatformIcon(selectedMessage.platform)}
-                      <span>
-                        {selectedMessage.platform === 'whatsapp'
-                          ? 'WhatsApp'
-                          : selectedMessage.platform === 'instagram'
-                          ? 'Instagram DM'
-                          : 'Instagram Comment'}
-                      </span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-1.5 py-0.5 rounded-sm">
+                        {getPlatformIcon(selectedMessage.platform)}
+                        <span className="capitalize">{selectedMessage.platform}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        Online
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm">
-                    <Phone className="mr-2 h-4 w-4" />
-                    Call
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hidden sm:flex">
+                    <Video className="h-[18px] w-[18px]" />
                   </Button>
-                  <Button variant="outline" size="sm">
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Convert to Lead
+                  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                    <Phone className="h-[18px] w-[18px]" />
                   </Button>
+                  <div className="w-px h-5 bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block" />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreVertical className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                        <MoreVertical className="h-[18px] w-[18px]" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem>
-                        <Star className="mr-2 h-4 w-4" />
-                        Star Conversation
+                    <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl border-slate-200/60 dark:border-slate-800 shadow-xl shadow-slate-200/10 dark:shadow-none">
+                      <DropdownMenuLabel className="text-xs text-slate-500 font-medium px-2">Manage Chat</DropdownMenuLabel>
+                      <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
+                      <DropdownMenuItem className="rounded-lg cursor-pointer focus:bg-slate-50 dark:focus:bg-slate-800/50">
+                        <UserPlus className="mr-2 h-4 w-4 text-slate-400" /> Convert to Lead
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Tag className="mr-2 h-4 w-4" />
-                        Add Tags
+                      <DropdownMenuItem className="rounded-lg cursor-pointer focus:bg-slate-50 dark:focus:bg-slate-800/50">
+                        <Star className="mr-2 h-4 w-4 text-slate-400" /> Star Conversation
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Archive className="mr-2 h-4 w-4" />
-                        Archive
+                      <DropdownMenuItem className="rounded-lg cursor-pointer focus:bg-slate-50 dark:focus:bg-slate-800/50">
+                        <Tag className="mr-2 h-4 w-4 text-slate-400" /> Add Tags
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-red-600">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
+                      <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
+                      <DropdownMenuItem className="rounded-lg cursor-pointer text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/30 focus:text-rose-700">
+                        <Trash2 className="mr-2 h-4 w-4 text-rose-500" /> Delete Chat
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
               </div>
 
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto bg-gray-50 p-6 dark:bg-gray-900">
-                <div className="mx-auto max-w-3xl space-y-4">
-                  {(conversations[selectedMessage.id] || []).map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={cn(
-                        'flex',
-                        msg.isIncoming ? 'justify-start' : 'justify-end'
-                      )}
-                    >
+              {/* Chat Messages Area */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 z-10 relative">
+                <div className="mx-auto max-w-4xl space-y-6">
+                  {/* Date Separator */}
+                  <div className="flex justify-center mb-6">
+                    <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 px-3 py-1 rounded-full shadow-sm shadow-slate-200/10">
+                      Today
+                    </span>
+                  </div>
+
+                  {(conversations[selectedMessage.id] || []).map((msg, index, arr) => {
+                    const isNextSameSender = arr[index + 1]?.isIncoming === msg.isIncoming;
+                    const isPrevSameSender = arr[index - 1]?.isIncoming === msg.isIncoming;
+
+                    return (
                       <div
+                        key={msg.id}
                         className={cn(
-                          'max-w-[70%] rounded-lg px-4 py-2',
-                          msg.isIncoming
-                            ? 'bg-white dark:bg-gray-950'
-                            : 'bg-blue-600 text-white'
+                          'flex w-full',
+                          msg.isIncoming ? 'justify-start' : 'justify-end',
+                          isNextSameSender ? 'mb-1' : 'mb-6' // tighter spacing for same sender
                         )}
                       >
-                        <p className="text-sm">{msg.content}</p>
-                        <div className="mt-1 flex items-center gap-1 text-xs opacity-70">
-                          <span>{format(msg.timestamp, 'HH:mm')}</span>
-                          {!msg.isIncoming && msg.status && (
-                            <CheckCheck
-                              className={cn(
-                                'h-3 w-3',
-                                msg.status === 'read' && 'text-blue-200'
-                              )}
-                            />
+                        <div className="flex max-w-[85%] sm:max-w-[70%] items-end gap-2 group/msg">
+                          {/* Avatar for Incoming Messages */}
+                          {msg.isIncoming && !isNextSameSender && (
+                            <Avatar className="h-6 w-6 border border-slate-100 dark:border-slate-800 mb-1 flex-shrink-0">
+                              <AvatarImage src={selectedMessage.contactAvatar} />
+                              <AvatarFallback className="text-[10px] bg-slate-100 dark:bg-slate-800">{selectedMessage.contactName[0]}</AvatarFallback>
+                            </Avatar>
                           )}
+                          {msg.isIncoming && isNextSameSender && <div className="w-6 hidden sm:block" />} {/* Spacer */}
+
+                          {/* Message Bubble */}
+                          <div
+                            className={cn(
+                              'relative flex flex-col px-4 py-2.5 text-[14.5px] leading-relaxed shadow-sm transition-all',
+
+                              msg.isIncoming
+                                ? 'bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
+                                : 'bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/10',
+
+                              // Dynamic border radius for message grouping
+                              msg.isIncoming
+                                ? cn(
+                                  'rounded-2xl',
+                                  isPrevSameSender && 'rounded-tl-md',
+                                  isNextSameSender && 'rounded-bl-md'
+                                )
+                                : cn(
+                                  'rounded-2xl',
+                                  isPrevSameSender && 'rounded-tr-md',
+                                  isNextSameSender && 'rounded-br-md'
+                                )
+                            )}
+                          >
+                            <p className="whitespace-pre-wrap word-break-word font-inter">{msg.content}</p>
+
+                            {/* Metadata inside bubble */}
+                            <div className={cn(
+                              "mt-1 flex flex-wrap items-center justify-end gap-1.5 select-none",
+                              msg.isIncoming ? "text-slate-400" : "text-blue-100/80"
+                            )}>
+                              <span className="text-[10px] font-medium tracking-wide">
+                                {format(msg.timestamp, 'HH:mm')}
+                              </span>
+                              {!msg.isIncoming && msg.status && (
+                                <CheckCheck
+                                  className={cn(
+                                    'h-3.5 w-3.5',
+                                    msg.status === 'read' ? 'text-blue-200' : 'opacity-70'
+                                  )}
+                                />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Message Actions (Visible on Hover) */}
+                          <div className={cn(
+                            "opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1",
+                            msg.isIncoming ? "order-last" : "order-first"
+                          )}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800">
+                              <Info className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                  <div ref={messagesEndRef} />
+                    );
+                  })}
+                  <div ref={messagesEndRef} className="h-4" />
                 </div>
               </div>
 
-              {/* AI Suggestions */}
+              {/* Floating AI Suggestions */}
               {showAiSuggestions && currentAiSuggestions.length > 0 && (
-                <div className="border-t bg-gradient-to-r from-purple-50 to-indigo-50 p-3 dark:from-purple-950/20 dark:to-indigo-950/20">
-                  <div className="mx-auto max-w-3xl">
-                    <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-purple-700 dark:text-purple-400">
-                      <Sparkles className="h-4 w-4 animate-pulse" />
-                      AI Suggested Responses
-                      <Badge variant="secondary" className="ml-auto bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 text-xs px-2 py-0">
-                        Smart
-                      </Badge>
-                    </div>
-                    <div className="space-y-1.5">
-                      {currentAiSuggestions.map((suggestion, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleUseSuggestion(suggestion)}
-                          className="group w-full rounded-md border border-purple-200 bg-white px-2.5 py-2 text-left text-xs transition-all hover:border-purple-400 hover:bg-purple-50 hover:shadow-sm dark:border-purple-800 dark:bg-gray-950 dark:hover:border-purple-600 dark:hover:bg-purple-950/30"
+                <div className="absolute bottom-[90px] left-0 right-0 z-20 px-4 sm:px-6 pointer-events-none">
+                  <div className="mx-auto max-w-4xl flex flex-col items-end pointer-events-auto">
+                    <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-purple-100 dark:border-purple-900/40 p-1.5 rounded-2xl shadow-xl shadow-purple-500/5 flex flex-col gap-1 w-full max-w-sm sm:max-w-md translate-y-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5">
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 shadow-sm">
+                          <Sparkles className="h-3 w-3 text-white" />
+                        </div>
+                        <span className="text-xs font-semibold text-purple-700 dark:text-purple-300 tracking-tight">Smart Replies</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="ml-auto h-5 w-5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                          onClick={() => setShowAiSuggestions(false)}
                         >
-                          <div className="flex items-start gap-2">
-                            <Sparkles className="mt-0.5 h-3 w-3 flex-shrink-0 text-purple-500 dark:text-purple-400" />
-                            <span className="flex-1 text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white leading-snug">
-                              {suggestion}
-                            </span>
-                          </div>
-                        </button>
-                      ))}
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                        </Button>
+                      </div>
+
+                      <div className="flex flex-col gap-1 overflow-x-hidden p-1">
+                        {currentAiSuggestions.slice(0, 3).map((suggestion, index) => (
+                          <button
+                            key={index}
+                            onClick={() => handleUseSuggestion(suggestion)}
+                            className="text-left px-3 py-2 text-[13px] text-slate-600 dark:text-slate-300 bg-purple-50/50 hover:bg-purple-100/80 dark:bg-purple-900/10 dark:hover:bg-purple-900/30 rounded-xl transition-all border border-transparent hover:border-purple-200/50 dark:hover:border-purple-800/50 hover:text-purple-900 dark:hover:text-purple-100 line-clamp-2"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Reply Box */}
-              <div className="border-t bg-white p-4 dark:bg-gray-950">
-                <div className="mx-auto max-w-3xl">
-                  <div className="flex items-end gap-2">
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="icon">
-                        <Paperclip className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon">
-                        <ImageIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="flex-1">
-                      <Textarea
-                        placeholder="Type your message..."
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault()
-                            handleSendMessage()
-                          }
-                        }}
-                        className="min-h-[60px] resize-none"
-                      />
-                    </div>
-                    <div className="flex gap-2">
+              {/* Input Area */}
+              <div className="mt-auto bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-200/60 dark:border-slate-800 z-10 px-4 py-3 sm:px-6">
+                <div className="mx-auto max-w-4xl relative flex items-end gap-2 sm:gap-3">
+
+                  {/* Attachment Menus */}
+                  <div className="flex gap-1 mb-1 sm:mb-1.5">
+                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors hidden sm:flex">
+                      <Paperclip className="h-[18px] w-[18px]" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors hidden sm:flex">
+                      <ImageIcon className="h-[18px] w-[18px]" />
+                    </Button>
+
+                    {/* Mobile combo button */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 sm:hidden">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-32">
+                        <DropdownMenuItem><Paperclip className="mr-2 h-4 w-4" /> Document</DropdownMenuItem>
+                        <DropdownMenuItem><ImageIcon className="mr-2 h-4 w-4" /> Image/Video</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  {/* Input Box */}
+                  <div className="flex-1 relative group bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all flex items-center pr-2">
+                    <Textarea
+                      placeholder={`Draft a message to ${selectedMessage.contactName.split(' ')[0]}...`}
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          handleSendMessage()
+                        }
+                      }}
+                      className="min-h-[44px] max-h-[120px] w-full resize-none bg-transparent border-0 focus-visible:ring-0 px-4 py-3 text-[14.5px] scrollbar-hide"
+                      rows={1}
+                    />
+
+                    {/* Inline AI toggle */}
+                    <div className="flex-shrink-0 flex items-center">
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="icon"
                         onClick={() => setShowAiSuggestions(!showAiSuggestions)}
                         className={cn(
-                          showAiSuggestions && 'bg-purple-100 text-purple-700 dark:bg-purple-950'
+                          "h-8 w-8 rounded-full transition-all",
+                          showAiSuggestions
+                            ? "bg-purple-100 text-purple-600 hover:bg-purple-200 dark:bg-purple-900/50 dark:text-purple-400"
+                            : "text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-slate-800"
                         )}
+                        title="AI Suggestions"
                       >
                         <Sparkles className="h-4 w-4" />
                       </Button>
-                      <Button onClick={handleSendMessage} disabled={!replyText.trim()}>
-                        <Send className="h-4 w-4" />
-                      </Button>
                     </div>
                   </div>
+
+                  {/* Send Button */}
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={!replyText.trim()}
+                    className={cn(
+                      "mb-1 sm:mb-1.5 h-10 w-10 sm:h-11 sm:w-11 rounded-full p-0 flex items-center justify-center transition-all shadow-sm shadow-blue-500/20",
+                      replyText.trim()
+                        ? "bg-blue-600 hover:bg-blue-700 text-white hover:scale-105 active:scale-95"
+                        : "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 border border-slate-200 dark:border-slate-700"
+                    )}
+                  >
+                    <Send className={cn("h-4 w-4 sm:h-4.5 sm:w-4.5", replyText.trim() ? "ml-1" : "")} />
+                  </Button>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="flex flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900">
-              <div className="text-center">
-                <MessageSquare className="mx-auto mb-4 h-16 w-16 text-gray-400" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  Select a conversation
+            /* Empty State Area */
+            <div className="hidden lg:flex flex-1 items-center justify-center bg-slate-50/50 dark:bg-slate-900/30">
+              <div className="flex flex-col items-center justify-center max-w-md text-center animate-in fade-in duration-700">
+                <div className="relative mb-6">
+                  <div className="absolute inset-0 rounded-full bg-blue-100/50 dark:bg-blue-900/20 blur-2xl transform scale-150 animate-pulse"></div>
+                  <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/20 dark:shadow-none border border-slate-100 dark:border-slate-800/50 rotate-3 transition-transform hover:rotate-6">
+                    <MessageSquare className="h-10 w-10 text-blue-500" />
+                  </div>
+                </div>
+                <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-slate-100 dark:to-slate-400 tracking-tight">
+                  No Conversation Selected
                 </h3>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                  Choose a conversation from the list to view messages
+                <p className="mt-3 text-[14.5px] leading-relaxed text-slate-500 dark:text-slate-400">
+                  Choose a contact from the sidebar to view your message history, draft replies, and use AI-assisted responses.
                 </p>
+                <Button
+                  onClick={() => setShowNewConversationDialog(true)}
+                  variant="outline"
+                  className="mt-8 rounded-full px-6 font-medium border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:border-blue-500/50 hover:bg-blue-50 dark:hover:bg-blue-900/10 text-slate-700 dark:text-slate-300"
+                >
+                  <UserPlus className="mr-2 h-4 w-4 text-blue-500 text-blue-600 dark:text-blue-400" />
+                  Start a new chat instead
+                </Button>
               </div>
             </div>
           )}
@@ -736,17 +908,17 @@ export default function SocialInboxPage() {
 
       {/* New Conversation Dialog */}
       <Dialog open={showNewConversationDialog} onOpenChange={setShowNewConversationDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Start New Conversation</DialogTitle>
-            <DialogDescription>
-              Create a new conversation with a customer
+        <DialogContent className="max-w-md p-6 rounded-2xl gap-6">
+          <DialogHeader className="gap-1.5 space-y-0">
+            <DialogTitle className="text-xl">Start New Conversation</DialogTitle>
+            <DialogDescription className="text-sm">
+              Create a new direct conversation to reach out to a customer.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-5">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
                 Contact Name
               </label>
               <Input
@@ -755,11 +927,12 @@ export default function SocialInboxPage() {
                 onChange={(e) =>
                   setNewConversationData(prev => ({ ...prev, name: e.target.value }))
                 }
+                className="h-11 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 focus-visible:ring-blue-500/50"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
                 Phone Number
               </label>
               <Input
@@ -768,11 +941,12 @@ export default function SocialInboxPage() {
                 onChange={(e) =>
                   setNewConversationData(prev => ({ ...prev, phone: e.target.value }))
                 }
+                className="h-11 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 focus-visible:ring-blue-500/50"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
                 Platform
               </label>
               <Select
@@ -781,47 +955,41 @@ export default function SocialInboxPage() {
                   setNewConversationData(prev => ({ ...prev, platform: value }))
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 focus:ring-blue-500/50">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="whatsapp">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 text-green-600" />
+                <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
+                  <SelectItem value="whatsapp" className="rounded-lg focus:bg-emerald-50 dark:focus:bg-emerald-950/30">
+                    <div className="flex items-center gap-2.5 font-medium">
+                      <div className="bg-emerald-100 p-1 rounded-md dark:bg-emerald-950/50"><MessageSquare className="h-3.5 w-3.5 text-emerald-600" /></div>
                       WhatsApp
                     </div>
                   </SelectItem>
-                  <SelectItem value="instagram">
-                    <div className="flex items-center gap-2">
-                      <Instagram className="h-4 w-4 text-purple-600" />
+                  <SelectItem value="instagram" className="rounded-lg focus:bg-pink-50 dark:focus:bg-pink-950/30">
+                    <div className="flex items-center gap-2.5 font-medium">
+                      <div className="bg-pink-100 p-1 rounded-md dark:bg-pink-950/50"><Instagram className="h-3.5 w-3.5 text-pink-600" /></div>
                       Instagram
                     </div>
                   </SelectItem>
-                  <SelectItem value="comment">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 text-blue-600" />
-                      Comment
+                  <SelectItem value="comment" className="rounded-lg focus:bg-blue-50 dark:focus:bg-blue-950/30">
+                    <div className="flex items-center gap-2.5 font-medium">
+                      <div className="bg-blue-100 p-1 rounded-md dark:bg-blue-950/50"><MessageSquare className="h-3.5 w-3.5 text-blue-600" /></div>
+                      Post Comment
                     </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </div>
 
-          <div className="flex justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setShowNewConversationDialog(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateNewConversation}
-              disabled={!newConversationData.name.trim() || !newConversationData.phone.trim()}
-            >
-              <UserPlus className="mr-2 h-4 w-4" />
-              Create Conversation
-            </Button>
+            <div className="pt-2">
+              <Button
+                onClick={handleCreateNewConversation}
+                className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                disabled={!newConversationData.name.trim() || !newConversationData.phone.trim()}
+              >
+                Start Chat Setup
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

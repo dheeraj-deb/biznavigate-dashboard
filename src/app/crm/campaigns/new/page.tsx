@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -68,7 +69,7 @@ function useContactsPicker(search: string) {
   return useQuery({
     queryKey: ['contacts-picker', search],
     queryFn: async () => {
-      const response = await apiClient.get<any>('/contacts', {
+      const response = await apiClient.get<any>('/customers', {
         params: { search: search || undefined, limit: 100 },
       })
       const body = response.data as any
@@ -84,29 +85,29 @@ function useContactsPicker(search: string) {
 const STEPS = ['Basic Info', 'Template', 'Variables', 'Audience', 'Schedule', 'Review']
 
 const VARIABLE_SOURCES: { value: VariableSource; label: string }[] = [
-  { value: 'contact.name',        label: 'Contact Name' },
-  { value: 'contact.phone',       label: 'Contact Phone' },
+  { value: 'contact.name', label: 'Contact Name' },
+  { value: 'contact.phone', label: 'Contact Phone' },
   { value: 'system.current_date', label: 'Current Date' },
   { value: 'system.current_time', label: 'Current Time' },
 ]
 
 const TIMEZONES = [
-  { value: 'Asia/Kolkata',        label: 'IST — Asia/Kolkata' },
-  { value: 'Asia/Dubai',          label: 'GST — Asia/Dubai' },
-  { value: 'Asia/Singapore',      label: 'SGT — Asia/Singapore' },
-  { value: 'Asia/Tokyo',          label: 'JST — Asia/Tokyo' },
-  { value: 'Europe/London',       label: 'GMT — Europe/London' },
-  { value: 'Europe/Paris',        label: 'CET — Europe/Paris' },
-  { value: 'America/New_York',    label: 'EST — America/New_York' },
+  { value: 'Asia/Kolkata', label: 'IST — Asia/Kolkata' },
+  { value: 'Asia/Dubai', label: 'GST — Asia/Dubai' },
+  { value: 'Asia/Singapore', label: 'SGT — Asia/Singapore' },
+  { value: 'Asia/Tokyo', label: 'JST — Asia/Tokyo' },
+  { value: 'Europe/London', label: 'GMT — Europe/London' },
+  { value: 'Europe/Paris', label: 'CET — Europe/Paris' },
+  { value: 'America/New_York', label: 'EST — America/New_York' },
   { value: 'America/Los_Angeles', label: 'PST — America/Los_Angeles' },
-  { value: 'UTC',                 label: 'UTC' },
+  { value: 'UTC', label: 'UTC' },
 ]
 
 const CRON_PRESETS = [
   { value: '0 9 * * *', label: 'Daily at 9:00 AM' },
   { value: '0 9 * * 1', label: 'Every Monday at 9:00 AM' },
   { value: '0 9 1 * *', label: 'Monthly on 1st at 9:00 AM' },
-  { value: 'custom',    label: 'Custom expression…' },
+  { value: 'custom', label: 'Custom expression…' },
 ]
 
 type FieldMeta = {
@@ -122,7 +123,7 @@ const FIELD_CONFIG: Record<AudienceField, FieldMeta> = {
     operators: [
       { value: 'gte', label: '≥' }, { value: 'gt', label: '>' },
       { value: 'lte', label: '≤' }, { value: 'lt', label: '<' },
-      { value: 'eq',  label: '=' }, { value: 'ne',  label: '≠' },
+      { value: 'eq', label: '=' }, { value: 'ne', label: '≠' },
     ],
   },
   total_orders: {
@@ -131,7 +132,7 @@ const FIELD_CONFIG: Record<AudienceField, FieldMeta> = {
     operators: [
       { value: 'gte', label: '≥' }, { value: 'gt', label: '>' },
       { value: 'lte', label: '≤' }, { value: 'lt', label: '<' },
-      { value: 'eq',  label: '=' }, { value: 'ne',  label: '≠' },
+      { value: 'eq', label: '=' }, { value: 'ne', label: '≠' },
     ],
   },
   total_spent: {
@@ -140,16 +141,16 @@ const FIELD_CONFIG: Record<AudienceField, FieldMeta> = {
     operators: [
       { value: 'gte', label: '≥' }, { value: 'gt', label: '>' },
       { value: 'lte', label: '≤' }, { value: 'lt', label: '<' },
-      { value: 'eq',  label: '=' }, { value: 'ne',  label: '≠' },
+      { value: 'eq', label: '=' }, { value: 'ne', label: '≠' },
     ],
   },
   last_order_date: {
     label: 'Last Order Date',
     valueType: 'date',
     operators: [
-      { value: 'gt',  label: 'After' },
+      { value: 'gt', label: 'After' },
       { value: 'gte', label: 'On or After' },
-      { value: 'lt',  label: 'Before' },
+      { value: 'lt', label: 'Before' },
       { value: 'lte', label: 'On or Before' },
     ],
   },
@@ -158,7 +159,7 @@ const FIELD_CONFIG: Record<AudienceField, FieldMeta> = {
     valueType: 'string',
     operators: [
       { value: 'contains', label: 'Contains' },
-      { value: 'eq',       label: 'Equals' },
+      { value: 'eq', label: 'Equals' },
     ],
   },
   phone: {
@@ -166,7 +167,7 @@ const FIELD_CONFIG: Record<AudienceField, FieldMeta> = {
     valueType: 'string',
     operators: [
       { value: 'contains', label: 'Contains' },
-      { value: 'eq',       label: 'Equals' },
+      { value: 'eq', label: 'Equals' },
     ],
   },
 }
@@ -187,29 +188,26 @@ function StepProgress({ current }: { current: number }) {
           <div key={num} className="flex items-center flex-1 last:flex-none">
             <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${
-                  active
-                    ? 'bg-blue-600 border-blue-600 text-white'
-                    : done
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all ${active
+                  ? 'bg-blue-600 border-blue-600 text-white'
+                  : done
                     ? 'bg-green-500 border-green-500 text-white'
                     : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500'
-                }`}
+                  }`}
               >
                 {done ? <Check className="h-4 w-4" /> : num}
               </div>
               <span
-                className={`text-[10px] font-medium hidden sm:block ${
-                  active ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'
-                }`}
+                className={`text-[10px] font-medium hidden sm:block ${active ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'
+                  }`}
               >
                 {label}
               </span>
             </div>
             {i < STEPS.length - 1 && (
               <div
-                className={`flex-1 h-0.5 mx-2 mt-[-10px] rounded ${
-                  done ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-700'
-                }`}
+                className={`flex-1 h-0.5 mx-2 mt-[-10px] rounded ${done ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-700'
+                  }`}
               />
             )}
           </div>
@@ -235,6 +233,31 @@ export default function NewCampaignPage() {
   // Step 2 — Template
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null)
   const [templateSearch, setTemplateSearch] = useState('')
+
+  const [showPreview, setShowPreview] = useState(false)
+  const [previewPos, setPreviewPos] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStart = useRef({ x: 0, y: 0 })
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    setIsDragging(true)
+    dragStart.current = { x: e.clientX - previewPos.x, y: e.clientY - previewPos.y }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDragging) {
+      setPreviewPos({
+        x: e.clientX - dragStart.current.x,
+        y: e.clientY - dragStart.current.y
+      })
+    }
+  }
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    setIsDragging(false)
+    e.currentTarget.releasePointerCapture(e.pointerId)
+  }
 
   // Step 3 — Variables
   const [variableMappings, setVariableMappings] = useState<MappingRow[]>([])
@@ -290,6 +313,7 @@ export default function NewCampaignPage() {
 
   const handleTemplateSelect = (tpl: WhatsAppTemplate) => {
     setSelectedTemplate(tpl)
+    setShowPreview(true)
     const count = extractVariableCount(tpl.components.body)
     setVariableMappings(Array.from({ length: count }, (_, i) => ({ variableIndex: i, source: '' })))
   }
@@ -340,8 +364,8 @@ export default function NewCampaignPage() {
       ...(audienceMode === 'contacts'
         ? { explicitPhoneNumbers: contactPhones }
         : audienceMode === 'explicit'
-        ? { explicitPhoneNumbers: explicitPhones }
-        : {
+          ? { explicitPhoneNumbers: explicitPhones }
+          : {
             audienceFilter: {
               operator: filterOp,
               conditions: conditions.map((c) => ({
@@ -354,12 +378,12 @@ export default function NewCampaignPage() {
       schedule:
         sendAt || (type === 'RECURRING' && cronExpression)
           ? {
-              sendAt: sendAt || undefined,
-              timezone: sendAt ? timezone : undefined,
-              ...(type === 'RECURRING'
-                ? { cronExpression: cronExpression || undefined, endsAt: endsAt || undefined }
-                : {}),
-            }
+            sendAt: sendAt || undefined,
+            timezone: sendAt ? timezone : undefined,
+            ...(type === 'RECURRING'
+              ? { cronExpression: cronExpression || undefined, endsAt: endsAt || undefined }
+              : {}),
+          }
           : undefined,
     }
 
@@ -369,6 +393,17 @@ export default function NewCampaignPage() {
     } else {
       router.push('/crm/campaigns')
     }
+  }
+
+  const renderTemplateText = (text?: string, examples?: string[]) => {
+    if (!text) return ''
+    return text.replace(/\{\{(\d+)\}\}/g, (match, num) => {
+      const idx = parseInt(num) - 1
+      const mapped = variableMappings[idx]?.source
+      if (mapped) return `${mapped}`
+      if (examples && examples[idx]) return `${examples[idx]}`
+      return match
+    })
   }
 
   return (
@@ -430,11 +465,10 @@ export default function NewCampaignPage() {
                         key={t}
                         type="button"
                         onClick={() => setType(t)}
-                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                          type === t
-                            ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                        }`}
+                        className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${type === t
+                          ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          }`}
                       >
                         {t === 'ONE_TIME' ? 'One-Time' : 'Recurring'}
                       </button>
@@ -451,14 +485,14 @@ export default function NewCampaignPage() {
 
             {/* ── Step 2: Template ───────────────────────────────────────── */}
             {step === 2 && (
-              <>
+              <div className="space-y-4">
                 <Input
                   placeholder="Search templates…"
                   value={templateSearch}
                   onChange={(e) => setTemplateSearch(e.target.value)}
                   className="h-9"
                 />
-                <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                   {templatesLoading ? (
                     <div className="flex justify-center py-8">
                       <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
@@ -470,40 +504,40 @@ export default function NewCampaignPage() {
                     </div>
                   ) : (
                     approvedTemplates.map((tpl) => (
-                      <button
-                        key={tpl._id}
-                        type="button"
-                        onClick={() => handleTemplateSelect(tpl)}
-                        className={`w-full text-left rounded-lg border px-3.5 py-3 transition-all ${
-                          selectedTemplate?._id === tpl._id
+                      <div key={tpl._id} className="relative group">
+                        <button
+                          type="button"
+                          onClick={() => handleTemplateSelect(tpl)}
+                          className={`w-full text-left rounded-lg border px-3.5 py-3 transition-all pr-24 ${selectedTemplate?._id === tpl._id
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-600'
                             : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold font-mono text-gray-800 dark:text-gray-200 truncate">
-                              {tpl.name}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
-                              {tpl.components.body}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1.5">
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500">
-                                {tpl.category}
-                              </span>
-                              <span className="text-[10px] text-gray-400">{tpl.language}</span>
+                            }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 h-full">
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold font-mono text-gray-800 dark:text-gray-200 truncate">
+                                {tpl.name}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+                                {tpl.components.body}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500">
+                                  {tpl.category}
+                                </span>
+                                <span className="text-[10px] text-gray-400">{tpl.language}</span>
+                              </div>
                             </div>
+                            {selectedTemplate?._id === tpl._id && (
+                              <CheckCircle2 className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                            )}
                           </div>
-                          {selectedTemplate?._id === tpl._id && (
-                            <CheckCircle2 className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                          )}
-                        </div>
-                      </button>
+                        </button>
+                      </div>
                     ))
                   )}
                 </div>
-              </>
+              </div>
             )}
 
             {/* ── Step 3: Variable Mapping ───────────────────────────────── */}
@@ -563,17 +597,16 @@ export default function NewCampaignPage() {
                   {([
                     { id: 'contacts', label: 'From Contacts' },
                     { id: 'explicit', label: 'Specific Numbers' },
-                    { id: 'filter',   label: 'Filter Segments' },
+                    { id: 'filter', label: 'Filter Segments' },
                   ] as const).map(({ id, label }) => (
                     <button
                       key={id}
                       type="button"
                       onClick={() => setAudienceMode(id)}
-                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                        audienceMode === id
-                          ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                      }`}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${audienceMode === id
+                        ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
                     >
                       {label}
                     </button>
@@ -643,17 +676,15 @@ export default function NewCampaignPage() {
                                   return next
                                 })
                               }}
-                              className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
-                                !phone
-                                  ? 'opacity-40 cursor-not-allowed'
-                                  : checked
+                              className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${!phone
+                                ? 'opacity-40 cursor-not-allowed'
+                                : checked
                                   ? 'bg-blue-50 dark:bg-blue-950/20'
                                   : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                              }`}
+                                }`}
                             >
-                              <div className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
-                                checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-600'
-                              }`}>
+                              <div className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${checked ? 'bg-blue-500 border-blue-500' : 'border-gray-300 dark:border-gray-600'
+                                }`}>
                                 {checked && <Check className="h-3 w-3 text-white" />}
                               </div>
                               <div className="min-w-0 flex-1">
@@ -707,11 +738,10 @@ export default function NewCampaignPage() {
                             key={op}
                             type="button"
                             onClick={() => setFilterOp(op)}
-                            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                              filterOp === op
-                                ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
-                                : 'text-gray-400 dark:text-gray-500'
-                            }`}
+                            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${filterOp === op
+                              ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm'
+                              : 'text-gray-400 dark:text-gray-500'
+                              }`}
                           >
                             {op}
                           </button>
@@ -867,10 +897,10 @@ export default function NewCampaignPage() {
               <div className="space-y-4">
                 {[
                   { label: 'Campaign Name', value: name },
-                  { label: 'Description',   value: description || '—' },
-                  { label: 'Type',          value: type === 'ONE_TIME' ? 'One-Time' : 'Recurring' },
-                  { label: 'Template',      value: selectedTemplate.name },
-                  { label: 'Language',      value: selectedTemplate.language.toUpperCase() },
+                  { label: 'Description', value: description || '—' },
+                  { label: 'Type', value: type === 'ONE_TIME' ? 'One-Time' : 'Recurring' },
+                  { label: 'Template', value: selectedTemplate.name },
+                  { label: 'Language', value: selectedTemplate.language.toUpperCase() },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between text-sm border-b border-gray-100 dark:border-gray-800 pb-2">
                     <span className="text-gray-500 dark:text-gray-400">{label}</span>
@@ -896,8 +926,8 @@ export default function NewCampaignPage() {
                     {audienceMode === 'contacts'
                       ? `${selectedContactIds.size} contact${selectedContactIds.size !== 1 ? 's' : ''} from list`
                       : audienceMode === 'explicit'
-                      ? `${explicitPhones.length} phone number${explicitPhones.length !== 1 ? 's' : ''}`
-                      : `${conditions.length} filter condition${conditions.length !== 1 ? 's' : ''} (${filterOp})`}
+                        ? `${explicitPhones.length} phone number${explicitPhones.length !== 1 ? 's' : ''}`
+                        : `${conditions.length} filter condition${conditions.length !== 1 ? 's' : ''} (${filterOp})`}
                   </span>
                 </div>
 
@@ -965,6 +995,107 @@ export default function NewCampaignPage() {
           )}
         </div>
       </div>
+
+      {/* Mobile Preview Floating Widget */}
+      {/* Mobile Preview Floating Widget */}
+      {(step === 2 || step === 3) && showPreview && selectedTemplate && (
+        <div
+          className="fixed z-50 shadow-2xl flex flex-col w-[320px] h-[600px] rounded-[2.5rem] border-[8px] border-gray-900 bg-[#E5DDD5] dark:bg-[#111B21] overflow-hidden"
+          style={{
+            right: '2rem',
+            top: '50%',
+            transform: `translate(${previewPos.x}px, calc(-50% + ${previewPos.y}px))`,
+            transition: isDragging ? 'none' : 'transform 0.1s ease-out'
+          }}
+        >
+          {/* Close Button (Independent from drag handle) */}
+          <button
+            type="button"
+            onClick={() => setShowPreview(false)}
+            className="absolute right-4 top-4 z-40 p-1.5 bg-black/50 hover:bg-black/80 text-white rounded-full transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+
+          {/* Drag Handle Overlay */}
+          <div
+            className="absolute inset-x-0 top-0 h-14 z-30 cursor-move"
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+          />
+          {/* Status Bar Mock */}
+          <div className="h-7 w-full bg-gray-900/5 flex items-center justify-center relative">
+            <div className="w-24 h-5 bg-gray-900 rounded-b-2xl absolute top-[-1px]" />
+          </div>
+
+          {/* Chat Header Mock */}
+          <div className="px-4 py-3 bg-[#075E54] flex items-center gap-3 text-white">
+            <div className="w-9 h-9 rounded-full bg-white/20 flex-shrink-0 flex items-center justify-center">
+              <Users className="w-5 h-5 text-white/70" />
+            </div>
+            <div>
+              <p className="text-[15px] font-medium leading-none">Business Account</p>
+              <p className="text-[11px] text-white/80 mt-1 opacity-90">Official business account</p>
+            </div>
+          </div>
+
+          {/* Chat Body */}
+          <div className="flex-1 bg-[#E5DDD5] dark:bg-[#111B21] p-4 overflow-y-auto w-full">
+            {selectedTemplate && (
+              <div className="bg-white dark:bg-[#202C33] rounded-lg rounded-tl-none p-3 shadow-sm flex flex-col max-w-[92%] relative">
+                {/* Decorative tip */}
+                <div className="absolute top-0 -left-2 w-2 h-2">
+                  <svg viewBox="0 0 8 13" width="8" height="13" className="text-white dark:text-[#202C33]">
+                    <path opacity=".13" fill="#0000000" d="M1.533 3.118L8 12.118V0z"></path>
+                    <path fill="currentColor" d="M1.533 2.118L8 11.118V0z"></path>
+                  </svg>
+                </div>
+
+                {selectedTemplate.components.header && (
+                  <p className="text-[15px] font-bold text-gray-900 dark:text-gray-100 mb-1.5">
+                    {renderTemplateText(
+                      selectedTemplate.components.header.text,
+                      selectedTemplate.components.header.example ? [selectedTemplate.components.header.example] : undefined
+                    ) || '[Media Title]'}
+                  </p>
+                )}
+                <p className="text-[15px] text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-snug">
+                  {renderTemplateText(selectedTemplate.components.body, selectedTemplate.components.bodyExamples)}
+                </p>
+                {selectedTemplate.components.footer && (
+                  <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-2 leading-none">
+                    {selectedTemplate.components.footer}
+                  </p>
+                )}
+                {selectedTemplate.components.buttons && selectedTemplate.components.buttons.length > 0 && (
+                  <div className="mt-2.5 border-t border-gray-100 dark:border-gray-700/50 pt-1 space-y-1">
+                    {selectedTemplate.components.buttons.map((btn, i) => (
+                      <div key={i} className="text-center text-[15px] font-medium text-[#00A884] py-1.5 border-b border-gray-100 dark:border-gray-700/50 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-800/30 rounded cursor-pointer transition-colors">
+                        {(btn.type === ('URL' as any) || btn.type === ('CALL_TO_ACTION' as any)) && '🔗 '}
+                        {btn.type === ('PHONE_NUMBER' as any) && '📞 '}
+                        {btn.text}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[11px] text-gray-400 text-right mt-1.5">10:42 AM</p>
+              </div>
+            )}
+          </div>
+
+          {/* Input Bar Mock */}
+          <div className="h-14 bg-[#f0f2f5] dark:bg-[#202c33] border-t border-gray-300 dark:border-gray-700 px-3 flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0" />
+            <div className="flex-1 h-9 rounded-full bg-white dark:bg-[#2a3942] px-4 flex items-center">
+              <span className="text-gray-400 text-sm">Message</span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#00a884] flex-shrink-0 flex items-center justify-center shadow-md">
+              <div className="w-4 h-4 bg-white/[0.8] style-mask-send" />
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   )
 }
