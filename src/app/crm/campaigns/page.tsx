@@ -43,6 +43,7 @@ import {
   Users,
   CheckCircle2,
   Clock,
+  Rocket,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import {
@@ -50,36 +51,28 @@ import {
   useDeleteCampaign,
   usePauseCampaign,
   useResumeCampaign,
+  useLaunchCampaign,
   type CampaignStatus,
   type CampaignType,
 } from '@/hooks/use-campaigns'
 
-// ── Status config ─────────────────────────────────────────────────────────────
+// ── Status / type config ───────────────────────────────────────────────────────
 
 const statusConfig: Record<CampaignStatus, { label: string; color: string }> = {
-  draft:     { label: 'Draft',     color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
-  scheduled: { label: 'Scheduled', color: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400' },
-  active:    { label: 'Active',    color: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400' },
-  completed: { label: 'Completed', color: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400' },
-  paused:    { label: 'Paused',    color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400' },
+  DRAFT:     { label: 'Draft',      color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
+  SCHEDULED: { label: 'Scheduled',  color: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400' },
+  RUNNING:   { label: 'Sending…',   color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400' },
+  PAUSED:    { label: 'Paused',     color: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400' },
+  COMPLETED: { label: 'Completed',  color: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400' },
+  FAILED:    { label: 'Failed',     color: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400' },
+  CANCELLED: { label: 'Cancelled',  color: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500' },
 }
 
 const typeConfig: Record<CampaignType, { label: string; color: string }> = {
-  promotional:   { label: 'Promotional',   color: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400' },
-  transactional: { label: 'Transactional', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400' },
-  announcement:  { label: 'Announcement',  color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400' },
-  reminder:      { label: 'Reminder',      color: 'bg-pink-100 text-pink-700 dark:bg-pink-950 dark:text-pink-400' },
+  ONE_TIME:  { label: 'One-Time',  color: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400' },
+  RECURRING: { label: 'Recurring', color: 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400' },
 }
 
-function readRate(delivered: number, read: number) {
-  if (!delivered) return '—'
-  return `${Math.round((read / delivered) * 100)}%`
-}
-
-function deliveryRate(sent: number, delivered: number) {
-  if (!sent) return '—'
-  return `${Math.round((delivered / sent) * 100)}%`
-}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -94,33 +87,30 @@ export default function CampaignsPage() {
   const { data, isLoading } = useCampaigns({
     search: search || undefined,
     status: statusFilter as any,
-    campaign_type: typeFilter as any,
+    type: typeFilter as any,
     page,
     limit,
   })
 
-  const deleteMutation = useDeleteCampaign()
-  const pauseMutation = usePauseCampaign()
-  const resumeMutation = useResumeCampaign()
+  const deleteMutation  = useDeleteCampaign()
+  const pauseMutation   = usePauseCampaign()
+  const resumeMutation  = useResumeCampaign()
+  const launchMutation  = useLaunchCampaign()
 
-  const campaigns = data?.data ?? []
-  const total = data?.total ?? 0
-  const totalPages = Math.ceil(total / limit)
+  const campaigns  = data?.data ?? []
+  const total      = data?.pagination.total ?? 0
+  const totalPages = data?.pagination.totalPages ?? 1
 
-  // Summary counts from current data
-  const counts = campaigns.reduce(
-    (acc, c) => {
-      acc[c.status] = (acc[c.status] ?? 0) + 1
-      return acc
-    },
-    {} as Record<string, number>
-  )
+  const counts = campaigns.reduce((acc, c) => {
+    acc[c.status] = (acc[c.status] ?? 0) + 1
+    return acc
+  }, {} as Record<string, number>)
 
   const summaryCards = [
-    { label: 'Total', value: total, icon: MessageSquare, color: 'text-gray-600' },
-    { label: 'Active', value: counts.active ?? 0, icon: Play, color: 'text-green-600' },
-    { label: 'Scheduled', value: counts.scheduled ?? 0, icon: Clock, color: 'text-blue-600' },
-    { label: 'Completed', value: counts.completed ?? 0, icon: CheckCircle2, color: 'text-purple-600' },
+    { label: 'Total',     value: total,                   icon: MessageSquare, color: 'text-gray-600' },
+    { label: 'Running',   value: counts.RUNNING   ?? 0,   icon: Play,          color: 'text-yellow-600' },
+    { label: 'Scheduled', value: counts.SCHEDULED ?? 0,   icon: Clock,         color: 'text-blue-600' },
+    { label: 'Completed', value: counts.COMPLETED ?? 0,   icon: CheckCircle2,  color: 'text-green-600' },
   ]
 
   return (
@@ -131,7 +121,7 @@ export default function CampaignsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Campaigns</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              Manage and monitor your WhatsApp & SMS campaigns
+              Manage and monitor your WhatsApp campaigns
             </p>
           </div>
           <Button onClick={() => router.push('/crm/campaigns/new')}>
@@ -167,7 +157,7 @@ export default function CampaignsPage() {
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search campaigns..."
+              placeholder="Search campaigns…"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1) }}
               className="pl-9"
@@ -179,23 +169,23 @@ export default function CampaignsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="scheduled">Scheduled</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="paused">Paused</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="DRAFT">Draft</SelectItem>
+              <SelectItem value="SCHEDULED">Scheduled</SelectItem>
+              <SelectItem value="RUNNING">Running</SelectItem>
+              <SelectItem value="PAUSED">Paused</SelectItem>
+              <SelectItem value="COMPLETED">Completed</SelectItem>
+              <SelectItem value="FAILED">Failed</SelectItem>
+              <SelectItem value="CANCELLED">Cancelled</SelectItem>
             </SelectContent>
           </Select>
           <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1) }}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-36">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="promotional">Promotional</SelectItem>
-              <SelectItem value="transactional">Transactional</SelectItem>
-              <SelectItem value="announcement">Announcement</SelectItem>
-              <SelectItem value="reminder">Reminder</SelectItem>
+              <SelectItem value="ONE_TIME">One-Time</SelectItem>
+              <SelectItem value="RECURRING">Recurring</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -208,11 +198,11 @@ export default function CampaignsPage() {
                 <TableHead>Campaign</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Recipients</TableHead>
+                <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-right">Sent</TableHead>
                 <TableHead className="text-right">Delivery</TableHead>
                 <TableHead className="text-right">Read Rate</TableHead>
-                <TableHead>Scheduled</TableHead>
+                <TableHead>Schedule</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -234,18 +224,26 @@ export default function CampaignsPage() {
                 </TableRow>
               ) : (
                 campaigns.map((campaign) => {
-                  const status = statusConfig[campaign.status]
-                  const type = typeConfig[campaign.campaign_type]
+                  const status   = statusConfig[campaign.status] ?? statusConfig.DRAFT
+                  const type     = typeConfig[campaign.type] ?? typeConfig.ONE_TIME
+                  const analytics    = campaign.analytics
+                  const total        = analytics?.total ?? 0
+                  const sent         = analytics?.sent ?? 0
+                  const deliveryRate = analytics?.delivery_rate
+                  const readRate     = analytics?.read_rate
+
                   return (
-                    <TableRow key={campaign.campaign_id}>
+                    <TableRow key={campaign._id}>
                       <TableCell>
                         <div>
                           <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                            {campaign.campaign_name}
+                            {campaign.name}
                           </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                            {campaign.channel}
-                          </p>
+                          {campaign.description && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
+                              {campaign.description}
+                            </p>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -257,20 +255,20 @@ export default function CampaignsPage() {
                       <TableCell className="text-right text-sm">
                         <span className="flex items-center justify-end gap-1">
                           <Users className="h-3.5 w-3.5 text-gray-400" />
-                          {campaign.total_recipients.toLocaleString()}
+                          {total.toLocaleString()}
                         </span>
                       </TableCell>
                       <TableCell className="text-right text-sm text-gray-700 dark:text-gray-300">
-                        {campaign.sent_count.toLocaleString()}
+                        {sent.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right text-sm text-gray-700 dark:text-gray-300">
-                        {deliveryRate(campaign.sent_count, campaign.delivered_count)}
+                        {deliveryRate != null ? `${deliveryRate}%` : '—'}
                       </TableCell>
                       <TableCell className="text-right text-sm text-gray-700 dark:text-gray-300">
-                        {readRate(campaign.delivered_count, campaign.read_count)}
+                        {readRate != null ? `${readRate}%` : '—'}
                       </TableCell>
                       <TableCell className="text-sm text-gray-500 dark:text-gray-400">
-                        {campaign.scheduled_at ? formatDate(campaign.scheduled_at) : '—'}
+                        {campaign.schedule?.sendAt ? formatDate(campaign.schedule.sendAt) : '—'}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -280,22 +278,27 @@ export default function CampaignsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => router.push(`/crm/campaigns/${campaign.campaign_id}`)}>
+                            <DropdownMenuItem onClick={() => router.push(`/crm/campaigns/${campaign._id}`)}>
                               <Eye className="h-4 w-4 mr-2" /> View
                             </DropdownMenuItem>
-                            {campaign.status === 'active' && (
-                              <DropdownMenuItem onClick={() => pauseMutation.mutate(campaign.campaign_id)}>
+                            {(campaign.status === 'DRAFT' || campaign.status === 'SCHEDULED') && (
+                              <DropdownMenuItem onClick={() => launchMutation.mutate(campaign._id)}>
+                                <Rocket className="h-4 w-4 mr-2" /> Launch
+                              </DropdownMenuItem>
+                            )}
+                            {campaign.status === 'RUNNING' && (
+                              <DropdownMenuItem onClick={() => pauseMutation.mutate(campaign._id)}>
                                 <Pause className="h-4 w-4 mr-2" /> Pause
                               </DropdownMenuItem>
                             )}
-                            {campaign.status === 'paused' && (
-                              <DropdownMenuItem onClick={() => resumeMutation.mutate(campaign.campaign_id)}>
+                            {campaign.status === 'PAUSED' && (
+                              <DropdownMenuItem onClick={() => resumeMutation.mutate(campaign._id)}>
                                 <Play className="h-4 w-4 mr-2" /> Resume
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() => deleteMutation.mutate(campaign.campaign_id)}
+                              onClick={() => deleteMutation.mutate(campaign._id)}
                               className="text-red-600 dark:text-red-400"
                             >
                               <Trash2 className="h-4 w-4 mr-2" /> Delete
@@ -314,7 +317,9 @@ export default function CampaignsPage() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between text-sm text-gray-500">
-            <p>Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}</p>
+            <p>
+              Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}
+            </p>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
                 Previous
