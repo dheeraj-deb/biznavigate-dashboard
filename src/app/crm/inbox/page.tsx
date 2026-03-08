@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -23,7 +23,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -32,142 +32,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import {
-  Search,
-  Filter,
-  MessageSquare,
-  Instagram,
-  Send,
-  Sparkles,
-  Tag,
-  UserPlus,
-  MoreVertical,
-  Star,
-  Archive,
-  Trash2,
-  Clock,
-  CheckCheck,
-  AlertCircle,
-  Paperclip,
-  Image as ImageIcon,
-  Phone,
-  Video,
-  Info,
-} from 'lucide-react'
+import { Plus, Search, MessageSquare, Phone, Video, MoreVertical, Paperclip, Send, CheckCheck, Info, RefreshCw, X, Link as LinkIcon, Image as ImageIcon, FileText, Smile, Star, Trash2, UserPlus, Tag, Filter, Instagram, Sparkles, Archive, AlertCircle, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, formatDistanceToNow } from 'date-fns'
+import { useConversations, useCustomerConversations, useSendMessage, useUpdateConversationStatus, useInboxWebSocket, ConversationListItem, MessageData, Channel as Platform, ConversationStatus as MessageStatus, GroupedCustomer, AggregatedCustomerDetail } from '@/hooks/use-inbox'
+import { isToday, isYesterday, format as formatDate } from 'date-fns'
 
-// Mock data types
-type Platform = 'whatsapp' | 'instagram' | 'comment'
-type MessageStatus = 'unread' | 'read' | 'replied'
-type Priority = 'high' | 'medium' | 'low'
-
-interface Message {
-  id: string
-  contactName: string
-  contactAvatar?: string
-  platform: Platform
-  lastMessage: string
-  timestamp: Date
-  status: MessageStatus
-  priority?: Priority
-  tags?: string[]
-  isStarred?: boolean
-  unreadCount?: number
-}
-
-interface ConversationMessage {
-  id: string
-  content: string
-  timestamp: Date
-  isIncoming: boolean
-  status?: 'sent' | 'delivered' | 'read'
-  attachments?: { type: 'image' | 'file'; url: string; name?: string }[]
-}
-
-// Mock messages data
-const mockMessages: Message[] = [
-  {
-    id: '1',
-    contactName: 'Priya Sharma',
-    contactAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Priya',
-    platform: 'whatsapp',
-    lastMessage: 'Hi! I\'m interested in your summer collection. Do you have it in blue?',
-    timestamp: new Date(Date.now() - 5 * 60 * 1000),
-    status: 'unread',
-    priority: 'high',
-    tags: ['product-inquiry', 'new-lead'],
-    unreadCount: 3,
-  },
-  {
-    id: '2',
-    contactName: 'Rahul Verma',
-    platform: 'instagram',
-    lastMessage: 'What are your delivery charges to Mumbai?',
-    timestamp: new Date(Date.now() - 15 * 60 * 1000),
-    status: 'unread',
-    tags: ['shipping-query'],
-    unreadCount: 1,
-  },
-  {
-    id: '3',
-    contactName: 'Anjali Patel',
-    contactAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Anjali',
-    platform: 'whatsapp',
-    lastMessage: 'Thanks for the quick response! I\'ll place the order soon.',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    status: 'replied',
-    isStarred: true,
-    tags: ['hot-lead'],
-  },
-  {
-    id: '4',
-    contactName: 'Sarah Wilson',
-    platform: 'comment',
-    lastMessage: 'Beautiful products! Where can I buy this?',
-    timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
-    status: 'unread',
-    priority: 'medium',
-    unreadCount: 1,
-  },
-  {
-    id: '5',
-    contactName: 'Amit Kumar',
-    contactAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Amit',
-    platform: 'whatsapp',
-    lastMessage: 'Is this still available?',
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    status: 'read',
-    tags: ['follow-up'],
-  },
-]
-
-// Mock conversation data
-const mockConversation: ConversationMessage[] = [
-  {
-    id: '1',
-    content: 'Hi! I\'m interested in your summer collection. Do you have it in blue?',
-    timestamp: new Date(Date.now() - 10 * 60 * 1000),
-    isIncoming: true,
-  },
-  {
-    id: '2',
-    content: 'Yes! We have the summer collection in multiple shades of blue. Would you like to see some images?',
-    timestamp: new Date(Date.now() - 8 * 60 * 1000),
-    isIncoming: false,
-    status: 'read',
-  },
-  {
-    id: '3',
-    content: 'Yes please! Also, what\'s the price range?',
-    timestamp: new Date(Date.now() - 5 * 60 * 1000),
-    isIncoming: true,
-  },
-]
-
+// Define platform type based on what we use in UI
+type UIPlatform = 'whatsapp' | 'instagram' | 'comment'
 // AI suggested responses - context-aware based on conversation
-const getAiSuggestions = (lastMessage: string, platform: Platform) => {
-  const lowerMessage = lastMessage.toLowerCase()
+const getAiSuggestions = (lastMessage: string | undefined | null, platform: UIPlatform | string) => {
+  const lowerMessage = (lastMessage || '').toLowerCase()
 
   // Product inquiry suggestions
   if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('how much')) {
@@ -216,15 +91,33 @@ const getAiSuggestions = (lastMessage: string, platform: Platform) => {
 export default function SocialInboxPage() {
   const searchParams = useSearchParams()
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const [messages, setMessages] = useState<Message[]>(mockMessages)
-  const [conversations, setConversations] = useState<Record<string, ConversationMessage[]>>({
-    '1': mockConversation,
-    '2': [],
-    '3': [],
-    '4': [],
-    '5': [],
-  })
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(mockMessages[0])
+
+  // Socket
+  useInboxWebSocket()
+
+  // Queries & Mutations
+  const { data: convData, isLoading: isLoadingList } = useConversations({ limit: 100 })
+  const messages = convData?.data || []
+
+  const { mutateAsync: sendMessageAsync } = useSendMessage()
+  const { mutateAsync: updateStatusAsync } = useUpdateConversationStatus()
+
+  const [selectedCustomer, setSelectedCustomer] = useState<GroupedCustomer | null>(null)
+
+  const {
+    data: detailData,
+    isLoading: isLoadingDetail,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage
+  } = useCustomerConversations(selectedCustomer?.conversation_ids || [])
+
+  const activeMessages = useMemo(() => {
+    if (!detailData?.pages) return []
+    const all = detailData.pages.flatMap((p: any) => p?.messages || [])
+    return all.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  }, [detailData])
+
   const [searchQuery, setSearchQuery] = useState('')
   const [replyText, setReplyText] = useState('')
   const [showAiSuggestions, setShowAiSuggestions] = useState(true)
@@ -236,16 +129,48 @@ export default function SocialInboxPage() {
   })
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
-  // Auto-scroll to bottom when new messages arrive
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+
+  // Intersection Observer for Infinite Scroll
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [conversations, selectedMessage])
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage()
+        }
+      },
+      { root: null, rootMargin: '100px', threshold: 0.1 }
+    )
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  // Smart Auto-scroll to bottom logic
+  const lastMessageId = activeMessages[activeMessages.length - 1]?.platform_message_id || activeMessages[activeMessages.length - 1]?.timestamp
+  const previousLastMessageId = useRef(lastMessageId)
+
+  useEffect(() => {
+    // Scroll down instantly on customer switch
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+  }, [selectedCustomer])
+
+  useEffect(() => {
+    // Scroll down smoothly if a new message arrives at the bottom
+    if (lastMessageId !== previousLastMessageId.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      previousLastMessageId.current = lastMessageId
+    }
+  }, [lastMessageId])
 
   // Close sidebar on mobile when a chat is selected
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 1024) {
-        setIsSidebarOpen(!selectedMessage)
+        setIsSidebarOpen(!selectedCustomer)
       } else {
         setIsSidebarOpen(true)
       }
@@ -254,29 +179,41 @@ export default function SocialInboxPage() {
     handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [selectedMessage])
+  }, [selectedCustomer])
 
   // Handle opening specific chat from URL parameters
   useEffect(() => {
     const contactName = searchParams.get('contact')
     const platform = searchParams.get('platform') as Platform | null
 
-    if (contactName && platform) {
+    if (contactName && platform && messages.length > 0) {
       // Find the message matching the contact and platform
       const message = messages.find(
-        (msg) => msg.contactName === contactName && msg.platform === platform
+        (msg) => msg.sender_name === contactName && msg.channel === platform
       )
 
       if (message) {
-        handleSelectMessage(message)
+        // Create a temporary grouped customer to select it
+        const tempCust: GroupedCustomer = {
+          customer_id: message.customer_id,
+          sender_name: message.sender_name,
+          channels: [message.channel],
+          conversation_ids: [message.conversation_id],
+          latest_message: message.message_text,
+          updated_at: message.updated_at,
+          unreadCount: message.unreadCount || 0
+        }
+        if (!selectedCustomer || selectedCustomer.customer_id !== tempCust.customer_id) {
+          handleSelectCustomer(tempCust)
+        }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, messages])
+  }, [searchParams, messages, selectedCustomer]) // removed handleSelectCustomer to prevent infinite loop
 
-  // Get AI suggestions based on selected conversation
-  const currentAiSuggestions = selectedMessage
-    ? getAiSuggestions(selectedMessage.lastMessage, selectedMessage.platform)
+
+  // Get AI suggestions based on latest unified message
+  const currentAiSuggestions = selectedCustomer
+    ? getAiSuggestions(selectedCustomer.latest_message, selectedCustomer.channels[0])
     : []
 
   const getPlatformIcon = (platform: Platform) => {
@@ -306,72 +243,73 @@ export default function SocialInboxPage() {
 
   const getStatusBadge = (status: MessageStatus) => {
     const configs = {
-      unread: { label: 'New', className: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400' },
-      read: { label: 'Read', className: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400' },
-      replied: { label: 'Replied', className: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400' },
+      active: { label: 'Active', className: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400' },
+      waiting: { label: 'Waiting', className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
+      ended: { label: 'Ended', className: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400' },
     }
     const config = configs[status]
     return (
-      <Badge variant="secondary" className={cn('text-xs', config.className)}>
-        {config.label}
+      <Badge variant="secondary" className={cn('text-xs', config?.className)}>
+        {config?.label || status}
       </Badge>
     )
   }
 
-  const filteredMessages = messages.filter((msg) => {
-    const matchesSearch = msg.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      msg.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+  // ── Group Conversations by Customer ──
+  const groupedCustomers = messages.reduce<GroupedCustomer[]>((acc, msg) => {
+    const existing = acc.find(c => c.customer_id === msg.customer_id)
+    if (existing) {
+      if (!existing.channels.includes(msg.channel)) {
+        existing.channels.push(msg.channel)
+      }
+      if (!existing.conversation_ids.includes(msg.conversation_id)) {
+        existing.conversation_ids.push(msg.conversation_id)
+      }
+      // Update latest message if this one is newer
+      if (new Date(msg.updated_at) > new Date(existing.updated_at)) {
+        existing.latest_message = msg.message_text
+        existing.updated_at = msg.updated_at
+      }
+      existing.unreadCount += (msg.unreadCount || 0)
+    } else {
+      acc.push({
+        customer_id: msg.customer_id,
+        sender_name: msg.sender_name,
+        contactAvatar: msg.contactAvatar,
+        channels: [msg.channel],
+        conversation_ids: [msg.conversation_id],
+        latest_message: msg.message_text,
+        updated_at: msg.updated_at,
+        unreadCount: msg.unreadCount || 0
+      })
+    }
+    return acc
+  }, [])
+
+  const filteredCustomers = groupedCustomers.filter((cust) => {
+    const matchesSearch = (cust.sender_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (cust.latest_message || '').toLowerCase().includes(searchQuery.toLowerCase())
     return matchesSearch
   })
 
-  const handleSendMessage = () => {
-    if (!replyText.trim() || !selectedMessage) return
+  // Sort by most recent
+  filteredCustomers.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
 
-    // Create new message
-    const newMessage: ConversationMessage = {
-      id: Date.now().toString(),
-      content: replyText,
-      timestamp: new Date(),
-      isIncoming: false,
-      status: 'sent',
-    }
+  const handleSendMessage = async () => {
+    if (!replyText.trim() || !selectedCustomer || selectedCustomer.conversation_ids.length === 0) return
 
-    // Update conversation
-    setConversations(prev => ({
-      ...prev,
-      [selectedMessage.id]: [...(prev[selectedMessage.id] || []), newMessage],
-    }))
-
-    // Update message list - mark as replied and update last message
-    setMessages(prev =>
-      prev.map(msg =>
-        msg.id === selectedMessage.id
-          ? {
-            ...msg,
-            status: 'replied' as MessageStatus,
-            lastMessage: replyText,
-            timestamp: new Date(),
-            unreadCount: 0,
-          }
-          : msg
-      )
-    )
-
-    // Update selected message
-    setSelectedMessage(prev =>
-      prev
-        ? {
-          ...prev,
-          status: 'replied' as MessageStatus,
-          lastMessage: replyText,
-          timestamp: new Date(),
-          unreadCount: 0,
-        }
-        : null
-    )
-
+    const text = replyText
     setReplyText('')
     setShowAiSuggestions(true)
+
+    try {
+      // Send on the most recent active channel or first channel available
+      const primaryConvId = selectedCustomer.conversation_ids[0]
+      await sendMessageAsync({ conversationId: primaryConvId, content: text })
+    } catch (err) {
+      console.error('Failed to send message', err)
+      // Revert reply text on fail if needed
+    }
   }
 
   const handleUseSuggestion = (suggestion: string) => {
@@ -379,19 +317,9 @@ export default function SocialInboxPage() {
     setShowAiSuggestions(false)
   }
 
-  const handleSelectMessage = (message: Message) => {
-    setSelectedMessage(message)
-
-    // Mark message as read if it was unread
-    if (message.status === 'unread') {
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === message.id
-            ? { ...msg, status: 'read' as MessageStatus, unreadCount: 0 }
-            : msg
-        )
-      )
-    }
+  const handleSelectCustomer = (customer: GroupedCustomer) => {
+    setSelectedCustomer(customer)
+    // The useCustomerConversations hook automatically activates based on selectedCustomer.conversation_ids
   }
 
   const handleCreateNewConversation = () => {
@@ -399,27 +327,18 @@ export default function SocialInboxPage() {
       return
     }
 
-    const newId = (messages.length + 1).toString()
-    const newMessage: Message = {
-      id: newId,
-      contactName: newConversationData.name,
-      platform: newConversationData.platform,
-      lastMessage: 'Start a conversation...',
-      timestamp: new Date(),
-      status: 'read',
+    const newCust: GroupedCustomer = {
+      customer_id: newConversationData.phone,
+      sender_name: newConversationData.name,
+      channels: [newConversationData.platform as Platform],
+      conversation_ids: [`temp_${Date.now()}`],
+      latest_message: 'Start a conversation...',
+      updated_at: new Date().toISOString(),
+      unreadCount: 0
     }
 
-    // Add to messages list
-    setMessages(prev => [newMessage, ...prev])
-
-    // Initialize empty conversation
-    setConversations(prev => ({
-      ...prev,
-      [newId]: [],
-    }))
-
-    // Select the new conversation
-    setSelectedMessage(newMessage)
+    // Select the new (temporary) conversation for drafting
+    setSelectedCustomer(newCust)
 
     // Reset dialog
     setNewConversationData({
@@ -478,41 +397,41 @@ export default function SocialInboxPage() {
 
             {/* List */}
             <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
-              {filteredMessages.map((message) => (
+              {filteredCustomers.map((customer) => (
                 <div
-                  key={message.id}
+                  key={customer.customer_id}
                   className={cn(
                     'group relative flex cursor-pointer items-start gap-3 rounded-xl p-3 transition-all duration-200 ease-out',
-                    selectedMessage?.id === message.id
+                    selectedCustomer?.customer_id === customer.customer_id
                       ? 'bg-blue-50 dark:bg-blue-500/10 shadow-sm shadow-blue-500/5'
                       : 'hover:bg-slate-100/80 dark:hover:bg-slate-800/80 active:scale-[0.98]'
                   )}
-                  onClick={() => handleSelectMessage(message)}
+                  onClick={() => handleSelectCustomer(customer)}
                 >
                   {/* Selection Indicator Line */}
                   <div className={cn(
                     "absolute left-0 top-1/2 -translate-y-1/2 w-1 rounded-r-full transition-all duration-300",
-                    selectedMessage?.id === message.id ? "h-8 bg-blue-500" : "h-0 bg-transparent"
+                    selectedCustomer?.customer_id === customer.customer_id ? "h-8 bg-blue-500" : "h-0 bg-transparent"
                   )} />
 
                   <div className="relative flex-shrink-0">
                     <Avatar className={cn(
                       "h-12 w-12 border-2 transition-all duration-300",
-                      selectedMessage?.id === message.id ? "border-blue-100 dark:border-blue-900/50 shadow-md shadow-blue-500/20" : "border-transparent"
+                      selectedCustomer?.customer_id === customer.customer_id ? "border-blue-100 dark:border-blue-900/50 shadow-md shadow-blue-500/20" : "border-transparent"
                     )}>
-                      <AvatarImage src={message.contactAvatar} alt={message.contactName} />
+                      <AvatarImage src={customer.contactAvatar} alt={customer.sender_name} />
                       <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 text-slate-600 dark:text-slate-300 font-medium">
-                        {message.contactName.substring(0, 2).toUpperCase()}
+                        {customer.contactAvatar ? null : (customer.sender_name || 'U').substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
 
                     {/* Platform Icon Badge */}
                     <div className={cn(
                       "absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white dark:border-slate-950 shadow-sm transition-transform group-hover:scale-110",
-                      message.platform === 'whatsapp' ? 'bg-emerald-100 dark:bg-emerald-950/50' :
-                        message.platform === 'instagram' ? 'bg-pink-100 dark:bg-pink-950/50' : 'bg-blue-100 dark:bg-blue-950/50'
+                      customer.channels.includes('whatsapp') ? 'bg-emerald-100 dark:bg-emerald-950/50' :
+                        customer.channels.includes('instagram') ? 'bg-pink-100 dark:bg-pink-950/50' : 'bg-blue-100 dark:bg-blue-950/50'
                     )}>
-                      {getPlatformIcon(message.platform)}
+                      {getPlatformIcon(customer.channels[0])}
                     </div>
                   </div>
 
@@ -520,46 +439,35 @@ export default function SocialInboxPage() {
                     <div className="flex items-center justify-between gap-2">
                       <h3 className={cn(
                         "truncate text-[15px] font-medium transition-colors",
-                        selectedMessage?.id === message.id
+                        selectedCustomer?.customer_id === customer.customer_id
                           ? "text-blue-900 dark:text-blue-100"
                           : "text-slate-900 dark:text-slate-100"
                       )}>
-                        {message.contactName}
+                        {customer.sender_name}
                       </h3>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
-                        {message.isStarred && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />}
                         <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 tabular-nums">
-                          {formatDistanceToNow(message.timestamp, { addSuffix: false }).replace('about ', '')}
+                          {formatDistanceToNow(new Date(customer.updated_at), { addSuffix: false }).replace('about ', '')}
                         </span>
                       </div>
                     </div>
 
                     <p className={cn(
                       "mt-1 truncate text-[13px] leading-relaxed transition-colors",
-                      message.status === 'unread'
-                        ? (selectedMessage?.id === message.id ? "font-medium text-blue-800 dark:text-blue-200" : "font-semibold text-slate-900 dark:text-slate-100")
-                        : (selectedMessage?.id === message.id ? "text-blue-600/80 dark:text-blue-300/80" : "text-slate-500 dark:text-slate-400")
+                      selectedCustomer?.customer_id === customer.customer_id ? "text-blue-800 dark:text-blue-200" : "text-slate-500 dark:text-slate-400"
                     )}>
-                      {message.lastMessage}
+                      {customer.latest_message}
                     </p>
 
                     <div className="mt-2.5 flex items-center gap-1.5 min-w-0">
-                      {getStatusBadge(message.status)}
-                      {message.priority === 'high' && (
-                        <Badge variant="outline" className="text-[10px] uppercase font-semibold tracking-wide px-1.5 py-0 h-4 border border-orange-200 text-orange-600 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-900/50 dark:text-orange-400">
-                          High
-                        </Badge>
-                      )}
+                      <div className="flex gap-1 overflow-hidden">
+                        {customer.channels.map(ch => getPlatformBadge(ch))}
+                      </div>
 
                       <div className="ml-auto flex items-center gap-1 flex-shrink-0">
-                        {message.tags?.slice(0, 1).map((tag) => (
-                          <div key={tag} className="flex items-center text-[10px] uppercase tracking-wide font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-sm">
-                            {tag}
-                          </div>
-                        ))}
-                        {message.unreadCount && message.unreadCount > 0 && (
+                        {customer.unreadCount > 0 && (
                           <Badge className="ml-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-blue-500 px-1 text-[10px] font-bold text-white shadow-sm shadow-blue-500/20">
-                            {message.unreadCount}
+                            {customer.unreadCount}
                           </Badge>
                         )}
                       </div>
@@ -568,7 +476,7 @@ export default function SocialInboxPage() {
                 </div>
               ))}
 
-              {filteredMessages.length === 0 && (
+              {filteredCustomers.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8">
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/50 mb-4">
                     <MessageSquare className="h-8 w-8 text-slate-400" />
@@ -583,7 +491,7 @@ export default function SocialInboxPage() {
           </div>
 
           {/* Conversation View Area */}
-          {selectedMessage ? (
+          {selectedCustomer ? (
             <div className={cn(
               "flex flex-1 flex-col bg-[#F9FAFB] dark:bg-[#0B1120] relative w-full h-full",
               !isSidebarOpen && "fixed inset-0 z-30 lg:relative"
@@ -600,7 +508,7 @@ export default function SocialInboxPage() {
                     size="icon"
                     className="lg:hidden -ml-2 h-9 w-9 text-slate-500"
                     onClick={() => {
-                      setSelectedMessage(null)
+                      setSelectedCustomer(null)
                       setIsSidebarOpen(true)
                     }}
                   >
@@ -608,19 +516,19 @@ export default function SocialInboxPage() {
                   </Button>
 
                   <Avatar className="h-10 w-10 border border-slate-100 dark:border-slate-800 shadow-sm">
-                    <AvatarImage src={selectedMessage.contactAvatar} alt={selectedMessage.contactName} />
+                    <AvatarImage src={selectedCustomer.contactAvatar} alt={selectedCustomer.sender_name} />
                     <AvatarFallback className="bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 text-blue-700 dark:text-blue-300 font-medium">
-                      {selectedMessage.contactName[0]}
+                      {(selectedCustomer.sender_name || 'U')[0]}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col justify-center">
                     <h2 className="text-[15px] font-semibold tracking-tight text-slate-900 dark:text-slate-50">
-                      {selectedMessage.contactName}
+                      {selectedCustomer.sender_name}
                     </h2>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <div className="flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-1.5 py-0.5 rounded-sm">
-                        {getPlatformIcon(selectedMessage.platform)}
-                        <span className="capitalize">{selectedMessage.platform}</span>
+                        {getPlatformIcon(selectedCustomer.channels[0] as Platform)}
+                        <span className="capitalize">{selectedCustomer.channels[0]}</span>
                       </div>
                       <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
                         <span className="relative flex h-2 w-2">
@@ -671,93 +579,129 @@ export default function SocialInboxPage() {
               {/* Chat Messages Area */}
               <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 z-10 relative">
                 <div className="mx-auto max-w-4xl space-y-6">
-                  {/* Date Separator */}
-                  <div className="flex justify-center mb-6">
-                    <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 px-3 py-1 rounded-full shadow-sm shadow-slate-200/10">
-                      Today
-                    </span>
-                  </div>
 
-                  {(conversations[selectedMessage.id] || []).map((msg, index, arr) => {
-                    const isNextSameSender = arr[index + 1]?.isIncoming === msg.isIncoming;
-                    const isPrevSameSender = arr[index - 1]?.isIncoming === msg.isIncoming;
+                  {/* Infinite Scroll Observer / Loader */}
+                  {(hasNextPage || isFetchingNextPage) && (
+                    <div ref={loadMoreRef} className="h-8 w-full flex items-center justify-center py-2">
+                      {isFetchingNextPage && <RefreshCw className="h-5 w-5 animate-spin text-slate-400" />}
+                    </div>
+                  )}
 
-                    return (
-                      <div
-                        key={msg.id}
-                        className={cn(
-                          'flex w-full',
-                          msg.isIncoming ? 'justify-start' : 'justify-end',
-                          isNextSameSender ? 'mb-1' : 'mb-6' // tighter spacing for same sender
-                        )}
-                      >
-                        <div className="flex max-w-[85%] sm:max-w-[70%] items-end gap-2 group/msg">
-                          {/* Avatar for Incoming Messages */}
-                          {msg.isIncoming && !isNextSameSender && (
-                            <Avatar className="h-6 w-6 border border-slate-100 dark:border-slate-800 mb-1 flex-shrink-0">
-                              <AvatarImage src={selectedMessage.contactAvatar} />
-                              <AvatarFallback className="text-[10px] bg-slate-100 dark:bg-slate-800">{selectedMessage.contactName[0]}</AvatarFallback>
-                            </Avatar>
+                  {isLoadingDetail && !isFetchingNextPage ? (
+                    <div className="flex justify-center p-8">
+                      <RefreshCw className="h-6 w-6 animate-spin text-slate-400" />
+                    </div>
+                  ) : (
+                    activeMessages.map((msg: any, index: number, arr: any[]) => {
+                      const isIncoming = msg.sender_type === 'lead';
+                      const isNextIncoming = arr[index + 1]?.sender_type === 'lead';
+                      const isPrevIncoming = arr[index - 1]?.sender_type === 'lead';
+                      const isNextSameSender = isNextIncoming === isIncoming;
+                      const isPrevSameSender = isPrevIncoming === isIncoming;
+
+                      const msgDate = new Date(msg.timestamp)
+                      const prevMsgDate = index > 0 ? new Date(arr[index - 1].timestamp) : null
+
+                      // Check if date boundary crossed to show date divider
+                      let showDateDivider = false
+                      let dateText = ''
+
+                      if (!prevMsgDate || msgDate.toDateString() !== prevMsgDate.toDateString()) {
+                        showDateDivider = true
+                        if (isToday(msgDate)) {
+                          dateText = 'Today'
+                        } else if (isYesterday(msgDate)) {
+                          dateText = 'Yesterday'
+                        } else {
+                          dateText = formatDate(msgDate, 'MMMM d, yyyy')
+                        }
+                      }
+
+                      return (
+                        <div key={msg.platform_message_id || msg.timestamp}>
+                          {showDateDivider && (
+                            <div className="flex justify-center mb-6 mt-4">
+                              <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 px-3 py-1 rounded-full shadow-sm shadow-slate-200/10">
+                                {dateText}
+                              </span>
+                            </div>
                           )}
-                          {msg.isIncoming && isNextSameSender && <div className="w-6 hidden sm:block" />} {/* Spacer */}
-
-                          {/* Message Bubble */}
                           <div
                             className={cn(
-                              'relative flex flex-col px-4 py-2.5 text-[14.5px] leading-relaxed shadow-sm transition-all',
-
-                              msg.isIncoming
-                                ? 'bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
-                                : 'bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/10',
-
-                              // Dynamic border radius for message grouping
-                              msg.isIncoming
-                                ? cn(
-                                  'rounded-2xl',
-                                  isPrevSameSender && 'rounded-tl-md',
-                                  isNextSameSender && 'rounded-bl-md'
-                                )
-                                : cn(
-                                  'rounded-2xl',
-                                  isPrevSameSender && 'rounded-tr-md',
-                                  isNextSameSender && 'rounded-br-md'
-                                )
+                              'flex w-full',
+                              isIncoming ? 'justify-start' : 'justify-end',
+                              isNextSameSender ? 'mb-1' : 'mb-6' // tighter spacing for same sender
                             )}
                           >
-                            <p className="whitespace-pre-wrap word-break-word font-inter">{msg.content}</p>
-
-                            {/* Metadata inside bubble */}
-                            <div className={cn(
-                              "mt-1 flex flex-wrap items-center justify-end gap-1.5 select-none",
-                              msg.isIncoming ? "text-slate-400" : "text-blue-100/80"
-                            )}>
-                              <span className="text-[10px] font-medium tracking-wide">
-                                {format(msg.timestamp, 'HH:mm')}
-                              </span>
-                              {!msg.isIncoming && msg.status && (
-                                <CheckCheck
-                                  className={cn(
-                                    'h-3.5 w-3.5',
-                                    msg.status === 'read' ? 'text-blue-200' : 'opacity-70'
-                                  )}
-                                />
+                            <div className="flex max-w-[85%] sm:max-w-[70%] items-end gap-2 group/msg">
+                              {/* Avatar for Incoming Messages */}
+                              {isIncoming && !isNextSameSender && (
+                                <Avatar className="h-6 w-6 border border-slate-100 dark:border-slate-800 mb-1 flex-shrink-0">
+                                  <AvatarImage src={selectedCustomer.contactAvatar} />
+                                  <AvatarFallback className="text-[10px] bg-slate-100 dark:bg-slate-800">{(selectedCustomer.sender_name || 'U')[0]}</AvatarFallback>
+                                </Avatar>
                               )}
+                              {isIncoming && isNextSameSender && <div className="w-6 hidden sm:block" />} {/* Spacer */}
+
+                              {/* Message Bubble */}
+                              <div
+                                className={cn(
+                                  'relative flex flex-col px-4 py-2.5 text-[14.5px] leading-relaxed shadow-sm transition-all',
+
+                                  isIncoming
+                                    ? 'bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700'
+                                    : 'bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/10',
+
+                                  // Dynamic border radius for message grouping
+                                  isIncoming
+                                    ? cn(
+                                      'rounded-2xl',
+                                      isPrevSameSender && !showDateDivider && 'rounded-tl-md',
+                                      isNextSameSender && 'rounded-bl-md'
+                                    )
+                                    : cn(
+                                      'rounded-2xl',
+                                      isPrevSameSender && !showDateDivider && 'rounded-tr-md',
+                                      isNextSameSender && 'rounded-br-md'
+                                    )
+                                )}
+                              >
+                                <p className="whitespace-pre-wrap word-break-word font-inter">{msg.message_text}</p>
+
+                                {/* Metadata inside bubble */}
+                                <div className={cn(
+                                  "mt-1 flex flex-wrap items-center justify-end gap-1.5 select-none",
+                                  isIncoming ? "text-slate-400" : "text-blue-100/80"
+                                )}>
+                                  <span className="text-[10px] font-medium tracking-wide">
+                                    {formatDate(new Date(msg.timestamp), 'HH:mm')}
+                                  </span>
+                                  {/* Metadata inside bubble */}
+                                  <div className={cn(
+                                    "mt-1 flex flex-wrap items-center justify-end gap-1.5 select-none",
+                                    isIncoming ? "text-slate-400" : "text-blue-100/80"
+                                  )}>
+                                    <span className="text-[10px] font-medium tracking-wide">
+                                      {formatDate(new Date(msg.timestamp), 'HH:mm')}
+                                    </span>
+                                    {!isIncoming && msg.delivery_status && (
+                                      <CheckCheck
+                                        className={cn(
+                                          'h-3.5 w-3.5',
+                                          msg.delivery_status === 'read' ? 'text-blue-200' : 'opacity-70'
+                                        )}
+                                      />
+                                    )}
+                                  </div>
+                                </div>
+
+                              </div>
                             </div>
                           </div>
-
-                          {/* Message Actions (Visible on Hover) */}
-                          <div className={cn(
-                            "opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1",
-                            msg.isIncoming ? "order-last" : "order-first"
-                          )}>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800">
-                              <Info className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                   <div ref={messagesEndRef} className="h-4" />
                 </div>
               </div>
@@ -828,7 +772,7 @@ export default function SocialInboxPage() {
                   {/* Input Box */}
                   <div className="flex-1 relative group bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all flex items-center pr-2">
                     <Textarea
-                      placeholder={`Draft a message to ${selectedMessage.contactName.split(' ')[0]}...`}
+                      placeholder={`Draft a message to ${(selectedCustomer.sender_name || 'Customer').split(' ')[0]}...`}
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
                       onKeyDown={(e) => {
@@ -878,7 +822,10 @@ export default function SocialInboxPage() {
             </div>
           ) : (
             /* Empty State Area */
-            <div className="hidden lg:flex flex-1 items-center justify-center bg-slate-50/50 dark:bg-slate-900/30">
+            <div className={cn(
+              "flex-1 items-center justify-center bg-slate-50/50 dark:bg-slate-900/30",
+              !isSidebarOpen ? "hidden lg:flex" : "hidden"
+            )}>
               <div className="flex flex-col items-center justify-center max-w-md text-center animate-in fade-in duration-700">
                 <div className="relative mb-6">
                   <div className="absolute inset-0 rounded-full bg-blue-100/50 dark:bg-blue-900/20 blur-2xl transform scale-150 animate-pulse"></div>
@@ -904,6 +851,7 @@ export default function SocialInboxPage() {
             </div>
           )}
         </div>
+
       </div>
 
       {/* New Conversation Dialog */}
@@ -993,6 +941,8 @@ export default function SocialInboxPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </DashboardLayout>
-  )
+    </DashboardLayout >
+  );
 }
+
+

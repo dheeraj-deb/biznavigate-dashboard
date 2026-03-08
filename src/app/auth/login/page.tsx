@@ -81,7 +81,7 @@ export default function LoginPage() {
   return (
     <div className="flex h-screen flex-row-reverse bg-slate-50 text-slate-900 selection:bg-blue-600/20 font-sans overflow-hidden">
       {/* Dynamic Cursor Glow (Subtle in Light Mode) */}
-      <div 
+      <div
         className="pointer-events-none fixed inset-0 z-50 transition-opacity duration-300"
         style={{
           background: `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(37, 99, 235, 0.02), transparent 40%)`
@@ -92,9 +92,9 @@ export default function LoginPage() {
       <div className="relative flex w-full flex-col lg:w-1/2 z-10 border-l border-slate-200/60 bg-white/80 backdrop-blur-3xl shadow-[-10px_0_50px_-15px_rgba(0,0,0,0.05)] h-screen">
         {/* Subtle grid pattern for light theme */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_0%,#000_70%,transparent_100%)] opacity-60" />
-        
+
         <div className="flex flex-col px-6 py-4 relative z-10 w-full h-full mx-auto justify-center items-center overflow-hidden">
-          
+
           {/* Logo (Moved Outside Form Box) */}
           <div className="mb-6 flex-shrink-0 flex w-full max-w-[480px] justify-center lg:justify-start lg:pl-4 animate-in fade-in slide-in-from-top-4 duration-700 ease-out">
             <div className="group flex items-center gap-3 cursor-pointer">
@@ -128,11 +128,10 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   placeholder="mail@example.com"
-                  className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${
-                    errors.email 
-                      ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' 
-                      : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'
-                  }`}
+                  className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.email
+                    ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500'
+                    : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'
+                    }`}
                   {...register('email')}
                   disabled={isLoading}
                 />
@@ -155,11 +154,10 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  className={`h-10 w-full bg-transparent text-[#4B4B4B] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${
-                    errors.password 
-                      ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' 
-                      : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'
-                  }`}
+                  className={`h-10 w-full bg-transparent text-[#4B4B4B] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.password
+                    ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500'
+                    : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'
+                    }`}
                   {...register('password')}
                   disabled={isLoading}
                 />
@@ -171,9 +169,9 @@ export default function LoginPage() {
               </div>
 
               <div className="flex items-center gap-2 mt-2">
-                <input 
-                  type="checkbox" 
-                  id="showPassword" 
+                <input
+                  type="checkbox"
+                  id="showPassword"
                   className="h-3.5 w-3.5 border-[#989898] text-[#0066FF] focus:ring-[#0066FF] rounded-[2px]"
                   checked={showPassword}
                   onChange={(e) => setShowPassword(e.target.checked)}
@@ -240,9 +238,9 @@ export default function LoginPage() {
               <div className="absolute inset-0 rounded-full border border-slate-200 animate-[spin_30s_linear_infinite]" />
               <div className="absolute inset-6 rounded-full border border-dashed border-blue-300 animate-[spin_40s_linear_infinite_reverse]" />
               <div className="absolute inset-14 rounded-full border border-slate-100 backdrop-blur-sm bg-white/20 animate-[pulse_4s_ease-in-out_infinite_alternate]" />
-              
+
               <div className="absolute shadow-[0_0_80px_20px_rgba(37,99,235,0.15)] rounded-full h-20 w-20" />
-              
+
               <div className="relative z-10 bg-white/90 border border-slate-200/60 backdrop-blur-xl p-6 rounded-2xl shadow-xl flex flex-col items-center gap-4 transform transition-transform hover:-translate-y-2 hover:shadow-2xl duration-500">
                 <div className="p-3 bg-blue-100 rounded-xl">
                   <Sparkles className="h-8 w-8 text-blue-600" />
@@ -254,11 +252,11 @@ export default function LoginPage() {
               </div>
 
               {/* Orbital badges */}
-              <div className="absolute top-[10%] right-[10%] bg-white/90 backdrop-blur-md border border-slate-200/60 p-2.5 rounded-xl shadow-lg animate-bounce" style={{animationDuration: '3s'}}>
-                 <Lock className="h-4 w-4 text-emerald-500" />
+              <div className="absolute top-[10%] right-[10%] bg-white/90 backdrop-blur-md border border-slate-200/60 p-2.5 rounded-xl shadow-lg animate-bounce" style={{ animationDuration: '3s' }}>
+                <Lock className="h-4 w-4 text-emerald-500" />
               </div>
-              <div className="absolute bottom-[20%] left-[5%] bg-white/90 backdrop-blur-md border border-slate-200/60 p-3 rounded-xl shadow-lg animate-bounce" style={{animationDuration: '4s', animationDelay: '1s'}}>
-                 <Zap className="h-5 w-5 text-amber-500" />
+              <div className="absolute bottom-[20%] left-[5%] bg-white/90 backdrop-blur-md border border-slate-200/60 p-3 rounded-xl shadow-lg animate-bounce" style={{ animationDuration: '4s', animationDelay: '1s' }}>
+                <Zap className="h-5 w-5 text-amber-500" />
               </div>
             </div>
 
@@ -272,32 +270,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Bottom Testimonial / Features */}
-          <div className="grid grid-cols-2 gap-4 mt-auto animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-500">
-             <div className="bg-white/60 border border-slate-200/60 rounded-2xl p-4 backdrop-blur-xl shadow-sm hover:shadow-md hover:bg-white/80 transition-all duration-300">
-               <div className="flex items-center gap-3 mb-2">
-                 <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-xs font-bold shadow-sm">JD</div>
-                 <div>
-                   <div className="text-sm font-bold text-slate-900">John Doe</div>
-                   <div className="text-xs font-medium text-slate-500">CEO, TechCorp</div>
-                 </div>
-               </div>
-               <p className="text-xs font-medium text-slate-600 leading-snug">"BizNavigo completely overhauled our internal operations."</p>
-             </div>
-             
-             <div className="bg-white/60 border border-slate-200/60 rounded-2xl p-4 backdrop-blur-xl shadow-sm hover:shadow-md hover:bg-white/80 transition-all duration-300">
-               <div className="flex items-center gap-3 mb-2">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">
-                    <Zap className="h-4 w-4" />
-                  </div>
-                  <div>
-                     <div className="text-sm font-bold text-slate-900">Lightning Fast</div>
-                     <div className="text-xs font-medium text-slate-500">Edge Network</div>
-                  </div>
-               </div>
-               <p className="text-xs font-medium text-slate-600 leading-snug">Global distribution ensures your data is exactly where you need it.</p>
-             </div>
-          </div>
+
         </div>
       </div>
     </div>

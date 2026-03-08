@@ -11,6 +11,7 @@ interface OrderFilters {
   search?: string
   from_date?: string
   to_date?: string
+  customer_id?: string
 }
 
 // Order statistics interface

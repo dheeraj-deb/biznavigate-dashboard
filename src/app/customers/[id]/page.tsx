@@ -87,7 +87,7 @@ export default function CustomerDetailsPage({ params }: CustomerDetailsPageProps
     limit: 100,
   })
 
-  const orders = ordersData?.data || []
+  const orders: any[] = Array.isArray(ordersData?.data) ? ordersData.data : []
 
   // Loading state
   if (loadingCustomer) {
@@ -330,15 +330,14 @@ export default function CustomerDetailsPage({ params }: CustomerDetailsPageProps
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full ${
-                          customer.engagement_score >= 80
-                            ? 'bg-green-600'
-                            : customer.engagement_score >= 50
+                        className={`h-2 rounded-full ${customer.engagement_score >= 80
+                          ? 'bg-green-600'
+                          : customer.engagement_score >= 50
                             ? 'bg-yellow-600'
                             : customer.engagement_score >= 20
-                            ? 'bg-blue-600'
-                            : 'bg-red-600'
-                        }`}
+                              ? 'bg-blue-600'
+                              : 'bg-red-600'
+                          }`}
                         style={{ width: `${customer.engagement_score}%` }}
                       />
                     </div>

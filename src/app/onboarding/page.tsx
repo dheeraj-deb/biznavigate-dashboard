@@ -98,9 +98,7 @@ export default function OnboardingPage() {
     country: 'India',
 
     // Step 2: Team Setup
-    employees: [
-      { name: '', email: '', role: 'Sales Manager', phone: '' }
-    ],
+    employees: [] as Array<{ name: string; email: string; role: string; phone: string }>,
 
     // Step 3: Initial Products
     initialProducts: '',
@@ -116,7 +114,7 @@ export default function OnboardingPage() {
 
   const validateStep = (step: number) => {
     const newErrors: Record<string, string> = {}
-    
+
     if (step === 1) {
       if (!formData.businessName.trim()) newErrors.businessName = 'Business Name is required'
       if (!formData.email.trim() || !/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Valid email is required'
@@ -124,8 +122,10 @@ export default function OnboardingPage() {
       if (!formData.businessType) newErrors.businessType = 'Business Type is required'
       if (!formData.city.trim()) newErrors.city = 'City is required'
     } else if (step === 2) {
-      if (!formData.employees[0].name.trim()) newErrors.employeeName = 'Employee name is required'
-      if (!formData.employees[0].email.trim() || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.employees[0].email)) newErrors.employeeEmail = 'Valid employee email is required'
+      if (formData.employees.length > 0) {
+        if (!formData.employees[0].name.trim()) newErrors.employeeName = 'Employee name is required'
+        if (!formData.employees[0].email.trim() || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.employees[0].email)) newErrors.employeeEmail = 'Valid employee email is required'
+      }
     } else if (step === 3) {
       if (!formData.productCategories.trim()) newErrors.productCategories = 'Please select at least one category'
       if (!formData.initialProducts.trim()) newErrors.initialProducts = 'Please enter or select at least one product'
@@ -171,7 +171,7 @@ export default function OnboardingPage() {
   const handleComplete = () => {
     // Submit onboarding data
     toast.success('Onboarding complete!', { icon: '🚀' })
-    router.push('/settings/integrations')
+    router.push('/')
   }
 
   const addEmployee = () => {
@@ -197,7 +197,7 @@ export default function OnboardingPage() {
   const toggleSelection = (field: 'initialProducts' | 'productCategories' | 'targetAudience', item: string) => {
     const currentStr = formData[field] || ''
     const currentItems = currentStr.split(',').map(s => s.trim()).filter(Boolean)
-    
+
     if (currentItems.includes(item)) {
       setFormData({ ...formData, [field]: currentItems.filter(i => i !== item).join(', ') })
       setErrors({ ...errors, [field]: '' })
@@ -265,28 +265,28 @@ export default function OnboardingPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-bold text-[#4B4B4B]">Business Name*</label>
-                      <Input
-                        id="businessName"
-                        value={formData.businessName}
-                        onChange={(e) => { setFormData({ ...formData, businessName: e.target.value }); setErrors({ ...errors, businessName: '' }) }}
-                        placeholder="Enter your business name"
-                        className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.businessName ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
-                      />
-                      {errors.businessName && <p className="mt-1 text-xs text-red-500 font-medium">{errors.businessName}</p>}
-                    </div>
+                    <Input
+                      id="businessName"
+                      value={formData.businessName}
+                      onChange={(e) => { setFormData({ ...formData, businessName: e.target.value }); setErrors({ ...errors, businessName: '' }) }}
+                      placeholder="Enter your business name"
+                      className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.businessName ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
+                    />
+                    {errors.businessName && <p className="mt-1 text-xs text-red-500 font-medium">{errors.businessName}</p>}
+                  </div>
 
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-bold text-[#4B4B4B]">Business Email*</label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setErrors({ ...errors, email: '' }) }}
-                        placeholder="contact@business.com"
-                        className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.email ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
-                      />
-                      {errors.email && <p className="mt-1 text-xs text-red-500 font-medium">{errors.email}</p>}
-                    </div>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setErrors({ ...errors, email: '' }) }}
+                      placeholder="contact@business.com"
+                      className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.email ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
+                    />
+                    {errors.email && <p className="mt-1 text-xs text-red-500 font-medium">{errors.email}</p>}
+                  </div>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
@@ -317,13 +317,13 @@ export default function OnboardingPage() {
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-bold text-[#4B4B4B]">Business Type*</label>
                   <select
-                      id="businessType"
-                      value={formData.businessType}
-                      onChange={(e) => { setFormData({ ...formData, businessType: e.target.value }); setErrors({ ...errors, businessType: '' }) }}
-                      className={`h-10 w-full bg-transparent border text-[#4B4B4B] rounded-[4px] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 transition-colors shadow-none appearance-none bg-[length:10px_10px] bg-no-repeat bg-[position:right_12px_center] ${errors.businessType ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500 bg-custom-chevron-error text-red-900 focus:ring-red-500 focus:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] bg-custom-chevron'}`}
+                    id="businessType"
+                    value={formData.businessType}
+                    onChange={(e) => { setFormData({ ...formData, businessType: e.target.value }); setErrors({ ...errors, businessType: '' }) }}
+                    className={`h-10 w-full bg-transparent border text-[#4B4B4B] rounded-[4px] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 transition-colors shadow-none appearance-none bg-[length:10px_10px] bg-no-repeat bg-[position:right_12px_center] ${errors.businessType ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500 bg-custom-chevron-error text-red-900 focus:ring-red-500 focus:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] bg-custom-chevron'}`}
                   >
-                      <option value="" disabled hidden>Select Business Type</option>
-                      {businessTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    <option value="" disabled hidden>Select Business Type</option>
+                    {businessTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                   {errors.businessType && <p className="mt-1 text-xs text-red-500 font-medium">{errors.businessType}</p>}
                 </div>
@@ -396,8 +396,15 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="space-y-3">
+                  {formData.employees.length === 0 && (
+                    <div className="text-center py-6 border border-dashed border-[#E5E5E5] rounded-xl bg-white/50 backdrop-blur-sm">
+                      <p className="text-[13px] text-[#4B4B4B] font-medium mb-1">No team members added yet.</p>
+                      <p className="text-[12px] text-[#6E6E6E]">You (the Business Owner) will be the default Admin.</p>
+                    </div>
+                  )}
+
                   {formData.employees.map((employee, index) => (
-                    <div key={index} className="flex items-start gap-4 pb-3 border-b border-[#E5E5E5] last:border-0">
+                    <div key={index} className="flex items-start gap-4 pb-3 border-b border-[#E5E5E5] last:border-0 pt-3 first:pt-0">
                       <div className="flex-1 grid gap-4 md:grid-cols-2">
                         <div className="space-y-1.5">
                           <label className="text-[13px] font-bold text-[#4B4B4B]">Name</label>
@@ -445,16 +452,14 @@ export default function OnboardingPage() {
                         </div>
                       </div>
                       <div className="pt-7">
-                          {formData.employees.length > 1 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeEmployee(index)}
-                              className="text-red-500 hover:text-red-700 hover:bg-transparent"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeEmployee(index)}
+                          className="text-red-500 hover:text-red-700 hover:bg-transparent"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -481,9 +486,9 @@ export default function OnboardingPage() {
                   <div>
                     <h3 className="text-xl font-bold text-[#4B4B4B]">
                       {formData.businessType === 'education' ? 'Initial Courses' :
-                       formData.businessType === 'hospitality' ? 'Room Types' :
-                       formData.businessType === 'events' ? 'Event Types' :
-                       formData.businessType === 'services' ? 'Services Offered' : 'Initial Products'}
+                        formData.businessType === 'hospitality' ? 'Room Types' :
+                          formData.businessType === 'events' ? 'Event Types' :
+                            formData.businessType === 'services' ? 'Services Offered' : 'Initial Products'}
                     </h3>
                     <p className="text-[13px] text-[#6E6E6E]">Tell us what you offer (you can add more later)</p>
                   </div>
@@ -493,40 +498,39 @@ export default function OnboardingPage() {
                   <div className="space-y-1.5 border border-[#E5E5E5] p-4 rounded-[4px]">
                     <label className="text-[13px] font-bold text-[#4B4B4B] block mb-2">
                       {formData.businessType === 'education' ? 'What courses do you offer?' :
-                       formData.businessType === 'hospitality' ? 'What room types do you have?' :
-                       formData.businessType === 'events' ? 'What events do you organize?' :
-                       formData.businessType === 'services' ? 'What services do you provide?' :
-                       'What products do you sell?'}
-                       <span className="text-xs font-normal ml-2 italic text-[#6E6E6E]">(Click suggestions or type custom)</span>
+                        formData.businessType === 'hospitality' ? 'What room types do you have?' :
+                          formData.businessType === 'events' ? 'What events do you organize?' :
+                            formData.businessType === 'services' ? 'What services do you provide?' :
+                              'What products do you sell?'}
+                      <span className="text-xs font-normal ml-2 italic text-[#6E6E6E]">(Click suggestions or type custom)</span>
                     </label>
                     <div className="flex flex-wrap gap-2 mb-3">
-                       {(PRODUCT_SUGGESTIONS[formData.businessType || 'retail'] || PRODUCT_SUGGESTIONS['retail']).map(item => {
-                         const isSelected = (formData.initialProducts || '').split(',').map(s=>s.trim()).includes(item);
-                         return (
-                           <button
-                             key={item}
-                             type="button"
-                             onClick={() => toggleSelection('initialProducts', item)}
-                             className={`px-3 py-1.5 rounded-full text-[12px] font-medium cursor-pointer transition-colors border ${
-                               isSelected 
-                               ? 'bg-[#0066FF] text-white border-[#0066FF]' 
-                               : 'bg-transparent text-[#4B4B4B] border-[#E5E5E5] hover:border-[#0066FF] hover:text-[#0066FF]'
-                             }`}
-                           >
-                              {item}
-                           </button>
-                         )
-                       })}
+                      {(PRODUCT_SUGGESTIONS[formData.businessType || 'retail'] || PRODUCT_SUGGESTIONS['retail']).map(item => {
+                        const isSelected = (formData.initialProducts || '').split(',').map(s => s.trim()).includes(item);
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => toggleSelection('initialProducts', item)}
+                            className={`px-3 py-1.5 rounded-full text-[12px] font-medium cursor-pointer transition-colors border ${isSelected
+                              ? 'bg-[#0066FF] text-white border-[#0066FF]'
+                              : 'bg-transparent text-[#4B4B4B] border-[#E5E5E5] hover:border-[#0066FF] hover:text-[#0066FF]'
+                              }`}
+                          >
+                            {item}
+                          </button>
+                        )
+                      })}
                     </div>
                     <Input
                       value={formData.initialProducts}
                       onChange={(e) => { setFormData({ ...formData, initialProducts: e.target.value }); setErrors({ ...errors, initialProducts: '' }) }}
                       placeholder={
                         formData.businessType === 'education' ? 'Select from above or type comma separated...' :
-                        formData.businessType === 'hospitality' ? 'Select from above or type comma separated...' :
-                        formData.businessType === 'events' ? 'Select from above or type comma separated...' :
-                        formData.businessType === 'services' ? 'Select from above or type comma separated...' :
-                        'Select from above or type comma separated...'
+                          formData.businessType === 'hospitality' ? 'Select from above or type comma separated...' :
+                            formData.businessType === 'events' ? 'Select from above or type comma separated...' :
+                              formData.businessType === 'services' ? 'Select from above or type comma separated...' :
+                                'Select from above or type comma separated...'
                       }
                       className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.initialProducts ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
                     />
@@ -536,23 +540,22 @@ export default function OnboardingPage() {
                   <div className="space-y-1.5 border border-[#E5E5E5] p-4 rounded-[4px]">
                     <label className="text-[13px] font-bold text-[#4B4B4B] block mb-2">Categories <span className="text-xs font-normal ml-2 italic text-[#6E6E6E]">(Click suggestions or type custom)</span></label>
                     <div className="flex flex-wrap gap-2 mb-3">
-                       {(CATEGORY_SUGGESTIONS[formData.businessType || 'retail'] || CATEGORY_SUGGESTIONS['retail']).map(item => {
-                         const isSelected = (formData.productCategories || '').split(',').map(s=>s.trim()).includes(item);
-                         return (
-                           <button
-                             key={item}
-                             type="button"
-                             onClick={() => toggleSelection('productCategories', item)}
-                             className={`px-3 py-1.5 rounded-full text-[12px] font-medium cursor-pointer transition-colors border ${
-                               isSelected 
-                               ? 'bg-[#0066FF] text-white border-[#0066FF]' 
-                               : 'bg-transparent text-[#4B4B4B] border-[#E5E5E5] hover:border-[#0066FF] hover:text-[#0066FF]'
-                             }`}
-                           >
-                              {item}
-                           </button>
-                         )
-                       })}
+                      {(CATEGORY_SUGGESTIONS[formData.businessType || 'retail'] || CATEGORY_SUGGESTIONS['retail']).map(item => {
+                        const isSelected = (formData.productCategories || '').split(',').map(s => s.trim()).includes(item);
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => toggleSelection('productCategories', item)}
+                            className={`px-3 py-1.5 rounded-full text-[12px] font-medium cursor-pointer transition-colors border ${isSelected
+                              ? 'bg-[#0066FF] text-white border-[#0066FF]'
+                              : 'bg-transparent text-[#4B4B4B] border-[#E5E5E5] hover:border-[#0066FF] hover:text-[#0066FF]'
+                              }`}
+                          >
+                            {item}
+                          </button>
+                        )
+                      })}
                     </div>
                     <Input
                       value={formData.productCategories}
@@ -582,14 +585,14 @@ export default function OnboardingPage() {
                 <div className="space-y-2">
                   <div className="space-y-1.5 border border-[#E5E5E5] p-3 rounded-[4px]">
                     <div className="flex items-center justify-between mb-1">
-                       <label className="text-[12px] font-bold text-[#4B4B4B]">Business Description</label>
-                       <button
-                          type="button"
-                          onClick={injectDescriptionTemplate}
-                          className="text-[11px] text-[#0066FF] hover:text-[#0052CC] font-medium flex items-center gap-1 cursor-pointer"
-                       >
-                         ✨ Use smart template
-                       </button>
+                      <label className="text-[12px] font-bold text-[#4B4B4B]">Business Description</label>
+                      <button
+                        type="button"
+                        onClick={injectDescriptionTemplate}
+                        className="text-[11px] text-[#0066FF] hover:text-[#0052CC] font-medium flex items-center gap-1 cursor-pointer"
+                      >
+                        ✨ Use smart template
+                      </button>
                     </div>
                     <Textarea
                       value={formData.businessDescription}
@@ -602,33 +605,32 @@ export default function OnboardingPage() {
                   </div>
 
                   <div className="space-y-1.5 border border-[#E5E5E5] p-3 rounded-[4px]">
-                      <label className="text-[12px] font-bold text-[#4B4B4B] block mb-1">Target Audience <span className="text-[11px] font-normal ml-2 italic text-[#6E6E6E]">(Click suggestions or type custom)</span></label>
-                      <div className="flex flex-wrap gap-1.5 mb-2">
-                         {(AUDIENCE_SUGGESTIONS[formData.businessType || 'retail'] || AUDIENCE_SUGGESTIONS['retail']).map(item => {
-                           const isSelected = (formData.targetAudience || '').split(',').map(s=>s.trim()).includes(item);
-                           return (
-                             <button
-                               key={item}
-                               type="button"
-                               onClick={() => toggleSelection('targetAudience', item)}
-                               className={`px-3 py-1.5 rounded-full text-[12px] font-medium cursor-pointer transition-colors border ${
-                                 isSelected 
-                                 ? 'bg-[#0066FF] text-white border-[#0066FF]' 
-                                 : 'bg-transparent text-[#4B4B4B] border-[#E5E5E5] hover:border-[#0066FF] hover:text-[#0066FF]'
-                               }`}
-                             >
-                                {item}
-                             </button>
-                           )
-                         })}
-                      </div>
-                      <Input
-                        value={formData.targetAudience}
-                        onChange={(e) => { setFormData({ ...formData, targetAudience: e.target.value }); setErrors({ ...errors, targetAudience: '' }) }}
-                        placeholder="Select from above or type comma separated..."
-                        className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.targetAudience ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
-                      />
-                      {errors.targetAudience && <p className="mt-1 text-xs text-red-500 font-medium">{errors.targetAudience}</p>}
+                    <label className="text-[12px] font-bold text-[#4B4B4B] block mb-1">Target Audience <span className="text-[11px] font-normal ml-2 italic text-[#6E6E6E]">(Click suggestions or type custom)</span></label>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {(AUDIENCE_SUGGESTIONS[formData.businessType || 'retail'] || AUDIENCE_SUGGESTIONS['retail']).map(item => {
+                        const isSelected = (formData.targetAudience || '').split(',').map(s => s.trim()).includes(item);
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => toggleSelection('targetAudience', item)}
+                            className={`px-3 py-1.5 rounded-full text-[12px] font-medium cursor-pointer transition-colors border ${isSelected
+                              ? 'bg-[#0066FF] text-white border-[#0066FF]'
+                              : 'bg-transparent text-[#4B4B4B] border-[#E5E5E5] hover:border-[#0066FF] hover:text-[#0066FF]'
+                              }`}
+                          >
+                            {item}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <Input
+                      value={formData.targetAudience}
+                      onChange={(e) => { setFormData({ ...formData, targetAudience: e.target.value }); setErrors({ ...errors, targetAudience: '' }) }}
+                      placeholder="Select from above or type comma separated..."
+                      className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.targetAudience ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
+                    />
+                    {errors.targetAudience && <p className="mt-1 text-xs text-red-500 font-medium">{errors.targetAudience}</p>}
                   </div>
 
                   <div className="space-y-1.5 border border-[#E5E5E5] p-3 rounded-[4px]">
