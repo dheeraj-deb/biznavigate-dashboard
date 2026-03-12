@@ -28,6 +28,7 @@ import {
   FileText,
   PanelLeftClose,
   PanelLeftOpen,
+  Layers,
 } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 
@@ -97,6 +98,7 @@ const navigation = [
       { name: 'Business Profile', href: '/settings/business' },
       { name: 'WhatsApp', href: '/settings/whatsapp', icon: MessageSquare },
       { name: 'WA Templates', href: '/settings/whatsapp-templates', icon: FileText },
+      { name: 'WA Flows', href: '/settings/whatsapp-flows', icon: Layers },
       { name: 'Instagram', href: '/settings/instagram', icon: Instagram },
       { name: 'Mini Website', href: '/settings/website', icon: Globe },
       { name: 'Roles & Permissions', href: '/settings/roles' },

@@ -111,79 +111,73 @@ export function useInboxWebSocket() {
             socket.emit('join', businessId);
         });
 
+        // Helper: append a message to the customer_conversations infinite query cache
+        // The page reads from ['customer_conversations', ...] NOT ['conversation', id]
+        const appendToCustomerConversations = (conversationId: string, message: MessageData, tempId?: string) => {
+            queryClient.setQueriesData(
+                { queryKey: ['customer_conversations'], exact: false },
+                (old: any) => {
+                    if (!old?.pages) return old;
+                    const pages = old.pages as any[];
+                    // Only update if this customer has the conversation open
+                    const hasConv = pages.some((p: any) =>
+                        p?.messages?.some((m: MessageData) => m.conversation_id === conversationId)
+                    );
+                    if (!hasConv) return old;
+
+                    const newPages = pages.map((p: any, i: number) => {
+                        if (i !== pages.length - 1) return p;
+                        const msgs: MessageData[] = p?.messages || [];
+                        // Replace temp optimistic message if present
+                        if (tempId) {
+                            const tempIdx = msgs.findIndex((m: MessageData) => m.platform_message_id === tempId);
+                            if (tempIdx >= 0) {
+                                const updated = [...msgs];
+                                updated[tempIdx] = message;
+                                return { ...p, messages: updated };
+                            }
+                        }
+                        // Prevent duplicates
+                        const isDupe = msgs.some(
+                            (m: MessageData) => m.platform_message_id && m.platform_message_id === message.platform_message_id
+                        );
+                        if (isDupe) return p;
+                        return { ...p, messages: [...msgs, message] };
+                    });
+                    return { ...old, pages: newPages };
+                }
+            );
+        };
+
         socket.on('new_message', ({ conversationId, message }: { conversationId: string, message: MessageData }) => {
-            // Optimistically update the specific conversation's message list
-            queryClient.setQueryData(['conversation', conversationId], (old: any) => {
-                if (!old) return old;
-                // Prevent duplicate messages
-                if (old.messages?.find((m: MessageData) => m.timestamp === message.timestamp && m.message_text === message.message_text)) {
-                    return old;
-                }
-                return {
-                    ...old,
-                    messages: [...(old.messages || []), message]
-                };
-            });
+            // Update the chat panel (customer_conversations is what the page reads)
+            appendToCustomerConversations(conversationId, message);
 
-            // Optimistically update the conversation list
-            queryClient.setQueryData(['conversations'], (old: any) => {
-                if (!old?.data) return old;
-                const prev = old.data as ConversationListItem[];
-                const index = prev.findIndex(c => c.conversation_id === conversationId);
-
-                if (index === -1) {
-                    // New conversation, trigger a refetch of the list
-                    queryClient.invalidateQueries({ queryKey: ['conversations'] });
-                    return old;
-                }
-
-                const convo = prev[index];
-                const updatedList = [...prev];
-                updatedList.splice(index, 1);
-
-                updatedList.unshift({
-                    ...convo,
-                    message_text: message.message_text,
-                    updated_at: message.timestamp,
-                    unreadCount: (convo.unreadCount || 0) + 1
-                });
-
-                return { ...old, data: updatedList };
-            });
+            // Refresh the sidebar conversation list (key includes filter params, so invalidate all)
+            queryClient.invalidateQueries({ queryKey: ['conversations'] });
         });
 
         socket.on('message_sent', ({ conversationId, message }: { conversationId: string, message: MessageData }) => {
-            queryClient.setQueryData(['conversation', conversationId], (old: any) => {
-                if (!old) return old;
-
-                const chatMsgs: MessageData[] = old.messages || [];
-                // Check if we already appended this optimistically
-                const exists = chatMsgs.findIndex(m => m.timestamp === message.timestamp && m.message_text === message.message_text);
-
-                if (exists >= 0) {
-                    const newMsgs = [...chatMsgs];
-                    newMsgs[exists] = message;
-                    return { ...old, messages: newMsgs };
-                }
-
-                return { ...old, messages: [...chatMsgs, message] };
-            });
+            // Replace optimistic temp message or append the confirmed sent message
+            appendToCustomerConversations(conversationId, message);
         });
 
-        socket.on('status_update', ({ conversationId, platformMessageId, status }: { conversationId: string, platformMessageId: string, status: DeliveryStatus }) => {
-            queryClient.setQueryData(['conversation', conversationId], (old: any) => {
-                if (!old) return old;
-
-                const chatMsgs: MessageData[] = old.messages || [];
-                const index = chatMsgs.findIndex(m => m.platform_message_id === platformMessageId);
-
-                if (index === -1) return old;
-
-                const newMsgs = [...chatMsgs];
-                newMsgs[index] = { ...newMsgs[index], delivery_status: status };
-
-                return { ...old, messages: newMsgs };
-            });
+        socket.on('status_update', ({ platformMessageId, status }: { conversationId: string, platformMessageId: string, status: DeliveryStatus }) => {
+            queryClient.setQueriesData(
+                { queryKey: ['customer_conversations'], exact: false },
+                (old: any) => {
+                    if (!old?.pages) return old;
+                    const newPages = (old.pages as any[]).map((p: any) => {
+                        const msgs: MessageData[] = p?.messages || [];
+                        const idx = msgs.findIndex((m: MessageData) => m.platform_message_id === platformMessageId);
+                        if (idx === -1) return p;
+                        const updated = [...msgs];
+                        updated[idx] = { ...updated[idx], delivery_status: status };
+                        return { ...p, messages: updated };
+                    });
+                    return { ...old, pages: newPages };
+                }
+            );
         });
 
         return () => {
@@ -286,8 +280,11 @@ export function useCustomerConversations(conversationIds: string[]) {
 
             let allMessages: MessageData[] = [];
 
-            if (body?.data) {
-                Object.values(body.data).forEach((msgs: any) => {
+            console.log("body", body)
+
+            if (body) {
+                console.log(Object.values(body))
+                Object.values(body).forEach((msgs: any) => {
                     if (Array.isArray(msgs)) {
                         allMessages = [...allMessages, ...msgs];
                     }
@@ -309,6 +306,8 @@ export function useCustomerConversations(conversationIds: string[]) {
                     };
                 });
             }
+
+            console.log("allMessages", allMessages)
 
             return {
                 messages: allMessages,
@@ -335,10 +334,13 @@ export function useSendMessage() {
             return response.data as { success: boolean, message: MessageData };
         },
         onMutate: async ({ conversationId, content }) => {
-            // Optimistic UI update
-            await queryClient.cancelQueries({ queryKey: ['conversation', conversationId] });
-            const previousData = queryClient.getQueryData(['conversation', conversationId]);
+            // Cancel in-flight customer_conversations fetches to avoid overwriting optimistic state
+            await queryClient.cancelQueries({ queryKey: ['customer_conversations'] });
 
+            // Snapshot for rollback
+            const previousData = queryClient.getQueriesData({ queryKey: ['customer_conversations'] });
+
+            const tempId = `temp_${Date.now()}`;
             const optimisticMessage: MessageData = {
                 conversation_id: conversationId,
                 sender_type: 'business',
@@ -346,29 +348,41 @@ export function useSendMessage() {
                 message_text: content,
                 delivery_status: 'sent',
                 timestamp: new Date().toISOString(),
-                platform_message_id: `temp_${Date.now()}`
+                platform_message_id: tempId,
             };
 
-            queryClient.setQueryData(['conversation', conversationId], (old: any) => {
-                if (!old) return old;
-                return {
-                    ...old,
-                    messages: [...(old.messages || []), optimisticMessage]
-                };
-            });
+            // Append optimistic message to the infinite query the chat panel reads from
+            queryClient.setQueriesData(
+                { queryKey: ['customer_conversations'], exact: false },
+                (old: any) => {
+                    if (!old?.pages) return old;
+                    const pages = old.pages as any[];
+                    const hasConv = pages.some((p: any) =>
+                        p?.messages?.some((m: MessageData) => m.conversation_id === conversationId)
+                    );
+                    if (!hasConv) return old;
+                    const newPages = pages.map((p: any, i: number) => {
+                        if (i !== pages.length - 1) return p;
+                        return { ...p, messages: [...(p?.messages || []), optimisticMessage] };
+                    });
+                    return { ...old, pages: newPages };
+                }
+            );
 
-            return { previousData };
+            return { previousData, tempId };
         },
-        onError: (err, { conversationId }, context) => {
+        onError: (err, _vars, context) => {
             toast.error('Failed to send message');
-            // Rollback optimistic update
+            // Rollback all optimistic updates
             if (context?.previousData) {
-                queryClient.setQueryData(['conversation', conversationId], context.previousData);
+                context.previousData.forEach(([queryKey, data]: [any, any]) => {
+                    queryClient.setQueryData(queryKey, data);
+                });
             }
         },
-        onSettled: (data, error, { conversationId }) => {
-            // Fetch fresh data in backgound to ensure sync
-            // queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+        onSettled: () => {
+            // Sync with server to replace optimistic message with the real one
+            queryClient.invalidateQueries({ queryKey: ['customer_conversations'] });
         }
     });
 }
