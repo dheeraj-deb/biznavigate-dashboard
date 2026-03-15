@@ -19,7 +19,7 @@ export const useUIStore = create<UIStore>()(
       sidebarOpen: true,
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
       setSidebarOpen: (open: boolean) => set({ sidebarOpen: open }),
-      sidebarCollapsed: true, // Default to collapsed (icons only)
+      sidebarCollapsed: false, // Default to expanded
       toggleSidebarCollapsed: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setSidebarCollapsed: (collapsed: boolean) => set({ sidebarCollapsed: collapsed }),
       theme: 'light',

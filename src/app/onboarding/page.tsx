@@ -97,9 +97,7 @@ export default function OnboardingPage() {
     panNumber: '',
 
     // Step 2: Team Setup
-    employees: [
-      { name: '', email: '', role: 'Sales Manager', phone: '' }
-    ],
+    employees: [] as Array<{ name: string; email: string; role: string; phone: string }>,
 
     // Step 3: AI Configuration
     businessDescription: '',
@@ -112,7 +110,7 @@ export default function OnboardingPage() {
 
   const validateStep = (step: number) => {
     const newErrors: Record<string, string> = {}
-    
+
     if (step === 1) {
       if (!formData.businessName.trim()) newErrors.businessName = 'Business Name is required'
       if (!formData.email.trim() || !/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Valid email is required'
@@ -224,7 +222,7 @@ export default function OnboardingPage() {
   const toggleSelection = (field: 'targetAudience', item: string) => {
     const currentStr = formData[field] || ''
     const currentItems = currentStr.split(',').map(s => s.trim()).filter(Boolean)
-    
+
     if (currentItems.includes(item)) {
       setFormData({ ...formData, [field]: currentItems.filter(i => i !== item).join(', ') })
       setErrors({ ...errors, [field]: '' })
@@ -293,28 +291,28 @@ export default function OnboardingPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-bold text-[#4B4B4B]">Business Name*</label>
-                      <Input
-                        id="businessName"
-                        value={formData.businessName}
-                        onChange={(e) => { setFormData({ ...formData, businessName: e.target.value }); setErrors({ ...errors, businessName: '' }) }}
-                        placeholder="Enter your business name"
-                        className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.businessName ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
-                      />
-                      {errors.businessName && <p className="mt-1 text-xs text-red-500 font-medium">{errors.businessName}</p>}
-                    </div>
+                    <Input
+                      id="businessName"
+                      value={formData.businessName}
+                      onChange={(e) => { setFormData({ ...formData, businessName: e.target.value }); setErrors({ ...errors, businessName: '' }) }}
+                      placeholder="Enter your business name"
+                      className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.businessName ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
+                    />
+                    {errors.businessName && <p className="mt-1 text-xs text-red-500 font-medium">{errors.businessName}</p>}
+                  </div>
 
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-bold text-[#4B4B4B]">Business Email*</label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setErrors({ ...errors, email: '' }) }}
-                        placeholder="contact@business.com"
-                        className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.email ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
-                      />
-                      {errors.email && <p className="mt-1 text-xs text-red-500 font-medium">{errors.email}</p>}
-                    </div>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setErrors({ ...errors, email: '' }) }}
+                      placeholder="contact@business.com"
+                      className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.email ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
+                    />
+                    {errors.email && <p className="mt-1 text-xs text-red-500 font-medium">{errors.email}</p>}
+                  </div>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
@@ -371,13 +369,13 @@ export default function OnboardingPage() {
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-bold text-[#4B4B4B]">Business Type*</label>
                   <select
-                      id="businessType"
-                      value={formData.businessType}
-                      onChange={(e) => { setFormData({ ...formData, businessType: e.target.value }); setErrors({ ...errors, businessType: '' }) }}
-                      className={`h-10 w-full bg-transparent border text-[#4B4B4B] rounded-[4px] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 transition-colors shadow-none appearance-none bg-[length:10px_10px] bg-no-repeat bg-[position:right_12px_center] ${errors.businessType ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500 bg-custom-chevron-error text-red-900 focus:ring-red-500 focus:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] bg-custom-chevron'}`}
+                    id="businessType"
+                    value={formData.businessType}
+                    onChange={(e) => { setFormData({ ...formData, businessType: e.target.value }); setErrors({ ...errors, businessType: '' }) }}
+                    className={`h-10 w-full bg-transparent border text-[#4B4B4B] rounded-[4px] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 transition-colors shadow-none appearance-none bg-[length:10px_10px] bg-no-repeat bg-[position:right_12px_center] ${errors.businessType ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500 bg-custom-chevron-error text-red-900 focus:ring-red-500 focus:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] bg-custom-chevron'}`}
                   >
-                      <option value="" disabled hidden>Select Business Type</option>
-                      {businessTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    <option value="" disabled hidden>Select Business Type</option>
+                    {businessTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                   {errors.businessType && <p className="mt-1 text-xs text-red-500 font-medium">{errors.businessType}</p>}
                 </div>
@@ -450,8 +448,15 @@ export default function OnboardingPage() {
                 </div>
 
                 <div className="space-y-3">
+                  {formData.employees.length === 0 && (
+                    <div className="text-center py-6 border border-dashed border-[#E5E5E5] rounded-xl bg-white/50 backdrop-blur-sm">
+                      <p className="text-[13px] text-[#4B4B4B] font-medium mb-1">No team members added yet.</p>
+                      <p className="text-[12px] text-[#6E6E6E]">You (the Business Owner) will be the default Admin.</p>
+                    </div>
+                  )}
+
                   {formData.employees.map((employee, index) => (
-                    <div key={index} className="flex items-start gap-4 pb-3 border-b border-[#E5E5E5] last:border-0">
+                    <div key={index} className="flex items-start gap-4 pb-3 border-b border-[#E5E5E5] last:border-0 pt-3 first:pt-0">
                       <div className="flex-1 grid gap-4 md:grid-cols-2">
                         <div className="space-y-1.5">
                           <label className="text-[13px] font-bold text-[#4B4B4B]">Name</label>
@@ -524,16 +529,14 @@ export default function OnboardingPage() {
                         </div>
                       </div>
                       <div className="pt-7">
-                          {formData.employees.length > 1 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeEmployee(index)}
-                              className="text-red-500 hover:text-red-700 hover:bg-transparent"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeEmployee(index)}
+                          className="text-red-500 hover:text-red-700 hover:bg-transparent"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}

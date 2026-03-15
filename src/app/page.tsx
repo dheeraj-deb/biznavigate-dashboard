@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
@@ -19,6 +19,9 @@ import {
   Clock,
   AlertCircle
 } from 'lucide-react'
+import { useWhatsAppAccounts } from '@/hooks/use-whatsapp-account'
+import { useInstagramAccounts } from '@/hooks/use-instagram'
+import { useAuthStore } from '@/store/auth-store'
 
 interface SetupCard {
   id: string
@@ -32,6 +35,7 @@ interface SetupCard {
   badge?: string
   iconColor: string
   iconBg: string
+  disabled?: boolean
   stats?: {
     label: string
     value: string
@@ -40,14 +44,33 @@ interface SetupCard {
 
 export default function HomePage() {
   const router = useRouter()
-  const [setups] = useState<SetupCard[]>([
+  const { user } = useAuthStore()
+  const businessId = user?.business_id || ''
+
+  // Fetch real connection status for integrations
+  const { data: whatsappData, isLoading: whatsappLoading } = useWhatsAppAccounts(businessId)
+  const { data: instagramAccounts, isLoading: instagramLoading } = useInstagramAccounts(businessId)
+
+  const whatsappStatus = whatsappLoading
+    ? 'pending'
+    : whatsappData?.isConnected
+      ? 'connected'
+      : 'not_connected'
+
+  const instagramStatus = instagramLoading
+    ? 'pending'
+    : instagramAccounts && instagramAccounts.length > 0
+      ? 'connected'
+      : 'not_connected'
+
+  const setups = useMemo<SetupCard[]>(() => [
     // Integrations
     {
       id: 'whatsapp',
       title: 'WhatsApp Business',
       description: 'Connect your WhatsApp Business account to manage conversations',
       customIcon: '/icons/whatsapp.png',
-      status: 'not_connected',
+      status: whatsappStatus,
       path: '/settings/whatsapp',
       category: 'integration',
       badge: 'Popular',
@@ -59,10 +82,11 @@ export default function HomePage() {
       title: 'Instagram',
       description: 'Manage Instagram DMs, comments, and posts from one place',
       customIcon: '/icons/instagram.png',
-      status: 'not_connected',
+      status: 'not_connected' as const,
       path: '/settings/instagram',
       category: 'integration',
-      badge: 'Essential',
+      badge: 'Coming Soon',
+      disabled: true,
       iconColor: 'text-pink-600 dark:text-pink-400',
       iconBg: 'bg-gradient-to-br from-pink-100 via-purple-100 to-orange-100 dark:from-pink-900/30 dark:via-purple-900/30 dark:to-orange-900/30'
     },
@@ -168,7 +192,7 @@ export default function HomePage() {
       iconColor: 'text-orange-600 dark:text-orange-400',
       iconBg: 'bg-gradient-to-br from-orange-100 to-yellow-100 dark:from-orange-900/30 dark:to-yellow-900/30'
     }
-  ])
+  ], [whatsappStatus, instagramStatus])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -225,136 +249,152 @@ export default function HomePage() {
       <div className="min-h-screen -m-6 lg:-m-8 bg-gray-50 dark:bg-gray-900">
         {/* Main Content */}
         <div className="container mx-auto px-4 py-8">
-        {categories.map((category) => {
-          const categorySetups = setups.filter(s => s.category === category)
-          if (categorySetups.length === 0) return null
+          {categories.map((category) => {
+            const categorySetups = setups.filter(s => s.category === category)
+            if (categorySetups.length === 0) return null
 
-          return (
-            <div key={category} className="mb-12">
-              <div className="flex items-center gap-3 mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {getCategoryTitle(category)}
-                </h2>
-                <Badge variant="secondary" className="text-xs">
-                  {categorySetups.filter(s => s.status === 'connected').length}/{categorySetups.length}
-                </Badge>
-              </div>
+            return (
+              <div key={category} className="mb-12">
+                <div className="flex items-center gap-3 mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {getCategoryTitle(category)}
+                  </h2>
+                  <Badge variant="secondary" className="text-xs">
+                    {categorySetups.filter(s => s.status === 'connected').length}/{categorySetups.length}
+                  </Badge>
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {categorySetups.map((setup) => {
-                  const Icon = setup.icon
-                  return (
-                    <div
-                      key={setup.id}
-                      className="group relative bg-white dark:bg-gray-800 rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
-                      style={{
-                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.03)',
-                      }}
-                      onClick={() => router.push(setup.path)}
-                    >
-                      {/* Icon Box */}
-                      <div className="mb-4">
-                        <div
-                          className="w-14 h-14 rounded-xl bg-white dark:bg-gray-700 flex items-center justify-center shadow-md"
-                          style={{
-                            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-                          }}
-                        >
-                          {setup.customIcon ? (
-                            <Image
-                              src={setup.customIcon}
-                              alt={setup.title}
-                              width={28}
-                              height={28}
-                              className="w-7 h-7"
-                            />
-                          ) : (
-                            Icon && <Icon className={`w-7 h-7 ${setup.iconColor}`} />
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Content */}
-                      <div className="space-y-2.5">
-                        <div className="flex items-start justify-between">
-                          <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                            {setup.title}
-                          </h3>
-                          {setup.badge && (
-                            <Badge
-                              variant="secondary"
-                              className="text-xs font-semibold px-2 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-0"
-                            >
-                              {setup.badge}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                          {setup.description}
-                        </p>
-
-                        {/* Status Badge */}
-                        <div className="flex items-center justify-between pt-3">
-                          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${getStatusColor(setup.status)}`}>
-                            {getStatusIcon(setup.status)}
-                            {getStatusText(setup.status)}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {categorySetups.map((setup) => {
+                    const Icon = setup.icon
+                    return (
+                      <div
+                        key={setup.id}
+                        className={`group relative bg-white dark:bg-gray-800 rounded-2xl p-5 transition-all duration-300 ${setup.disabled
+                            ? 'cursor-not-allowed opacity-70'
+                            : 'cursor-pointer hover:shadow-xl hover:-translate-y-1'
+                          }`}
+                        style={{
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.03)',
+                        }}
+                        onClick={() => !setup.disabled && router.push(setup.path)}
+                      >
+                        {/* Icon Box */}
+                        <div className="mb-4">
+                          <div
+                            className="w-14 h-14 rounded-xl bg-white dark:bg-gray-700 flex items-center justify-center shadow-md"
+                            style={{
+                              boxShadow: '0 4px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                            }}
+                          >
+                            {setup.customIcon ? (
+                              <Image
+                                src={setup.customIcon}
+                                alt={setup.title}
+                                width={28}
+                                height={28}
+                                className="w-7 h-7"
+                              />
+                            ) : (
+                              Icon && <Icon className={`w-7 h-7 ${setup.iconColor}`} />
+                            )}
                           </div>
-                          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
                         </div>
 
-                        {setup.stats && (
-                          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                {setup.stats.label}
-                              </span>
-                              <span className="text-sm font-bold text-gray-900 dark:text-white">
-                                {setup.stats.value}
-                              </span>
+                        {/* Content */}
+                        <div className="space-y-2.5">
+                          <div className="flex items-start justify-between">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                              {setup.title}
+                            </h3>
+                            {setup.badge && (
+                              <Badge
+                                variant="secondary"
+                                className={`text-xs font-semibold px-2 py-0.5 border-0 ${setup.disabled
+                                  ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                                  : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                  }`}
+                              >
+                                {setup.badge}
+                              </Badge>
+                            )}
+                          </div>
+
+                          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                            {setup.description}
+                          </p>
+
+                          {/* Status Badge */}
+                          <div className="flex items-center justify-between pt-3">
+                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${getStatusColor(setup.status)}`}>
+                              {getStatusIcon(setup.status)}
+                              {getStatusText(setup.status)}
                             </div>
+                            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
+                          </div>
+
+                          {setup.stats && (
+                            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                  {setup.stats.label}
+                                </span>
+                                <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                  {setup.stats.value}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Hover Effect Overlay */}
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+                        {/* Coming Soon Overlay */}
+                        {setup.disabled && (
+                          <div className="absolute inset-0 rounded-2xl flex items-center justify-center pointer-events-none">
+                            <div className="bg-gray-900/10 dark:bg-gray-900/30 backdrop-blur-[1px] absolute inset-0 rounded-2xl" />
+                            <span className="relative z-10 text-xs font-bold tracking-widest uppercase text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-600 shadow-sm">
+                              Under Development
+                            </span>
                           </div>
                         )}
                       </div>
-
-                      {/* Hover Effect Overlay */}
-                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
 
-        {/* Quick Actions */}
-        <div className="mt-12 p-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-2xl font-bold mb-2">Need Help Getting Started?</h3>
-              <p className="text-blue-100 mb-4">
-                Follow our step-by-step guide to set up your integrations and start managing your business better.
-              </p>
-              <div className="flex gap-3">
-                <Button
-                  variant="secondary"
-                  onClick={() => router.push('/onboarding')}
-                  className="bg-white text-blue-600 hover:bg-blue-50"
-                >
-                  Start Onboarding
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => router.push('/settings/integrations')}
-                  className="border-white text-white hover:bg-white/10"
-                >
-                  View All Integrations
-                </Button>
+          {/* Quick Actions */}
+          <div className="mt-12 p-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-bold mb-2">Need Help Getting Started?</h3>
+                <p className="text-blue-100 mb-4">
+                  Follow our step-by-step guide to set up your integrations and start managing your business better.
+                </p>
+                <div className="flex gap-3">
+                  <Button
+                    variant="secondary"
+                    onClick={() => router.push('/onboarding')}
+                    className="bg-white text-blue-600 hover:bg-blue-50"
+                  >
+                    Start Onboarding
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push('/settings/integrations')}
+                    className="border-white text-white hover:bg-white/10"
+                  >
+                    View All Integrations
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
       </div>
     </DashboardLayout>
   )

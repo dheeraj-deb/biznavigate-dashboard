@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useWhatsAppAccounts, useDisconnectWhatsAppAccount } from '@/hooks/use-whatsapp-account'
 import { useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -76,18 +77,25 @@ const mockSettings = {
 export default function WhatsAppSettingsPage() {
   const { user } = useAuthStore()
   const searchParams = useSearchParams()
-  const [isConnected, setIsConnected] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [useSimpleConnect, setUseSimpleConnect] = useState(true) // Toggle between simple and advanced
-  const [account, setAccount] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
   const [settings, setSettings] = useState(mockSettings)
   const [activeTab, setActiveTab] = useState('overview')
 
-  console.log(account, isConnected)
-
   // Get businessId from authenticated user
   const businessId = user?.business_id || ''
+
+  // Fetch WhatsApp accounts via hook
+  const {
+    data: whatsappData,
+    isLoading,
+    refetch: refetchAccounts,
+  } = useWhatsAppAccounts(businessId)
+
+  const account = whatsappData?.account ?? null
+  const isConnected = whatsappData?.isConnected ?? false
+
+  const disconnectMutation = useDisconnectWhatsAppAccount(businessId)
 
   // Check for OAuth callback success and show onboarding if needed
   useEffect(() => {
@@ -106,102 +114,15 @@ export default function WhatsAppSettingsPage() {
     }
   }, [searchParams, isConnected, account, isLoading])
 
-  // Fetch real WhatsApp accounts from backend
-  useEffect(() => {
-    const fetchWhatsAppAccounts = async () => {
-      if (!businessId) {
-        setIsLoading(false)
-        return
-      }
-
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3006'
-        const token = localStorage.getItem('biznavigate_auth_token')
-
-        if (!token) {
-          setIsLoading(false)
-          return
-        }
-
-        const response = await fetch(
-          `${apiUrl}/whatsapp/accounts?businessId=${businessId}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          }
-        )
-
-
-        if (response.ok) {
-          const accounts = await response.json()
-          const data = accounts?.data || []
-
-          if (data && data?.length > 0) {
-            // Use the first active account
-            const activeAccount = data.find((acc: any) => acc.is_active) || data[0]
-            setAccount({
-              account_id: activeAccount.account_id,
-              phone_number: activeAccount.username,
-              display_phone_number: activeAccount.username,
-              display_name: activeAccount.display_name || 'WhatsApp Business',
-              phone_number_id: activeAccount.page_id,
-              whatsapp_business_account_id: activeAccount.instagram_business_account_id,
-              quality_rating: 'GREEN', // TODO: Get from API if available
-              messaging_limit_tier: 'TIER_1K', // TODO: Get from API if available
-              is_verified: true,
-              is_active: activeAccount.is_active,
-              webhook_verified: true,
-              last_message_at: activeAccount.updated_at,
-              created_at: activeAccount.created_at,
-              api_key_id: activeAccount.page_id,
-            })
-            setIsConnected(true)
-          } else {
-            setIsConnected(false)
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch WhatsApp accounts:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchWhatsAppAccounts()
-  }, [businessId])
-
   const handleCopyWebhookUrl = () => {
+    if (!account) return
     const webhookUrl = `https://api.biznavigate.com/webhooks/whatsapp/${account.account_id}`
     navigator.clipboard.writeText(webhookUrl)
   }
 
   const handleDisconnect = async () => {
     if (!account) return
-
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3006'
-      const token = localStorage.getItem('biznavigate_auth_token')
-
-      const response = await fetch(
-        `${apiUrl}/whatsapp/accounts/${account.account_id}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ businessId }),
-        }
-      )
-
-      if (response.ok) {
-        setAccount(null)
-        setIsConnected(false)
-      }
-    } catch (error) {
-      console.error('Failed to disconnect WhatsApp account:', error)
-    }
+    disconnectMutation.mutate(account.account_id)
   }
 
   const handleStartOnboarding = () => {
@@ -217,51 +138,7 @@ export default function WhatsAppSettingsPage() {
     }
 
     // Refetch accounts to show newly connected account
-    setIsLoading(true)
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3006'
-      const token = localStorage.getItem('biznavigate_auth_token')
-
-      const response = await fetch(
-        `${apiUrl}/whatsapp/accounts?businessId=${businessId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      )
-
-      if (response.ok) {
-        const accounts = await response.json()
-
-        if (accounts && accounts.length > 0) {
-          const activeAccount = accounts.find((acc: any) => acc.is_active) || accounts[0]
-          setAccount({
-            account_id: activeAccount.account_id,
-            phone_number: activeAccount.username,
-            display_phone_number: activeAccount.username,
-            display_name: activeAccount.display_name || 'WhatsApp Business',
-            phone_number_id: activeAccount.page_id,
-            whatsapp_business_account_id: activeAccount.instagram_business_account_id,
-            quality_rating: 'GREEN',
-            messaging_limit_tier: 'TIER_1K',
-            is_verified: true,
-            is_active: activeAccount.is_active,
-            webhook_verified: true,
-            last_message_at: activeAccount.updated_at,
-            created_at: activeAccount.created_at,
-            api_key_id: activeAccount.page_id,
-          })
-          setIsConnected(true)
-        } else {
-          setIsConnected(false)
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch accounts after connection:', error)
-    } finally {
-      setIsLoading(false)
-    }
+    await refetchAccounts()
   }
 
   const handleOnboardingCancel = () => {

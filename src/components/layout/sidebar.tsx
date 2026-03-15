@@ -12,18 +12,12 @@ import {
   BarChart3,
   Settings,
   MessageSquare,
-  FolderTree,
-  Building2,
   TrendingUp,
   Mail,
-  UserPlus,
-  Calendar,
   ChevronLeft,
-  Instagram,
-  CreditCard,
-  UserCircle,
-  ChevronDown,
   ChevronRight,
+  ChevronDown,
+  Instagram,
   Inbox,
   Star,
   Globe,
@@ -32,8 +26,11 @@ import {
   Activity,
   Home,
   FileText,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Layers,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 const navigation = [
   {
@@ -103,6 +100,7 @@ const navigation = [
       { name: 'Business Profile', href: '/settings/business' },
       { name: 'WhatsApp', href: '/settings/whatsapp', icon: MessageSquare },
       { name: 'WA Templates', href: '/settings/whatsapp-templates', icon: FileText },
+      { name: 'WA Flows', href: '/settings/whatsapp-flows', icon: Layers },
       { name: 'Instagram', href: '/settings/instagram', icon: Instagram },
       { name: 'Mini Website', href: '/settings/website', icon: Globe },
       { name: 'Roles & Permissions', href: '/settings/roles' },
@@ -110,10 +108,28 @@ const navigation = [
   },
 ]
 
+// Tooltip for collapsed mode
+function Tooltip({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="relative group/tooltip">
+      {children}
+      <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
+        {label}
+        <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900 dark:border-r-gray-700" />
+      </div>
+    </div>
+  )
+}
+
 export function Sidebar() {
   const pathname = usePathname()
-  const { sidebarOpen, toggleSidebar } = useUIStore()
+  const { sidebarOpen, toggleSidebar, sidebarCollapsed, toggleSidebarCollapsed, setSidebarCollapsed } = useUIStore()
   const [expandedSections, setExpandedSections] = useState<string[]>([])
+
+  // Auto-collapse sidebar when navigating to any page
+  useEffect(() => {
+    setSidebarCollapsed(true)
+  }, [pathname, setSidebarCollapsed])
 
   const toggleSection = (sectionName: string) => {
     setExpandedSections(prev =>
@@ -123,28 +139,56 @@ export function Sidebar() {
     )
   }
 
+  const isCollapsed = sidebarCollapsed
+
   return (
     <>
+      {/* Sidebar */}
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r bg-white dark:bg-gray-950',
+          'fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-white dark:bg-gray-950 transition-all duration-300 ease-in-out',
+          isCollapsed ? 'w-16' : 'w-64',
           'lg:translate-x-0',
           !sidebarOpen && 'max-lg:-translate-x-full'
         )}
-        style={{
-          boxShadow: '1px 0 2px rgba(0, 0, 0, 0.02)'
-        }}
+        style={{ boxShadow: '1px 0 2px rgba(0, 0, 0, 0.02)' }}
       >
+        {/* Floating Toggle Button for Desktop */}
+        <button
+          onClick={toggleSidebarCollapsed}
+          className="hidden lg:flex absolute -right-3 top-6 z-50 h-5 w-5 items-center justify-center rounded-full border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950 text-gray-400 hover:text-gray-900 dark:text-gray-500 dark:hover:text-gray-100 shadow-sm transition-all focus:outline-none"
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="h-3 w-3" />
+          ) : (
+            <ChevronLeft className="h-3 w-3" />
+          )}
+        </button>
+
         {/* Logo Header */}
-        <div className="flex h-16 items-center justify-between border-b border-gray-200 dark:border-gray-800 px-6">
-          <Link href="/" className="flex items-center space-x-3">
+        <div className={cn(
+          'flex h-16 items-center border-b border-gray-200 dark:border-gray-800 flex-shrink-0',
+          isCollapsed ? 'justify-center px-2' : 'justify-between px-4'
+        )}>
+          {!isCollapsed && (
+            <Link href="/" className="flex items-center space-x-3 overflow-hidden">
+              <div className="rounded-lg bg-blue-600 p-1.5 flex-shrink-0">
+                <Package className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent whitespace-nowrap">
+                BizNavigate
+              </span>
+            </Link>
+          )}
+
+          {isCollapsed && (
             <div className="rounded-lg bg-blue-600 p-1.5">
               <Package className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              BizNavigate
-            </span>
-          </Link>
+          )}
+
+          {/* Mobile close button */}
           <button
             onClick={toggleSidebar}
             className="lg:hidden rounded-md p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -154,83 +198,168 @@ export function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-6">
+        <nav className={cn(
+          'flex-1 overflow-y-auto overflow-x-hidden py-4',
+          isCollapsed ? 'px-2 space-y-1' : 'px-3 py-6 space-y-1'
+        )}>
           {/* Home Link */}
-          <Link
-            href="/"
-            className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
-              pathname === '/'
-                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-            )}
-          >
-            <Home className="h-5 w-5 flex-shrink-0" />
-            <span>Home</span>
-          </Link>
+          {isCollapsed ? (
+            <Tooltip label="Home">
+              <Link
+                href="/"
+                className={cn(
+                  'flex items-center justify-center rounded-lg p-2.5 transition-all duration-200',
+                  pathname === '/'
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                )}
+              >
+                <Home className="h-5 w-5 flex-shrink-0" />
+              </Link>
+            </Tooltip>
+          ) : (
+            <Link
+              href="/"
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                pathname === '/'
+                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              )}
+            >
+              <Home className="h-5 w-5 flex-shrink-0" />
+              <span>Home</span>
+            </Link>
+          )}
 
           {/* Dashboard Link */}
-          <Link
-            href="/dashboard"
-            className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
-              pathname === '/dashboard'
-                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-            )}
-          >
-            <LayoutDashboard className="h-5 w-5 flex-shrink-0" />
-            <span>Dashboard</span>
-          </Link>
+          {isCollapsed ? (
+            <Tooltip label="Dashboard">
+              <Link
+                href="/dashboard"
+                className={cn(
+                  'flex items-center justify-center rounded-lg p-2.5 transition-all duration-200',
+                  pathname === '/dashboard'
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                )}
+              >
+                <LayoutDashboard className="h-5 w-5 flex-shrink-0" />
+              </Link>
+            </Tooltip>
+          ) : (
+            <Link
+              href="/dashboard"
+              className={cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                pathname === '/dashboard'
+                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              )}
+            >
+              <LayoutDashboard className="h-5 w-5 flex-shrink-0" />
+              <span>Dashboard</span>
+            </Link>
+          )}
 
           {/* Separator */}
-          <div className="my-8 border-t border-gray-200 dark:border-gray-800"></div>
+          <div className="my-3 border-t border-gray-200 dark:border-gray-800" />
 
           {/* Quick Links Section */}
-          <div className="mb-6">
+          {!isCollapsed && (
             <h3 className="px-3 mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Quick Links
             </h3>
-            <div className="space-y-1">
+          )}
+
+          {[
+            { href: '/crm/contacts', label: 'Contacts', icon: Users },
+            { href: '/crm/campaigns', label: 'Campaigns', icon: TrendingUp },
+            { href: '/crm/inbox', label: 'Live Chat', icon: Inbox },
+            { href: '/orders', label: 'Orders', icon: ShoppingCart },
+          ].map(({ href, label, icon: Icon }) =>
+            isCollapsed ? (
+              <Tooltip key={href} label={label}>
+                <Link
+                  href={href}
+                  className={cn(
+                    'flex items-center justify-center rounded-lg p-2.5 transition-all duration-200',
+                    pathname === href
+                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  )}
+                >
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                </Link>
+              </Tooltip>
+            ) : (
               <Link
-                href="/crm/contacts"
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+                key={href}
+                href={href}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  pathname === href
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                )}
               >
-                <Users className="h-5 w-5 flex-shrink-0" />
-                <span>Contacts</span>
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                <span>{label}</span>
               </Link>
-              <Link
-                href="/crm/campaigns"
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
-              >
-                <TrendingUp className="h-5 w-5 flex-shrink-0" />
-                <span>Campaigns</span>
-              </Link>
-              <Link
-                href="/crm/inbox"
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
-              >
-                <Inbox className="h-5 w-5 flex-shrink-0" />
-                <span>Live Chat</span>
-              </Link>
-              <Link
-                href="/orders"
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
-              >
-                <ShoppingCart className="h-5 w-5 flex-shrink-0" />
-                <span>Orders</span>
-              </Link>
-            </div>
-          </div>
+            )
+          )}
 
           {/* Separator */}
-          <div className="my-8 border-t border-gray-200 dark:border-gray-800"></div>
+          <div className="my-3 border-t border-gray-200 dark:border-gray-800" />
 
           {/* Main Navigation */}
           {navigation.map((item) => {
             const isExpanded = expandedSections.includes(item.name)
             const isActive = item.href === pathname
             const hasActiveChild = item.children?.some(child => child.href === pathname)
+
+            if (isCollapsed) {
+              return (
+                <Tooltip key={item.name} label={item.name}>
+                  {item.href ? (
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        'flex items-center justify-center rounded-lg p-2.5 transition-all duration-200',
+                        isActive
+                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
+                          : hasActiveChild
+                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      )}
+                    >
+                      {item.icon && <item.icon className="h-5 w-5 flex-shrink-0" />}
+                    </Link>
+                  ) : (
+                    <button
+                      onMouseEnter={() => {
+                        setSidebarCollapsed(false)
+                      }}
+                      onClick={() => {
+                        toggleSidebarCollapsed()
+                        // Open the section after expanding
+                        if (!expandedSections.includes(item.name)) {
+                          setExpandedSections(prev => [...prev, item.name])
+                        }
+                      }}
+                      className={cn(
+                        'flex w-full items-center justify-center rounded-lg p-2.5 transition-all duration-200',
+                        hasActiveChild
+                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      )}
+                    >
+                      {item.icon && <item.icon className="h-5 w-5 flex-shrink-0" />}
+                    </button>
+                  )}
+                </Tooltip>
+              )
+            }
 
             return (
               <div key={item.name}>
@@ -294,17 +423,20 @@ export function Sidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 dark:border-gray-800 p-4">
-          <div className="rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4">
-            <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">Need Help?</p>
-            <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">Check our documentation</p>
-            <button className="mt-3 w-full rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors">
-              Get Support
-            </button>
+        {!isCollapsed && (
+          <div className="border-t border-gray-200 dark:border-gray-800 p-4 flex-shrink-0">
+            <div className="rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4">
+              <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">Need Help?</p>
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">Check our documentation</p>
+              <button className="mt-3 w-full rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors">
+                Get Support
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
+      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
