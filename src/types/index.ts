@@ -15,6 +15,8 @@ export interface User {
   updatedAt: string
   user_id?: string
   business_id?: string
+  business_type?: string      // set from onboarding / business profile
+  tenant_id?: string          // set from onboarding response
   role_id?: string
   profile_completed?: boolean
 }
