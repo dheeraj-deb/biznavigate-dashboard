@@ -64,9 +64,10 @@ export function useCompleteOnboarding() {
   return useMutation({
     mutationFn: async (payload: OnboardingPayload): Promise<OnboardingResult> => {
       const response = await apiClient.post('/api/v1/onboarding/complete', payload)
-      const body = response.data as { success: boolean; data: OnboardingResult; message: string }
+      const body = response.data as { success?: boolean; data?: OnboardingResult; message?: string } & Partial<OnboardingResult>
       if (body.success === false) throw new Error(body.message || 'Onboarding failed')
-      return body.data
+      // Handle both { data: { business, employees_created } } and { business, employees_created } shapes
+      return body.data ?? (body as unknown as OnboardingResult)
     },
     onSuccess: () => {
       toast.success('Onboarding complete! 🎉', { position: 'top-center' })

@@ -11,7 +11,8 @@ function fmt(n: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n)
 }
 
-export function AvailabilitySection({ serviceId, accent }: { serviceId: string; accent: string }) {
+export function AvailabilitySection({ serviceId, accent }: { serviceId: string | undefined; accent: string }) {
+  if (!serviceId) return null
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [slots, setSlots] = useState<AvailabilitySlot[]>([])

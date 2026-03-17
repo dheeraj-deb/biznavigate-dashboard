@@ -49,7 +49,7 @@ import {
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 // hotel, resort → hospitality form | events, camping → events form | products → retail form | education → education form
-type BusinessType = 'hotel' | 'resort' | 'events' | 'camping' | 'products' | 'education' | 'other' | 'unknown'
+type BusinessType = 'hospitality' | 'hotel' | 'resort' | 'events' | 'camping' | 'products' | 'education' | 'other' | 'unknown'
 
 // ─── Amenity / Feature Chips ────────────────────────────────────────────────
 
@@ -297,7 +297,7 @@ function ImageUploadGrid({
 
 // ─── Room / Package Row ──────────────────────────────────────────────────────
 
-interface RoomEntry { type: string; capacity: string; price: string; mrp: string; qty: string }
+interface RoomEntry { type: string; capacity: string; price: string; qty: string }
 interface TicketEntry { type: string; price: string; qty: string; description: string }
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
@@ -324,17 +324,37 @@ export default function AddInventoryPage() {
   const [description, setDescription] = useState('')
   const [location, setLocation] = useState('')
   const [price, setPrice] = useState('')
-  const [mrp, setMrp] = useState('')
   const [isActive, setIsActive] = useState(true)
-  const [tags, setTags] = useState('')
   const [amenities, setAmenities] = useState<string[]>([])
 
   // Hospitality
+  const [accommodationType, setAccommodationType] = useState('room')
+  const [maxGuests, setMaxGuests] = useState('2')
+
+  const UNIT_ACCOM_TYPES = ['villa', 'cabin', 'glamping']
+  const isUnitAccom = UNIT_ACCOM_TYPES.includes(accommodationType)
+
+  // Capacity label/placeholder/default per accommodation type
+  const ACCOM_CAPACITY: Record<string, { label: string; placeholder: string; defaultQty: string }> = {
+    villa:      { label: 'Number of Villas',       placeholder: '1',  defaultQty: '1' },
+    cabin:      { label: 'Number of Cabins',        placeholder: '1',  defaultQty: '1' },
+    glamping:   { label: 'Number of Units',         placeholder: '1',  defaultQty: '1' },
+    room:       { label: 'Number of Rooms',         placeholder: 'e.g. 10', defaultQty: '' },
+    dormitory:  { label: 'Number of Beds',          placeholder: 'e.g. 20', defaultQty: '' },
+    tent_site:  { label: 'Number of Tent Spots',    placeholder: 'e.g. 15', defaultQty: '' },
+  }
+  const accomCap = ACCOM_CAPACITY[accommodationType] ?? { label: 'Units Available', placeholder: 'Units', defaultQty: '' }
+  // Reset qty default when accommodation type changes
+  useEffect(() => {
+    const def = ACCOM_CAPACITY[accommodationType]?.defaultQty ?? ''
+    setRooms(prev => prev.map((r, i) => i === 0 ? { ...r, qty: def } : r))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accommodationType])
+
   const [starRating, setStarRating] = useState('3')
   const [checkInTime, setCheckInTime] = useState('12:00')
   const [checkOutTime, setCheckOutTime] = useState('11:00')
-  const [totalRooms, setTotalRooms] = useState('')
-  const [rooms, setRooms] = useState<RoomEntry[]>([{ type: 'Standard Room', capacity: '2', price: '', mrp: '', qty: '1' }])
+  const [rooms, setRooms] = useState<RoomEntry[]>([{ type: 'Standard Room', capacity: '2', price: '', qty: '1' }])
   const [cancellationPolicy, setCancellationPolicy] = useState('')
 
   // Events
@@ -371,11 +391,15 @@ export default function AddInventoryPage() {
   // Falls back to API only for accounts created before this field was added to the store
   useEffect(() => {
     const detect = async () => {
-      const validTypes = ['hotel', 'resort', 'events', 'camping', 'products', 'education', 'other']
+      const validTypes = ['hospitality', 'hotel', 'resort', 'events', 'camping', 'products', 'education', 'other']
+      const BIZ_TYPE_MAP: Record<string, string> = {
+        hotel: 'hospitality', resort: 'hospitality', camping: 'hospitality',
+      }
 
       // ── Primary: Zustand user.business_type (instant, reactive, set at onboarding) ──
       if (user?.business_type && validTypes.includes(user.business_type)) {
-        setBizType(user.business_type as BusinessType)
+        const normalized = BIZ_TYPE_MAP[user.business_type] ?? user.business_type
+        setBizType(normalized as BusinessType)
         setIsLoading(false)
         return
       }
@@ -386,7 +410,8 @@ export default function AddInventoryPage() {
         const res = await apiClient.get(`/api/v1/businesses/${businessId}`)
         const bt = (res.data?.data?.business_type ?? res.data?.business_type ?? '') as string
         if (bt && validTypes.includes(bt)) {
-          setBizType(bt as BusinessType)
+          const normalized = BIZ_TYPE_MAP[bt] ?? bt
+          setBizType(normalized as BusinessType)
           setIsLoading(false)
           return
         }
@@ -395,7 +420,7 @@ export default function AddInventoryPage() {
       }
 
       // ── Last resort ───────────────────────────────────────────────────
-      setBizType('hotel')
+      setBizType('hospitality')
       setIsLoading(false)
     }
     detect()
@@ -418,7 +443,7 @@ export default function AddInventoryPage() {
   }
 
   // Room handlers
-  const addRoom = () => setRooms(p => [...p, { type: 'Standard Room', capacity: '2', price: '', mrp: '', qty: '1' }])
+  const addRoom = () => setRooms(p => [...p, { type: 'Standard Room', capacity: '2', price: '', qty: '1' }])
   const removeRoom = (i: number) => setRooms(p => p.filter((_, idx) => idx !== i))
   const updateRoom = (i: number, field: keyof RoomEntry, val: string) => {
     setRooms(p => p.map((r, idx) => idx === i ? { ...r, [field]: val } : r))
@@ -440,7 +465,10 @@ export default function AddInventoryPage() {
   const validate = () => {
     const e: Record<string, string> = {}
     if (!name.trim()) e.name = 'Name is required'
-    if (!price.trim() || isNaN(Number(price))) e.price = 'Valid price is required'
+    // For hospitality, price comes from room entries; for events, from ticket entries
+    if (bizType !== 'hospitality' && bizType !== 'hotel' && bizType !== 'resort' && bizType !== 'events' && bizType !== 'camping') {
+      if (!price.trim() || isNaN(Number(price))) e.price = 'Valid price is required'
+    }
     if (bizType === 'hospitality') {
       if (!location.trim()) e.location = 'Location is required'
     }
@@ -448,7 +476,7 @@ export default function AddInventoryPage() {
       if (!eventDate) e.eventDate = 'Event date is required'
       if (!eventVenue.trim()) e.eventVenue = 'Venue is required'
     }
-    if (bizType === 'retail') {
+    if (bizType === 'products') {
       if (trackInventory && !stockQty.trim()) e.stockQty = 'Stock quantity is required'
     }
     setErrors(e)
@@ -468,16 +496,24 @@ export default function AddInventoryPage() {
     setIsSubmitting(true)
     try {
       const businessId = user?.business_id || FALLBACK_BUSINESS_ID
-      const tenantId = (user as (typeof user & { tenant_id?: string }))?.tenant_id || FALLBACK_TENANT_ID
 
       // Upload images
       let imageUrls: string[] = []
       if (previews.length > 0) {
+        const token = localStorage.getItem('biznavigate_auth_token')
+        if (!token) {
+          toast.error('Session expired. Please log in again.')
+          router.push('/auth/login')
+          setIsSubmitting(false)
+          return
+        }
         setUploadingImages(true)
         toast.loading(`Uploading ${previews.length} image(s)…`, { id: 'img-upload' })
         try {
           const res = await apiClient.post('/s3/upload-base64-multiple', { images: previews, folder: 'inventory' })
-          imageUrls = (res.data as Array<{ url: string }>).map(item => item.url)
+          // S3 returns { success, data: [{ url, key }] } — apiClient unwraps one level so res = { success, data: [...] }
+          const s3Items = (res.data as Array<{ url: string }>) ?? []
+          imageUrls = s3Items.map(item => item.url).filter(Boolean)
           toast.success(`${imageUrls.length} image(s) uploaded`, { id: 'img-upload' })
         } catch {
           toast.error('Image upload failed', { id: 'img-upload' })
@@ -489,75 +525,86 @@ export default function AddInventoryPage() {
         }
       }
 
-      // Build payload
-      const typeMap: Record<BusinessType, string> = {
-        hospitality: 'service', events: 'event', retail: 'physical', education: 'course', unknown: 'physical',
+      // Build attributes (service metadata)
+      const attributes: Record<string, unknown> = {}
+      if (bizType === 'hospitality' || bizType === 'hotel' || bizType === 'resort') {
+        attributes.star_rating = starRating
+        attributes.location = location
+        attributes.check_in = checkInTime
+        attributes.check_out = checkOutTime
+        attributes.rooms = rooms
+        attributes.amenities = amenities
+        attributes.cancellation_policy = cancellationPolicy
+        if (isUnitAccom) attributes.max_guests = Number(maxGuests)
+      } else if (bizType === 'events' || bizType === 'camping') {
+        attributes.event_date = eventDate
+        attributes.event_end_date = eventEndDate
+        attributes.venue = eventVenue
+        attributes.location = location
+        attributes.tickets = tickets
+        attributes.amenities = amenities
+        attributes.refund_policy = refundPolicy
+        attributes.age_restriction = ageRestriction
       }
 
-      const metadata: Record<string, unknown> = {}
-      if (bizType === 'hospitality') {
-        metadata.sub_type = subType
-        metadata.star_rating = starRating
-        metadata.location = location
-        metadata.check_in = checkInTime
-        metadata.check_out = checkOutTime
-        metadata.total_rooms = totalRooms
-        metadata.rooms = rooms
-        metadata.amenities = amenities
-        metadata.cancellation_policy = cancellationPolicy
-      } else if (bizType === 'events') {
-        metadata.event_date = eventDate
-        metadata.event_end_date = eventEndDate
-        metadata.venue = eventVenue
-        metadata.location = location
-        metadata.total_capacity = totalCapacity
-        metadata.tickets = tickets
-        metadata.amenities = amenities
-        metadata.refund_policy = refundPolicy
-        metadata.age_restriction = ageRestriction
-      } else if (bizType === 'retail') {
-        metadata.sku = sku
-        metadata.brand = brand
-        metadata.condition = condition
-        metadata.weight = weight
-        metadata.dimensions = dimensions
-      } else if (bizType === 'education') {
-        metadata.duration = duration
-        metadata.level = level
-        metadata.delivery_mode = deliveryMode
-        metadata.capacity = capacity
-        metadata.prerequisites = prerequisites
-        metadata.syllabus = syllabus
-        metadata.instructor = instructor
-        metadata.certificate = certificate
-      }
+      const isServiceType = ['hospitality', 'hotel', 'resort', 'events', 'camping'].includes(bizType)
+      const isHospitality = ['hospitality', 'hotel', 'resort', 'camping'].includes(bizType)
 
-      const payload: Record<string, unknown> = {
-        business_id: businessId,
-        tenant_id: tenantId,
-        product_type: typeMap[bizType],
-        name,
-        description: description || null,
-        category: bizType,
-        price: parseFloat(price),
-        cost_price: mrp ? parseFloat(mrp) : null,
-        sku: sku || null,
-        track_inventory: trackInventory,
-        stock_quantity: trackInventory && stockQty ? parseInt(stockQty) : 0,
-        is_active: isActive,
-        metadata,
-      }
+      if (isServiceType) {
+        // ── Hospitality / Events → POST /api/v1/inventory/services ──
+        const basePrice = (bizType === 'hospitality' || bizType === 'hotel' || bizType === 'resort')
+          ? parseFloat(rooms[0]?.price || '0')
+          : parseFloat(tickets[0]?.price || '0')
 
-      if (imageUrls.length > 0) {
-        payload.primary_image_url = imageUrls[primaryIndex]
-        payload.images = imageUrls
-      }
+        const serviceCapacity = isUnitAccom
+          ? 1
+          : (bizType === 'hospitality' || bizType === 'hotel' || bizType === 'resort')
+          ? rooms.reduce((sum, r) => sum + (parseInt(r.qty) || 0), 0)
+          : parseInt(totalCapacity) || 0
 
-      await apiClient.post('/api/v1/products', payload)
-      toast.success('Inventory item added successfully! 🎉', {
-        style: { borderRadius: '12px', background: '#1e293b', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px' },
-      })
-      router.push('/inventory/products')
+        const serviceType = isHospitality ? accommodationType : bizType
+
+        await apiClient.post('/api/v1/inventory/services', {
+          name,
+          description: description || undefined,
+          type: serviceType,
+          base_price: basePrice,
+          capacity: serviceCapacity,
+          image_urls: imageUrls,
+          attributes,
+        })
+        toast.success('Service added to inventory! 🎉', {
+          style: { borderRadius: '12px', background: '#1e293b', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px' },
+        })
+        router.push('/inventory/services')
+      } else {
+        // ── Products / Education → POST /api/v1/products ──
+        const payload: Record<string, unknown> = {
+          business_id: businessId,
+          name,
+          description: description || null,
+          category: bizType,
+          price: parseFloat(price),
+          sku: sku || null,
+          track_inventory: trackInventory,
+          stock_quantity: trackInventory && stockQty ? parseInt(stockQty) : 0,
+          is_active: isActive,
+          metadata: {
+            brand, condition, weight, dimensions,
+            duration, level, delivery_mode: deliveryMode,
+            capacity, prerequisites, syllabus, instructor, certificate,
+          },
+        }
+        if (imageUrls.length > 0) {
+          payload.primary_image_url = imageUrls[primaryIndex]
+          payload.images = imageUrls
+        }
+        await apiClient.post('/api/v1/products', payload)
+        toast.success('Product added to inventory! 🎉', {
+          style: { borderRadius: '12px', background: '#1e293b', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px' },
+        })
+        router.push('/inventory/products')
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       toast.error(msg || 'Failed to add item. Please try again.')
@@ -569,6 +616,13 @@ export default function AddInventoryPage() {
   // ─── Determine page meta ──────────────────────────────────────────────────
 
   const pageConfig = {
+    hospitality: {
+      title: 'Add Property Listing',
+      subtitle: 'Add a new property with rooms, star rating, amenities and pricing',
+      icon: Hotel,
+      accent: '#0066FF',
+      badge: 'Hospitality',
+    },
     hotel: {
       title: 'Add Hotel Listing',
       subtitle: 'Add a new property with rooms, star rating, amenities and pricing',
@@ -724,9 +778,9 @@ export default function AddInventoryPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
                 <FieldLabel required>
-                  {bizType === 'hospitality'
+                  {['hospitality', 'hotel', 'resort'].includes(bizType)
                     ? 'Property Name'
-                    : bizType === 'events' ? (eventsSubType === 'camping' ? 'Camp Name' : 'Event Name')
+                    : bizType === 'events' || bizType === 'camping' ? (eventsSubType === 'camping' ? 'Camp Name' : 'Event Name')
                     : bizType === 'education' ? 'Course / Program Title'
                     : 'Product Name'}
                 </FieldLabel>
@@ -753,7 +807,7 @@ export default function AddInventoryPage() {
                 </div>
               )}
 
-              {bizType === 'retail' && (
+              {bizType === 'products' && (
                 <div className="space-y-1.5">
                   <FieldLabel>Brand</FieldLabel>
                   <FieldInput id="brand" value={brand} onChange={setBrand} placeholder="e.g. Nike, Samsung, Homebrand" />
@@ -764,6 +818,16 @@ export default function AddInventoryPage() {
                 <div className="space-y-1.5">
                   <FieldLabel>Instructor Name</FieldLabel>
                   <FieldInput id="instructor" value={instructor} onChange={setInstructor} placeholder="e.g. Rahul Sharma, Dr. Priya Nair" />
+                </div>
+              )}
+
+              {(bizType === 'products' || bizType === 'education') && (
+                <div className="space-y-1.5">
+                  <FieldLabel required>Price (₹)</FieldLabel>
+                  <FieldInput
+                    id="price" type="number" value={price} onChange={setPrice}
+                    placeholder="0.00" prefix="₹" error={errors.price}
+                  />
                 </div>
               )}
             </div>
@@ -784,44 +848,12 @@ export default function AddInventoryPage() {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <FieldLabel>Tags <span className="text-[11px] font-normal text-[#6E6E6E]">(comma-separated)</span></FieldLabel>
-              <FieldInput
-                id="tags" value={tags} onChange={setTags}
-                placeholder="e.g. luxury, weekend-getaway, family-friendly"
-              />
-            </div>
           </div>
         </SectionCard>
 
-        {/* ── Pricing ── */}
-        <SectionCard title="Pricing" subtitle="Set your selling price and compare-at price" icon={IndianRupee} accent={pageConfig.accent}>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-1.5">
-              <FieldLabel required>
-                {['hotel', 'resort'].includes(bizType) ? 'Starting Price / Night' : ['events', 'camping'].includes(bizType) ? 'Base Ticket / Package Price' : 'Selling Price'}
-              </FieldLabel>
-              <FieldInput id="price" prefix="₹" value={price} onChange={setPrice} type="number" placeholder="0.00" error={errors.price} />
-            </div>
-            <div className="space-y-1.5">
-              <FieldLabel>MRP / Compare-at Price</FieldLabel>
-              <FieldInput id="mrp" prefix="₹" value={mrp} onChange={setMrp} type="number" placeholder="0.00" />
-            </div>
-            {mrp && price && Number(mrp) > Number(price) && (
-              <div className="flex items-end pb-1">
-                <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 w-full">
-                  <p className="text-[11px] text-green-600 font-semibold">Discount</p>
-                  <p className="text-[18px] font-bold text-green-700">
-                    {Math.round(((Number(mrp) - Number(price)) / Number(mrp)) * 100)}% OFF
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </SectionCard>
 
         {/* ══ HOSPITALITY SPECIFIC — Hotel & Resort ════════════════════ */}
-        {(bizType === 'hotel' || bizType === 'resort') && (
+        {(bizType === 'hospitality' || bizType === 'hotel' || bizType === 'resort') && (
           <>
             {/* Property Details */}
             <SectionCard
@@ -831,6 +863,15 @@ export default function AddInventoryPage() {
               accent="#0066FF"
             >
               <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <FieldLabel required>Accommodation Type</FieldLabel>
+                  <FieldSelect
+                    value={accommodationType}
+                    onChange={setAccommodationType}
+                    options={['room', 'villa', 'dormitory', 'tent_site', 'cabin', 'glamping']}
+                    placeholder="Select type"
+                  />
+                </div>
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="space-y-1.5">
                     <FieldLabel>Star Rating</FieldLabel>
@@ -858,15 +899,23 @@ export default function AddInventoryPage() {
                     <FieldInput id="checkout" type="time" value={checkOutTime} onChange={setCheckOutTime} placeholder="" />
                   </div>
                 </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <FieldLabel>Total Rooms</FieldLabel>
-                    <FieldInput id="totalRooms" type="number" value={totalRooms} onChange={setTotalRooms} placeholder="e.g. 24" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <FieldLabel>Cancellation Policy</FieldLabel>
-                    <FieldInput value={cancellationPolicy} onChange={setCancellationPolicy} placeholder="e.g. Free cancellation 48 hrs before" />
-                  </div>
+                <div className="space-y-1.5">
+                  <FieldLabel>Cancellation Policy</FieldLabel>
+                  <select
+                    value={cancellationPolicy}
+                    onChange={e => setCancellationPolicy(e.target.value)}
+                    className="h-10 w-full bg-transparent text-[13px] text-[#4B4B4B] rounded-[4px] border border-[#989898] px-3 focus:outline-none focus:ring-1 focus:ring-[#0066FF] focus:border-[#0066FF] transition-colors shadow-none appearance-none"
+                  >
+                    <option value="">Select policy…</option>
+                    <option>Free cancellation (24 hours before)</option>
+                    <option>Free cancellation (48 hours before)</option>
+                    <option>Free cancellation (7 days before)</option>
+                    <option>Free cancellation (14 days before)</option>
+                    <option>50% refund (48 hours before)</option>
+                    <option>50% refund (7 days before)</option>
+                    <option>Non-refundable</option>
+                    <option>No cancellation policy</option>
+                  </select>
                 </div>
               </div>
             </SectionCard>
@@ -889,17 +938,28 @@ export default function AddInventoryPage() {
                           options={ROOM_TYPES}
                         />
                       </div>
-                      <div className="space-y-1">
-                        <FieldLabel>Capacity</FieldLabel>
-                        <FieldInput type="number" value={room.capacity} onChange={v => updateRoom(i, 'capacity', v)} placeholder="Guests" />
-                      </div>
+                      {isUnitAccom ? (
+                        <div className="space-y-1">
+                          <FieldLabel>Max Guests</FieldLabel>
+                          <FieldSelect
+                            value={maxGuests}
+                            onChange={setMaxGuests}
+                            options={['1','2','3','4','5','6','7','8','9','10','12','15','20']}
+                          />
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <FieldLabel>Capacity</FieldLabel>
+                          <FieldInput type="number" value={room.capacity} onChange={v => updateRoom(i, 'capacity', v)} placeholder="Guests" />
+                        </div>
+                      )}
                       <div className="space-y-1">
                         <FieldLabel>Price / Night (₹)</FieldLabel>
                         <FieldInput type="number" value={room.price} onChange={v => updateRoom(i, 'price', v)} placeholder="0" />
                       </div>
                       <div className="space-y-1">
-                        <FieldLabel>Rooms Available</FieldLabel>
-                        <FieldInput type="number" value={room.qty} onChange={v => updateRoom(i, 'qty', v)} placeholder="Units" />
+                        <FieldLabel required={!accomCap.defaultQty}>{accomCap.label}</FieldLabel>
+                        <FieldInput type="number" value={room.qty} onChange={v => updateRoom(i, 'qty', v)} placeholder={accomCap.placeholder} />
                       </div>
                     </div>
                     {rooms.length > 1 && (
@@ -1047,7 +1107,21 @@ export default function AddInventoryPage() {
                   </div>
                   <div className="space-y-1.5">
                     <FieldLabel>Cancellation Policy</FieldLabel>
-                    <FieldInput value={cancellationPolicy} onChange={setCancellationPolicy} placeholder="e.g. Free cancellation 48 hrs before" />
+                    <select
+                      value={cancellationPolicy}
+                      onChange={e => setCancellationPolicy(e.target.value)}
+                      className="h-10 w-full bg-transparent text-[13px] text-[#4B4B4B] rounded-[4px] border border-[#989898] px-3 focus:outline-none focus:ring-1 focus:ring-[#0066FF] focus:border-[#0066FF] transition-colors shadow-none appearance-none"
+                    >
+                      <option value="">Select policy…</option>
+                      <option>Free cancellation (24 hours before)</option>
+                      <option>Free cancellation (48 hours before)</option>
+                      <option>Free cancellation (7 days before)</option>
+                      <option>Free cancellation (14 days before)</option>
+                      <option>50% refund (48 hours before)</option>
+                      <option>50% refund (7 days before)</option>
+                      <option>Non-refundable</option>
+                      <option>No cancellation policy</option>
+                    </select>
                   </div>
                 </div>
               </div>

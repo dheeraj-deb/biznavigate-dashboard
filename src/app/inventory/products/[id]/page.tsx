@@ -431,25 +431,6 @@ export default function ProductDetailsPage() {
                     {product.price ? formatCurrency(Number(product.price)) : 'N/A'}
                   </p>
                 </div>
-                {product.cost_price && (
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Cost Price</Label>
-                    <p className="text-lg font-semibold">
-                      {formatCurrency(Number(product.cost_price))}
-                    </p>
-                  </div>
-                )}
-                {product.price && product.cost_price && (
-                  <div className="pt-3 border-t">
-                    <Label className="text-xs text-muted-foreground">Profit Margin</Label>
-                    <p className="text-lg font-semibold text-green-600">
-                      {formatCurrency(Number(product.price) - Number(product.cost_price))}
-                      <span className="text-sm ml-1">
-                        ({(((Number(product.price) - Number(product.cost_price)) / Number(product.price)) * 100).toFixed(1)}%)
-                      </span>
-                    </p>
-                  </div>
-                )}
               </CardContent>
             </Card>
 

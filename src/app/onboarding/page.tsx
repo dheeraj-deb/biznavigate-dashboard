@@ -11,21 +11,14 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Building2,
   Users,
-  Zap,
-  Package,
   CheckCircle2,
   ArrowRight,
   ArrowLeft,
-  GraduationCap,
   Hotel,
   Calendar,
   Plus,
   Trash2,
-  Clock,
-  Tent,
   Store,
-  HelpCircle,
-  Landmark,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { AppLogo } from '@/components/ui/app-logo'
@@ -33,13 +26,9 @@ import toast from 'react-hot-toast'
 
 // Business type options
 const businessTypes = [
-  { value: 'hotel',     label: 'Hotel / Resort',     icon: Hotel,         description: 'Manage room bookings, amenities, and guest stays' },
-  { value: 'resort',   label: 'Resort / Property',   icon: Landmark,      description: 'Luxury properties, villas, and premium stays' },
-  { value: 'events',   label: 'Events / Venues',     icon: Calendar,      description: 'Organize events, concerts, and corporate gatherings' },
-  { value: 'camping',  label: 'Camping / Adventure', icon: Tent,          description: 'Camp packages, treks, and outdoor experiences' },
-  { value: 'products', label: 'Products / Retail',   icon: Store,         description: 'Sell physical or digital products online or in-store' },
-  { value: 'education',label: 'Education / Courses', icon: GraduationCap, description: 'Courses, training programs, and workshops' },
-  { value: 'other',    label: 'Other / General',     icon: HelpCircle,    description: 'Any other business type not listed above' },
+  { value: 'hospitality', label: 'Hospitality',  icon: Hotel,    description: 'Hotels, resorts, villas, camps & accommodation' },
+  { value: 'events',      label: 'Events',        icon: Calendar, description: 'Events, venues, workshops & banquet halls' },
+  { value: 'products',    label: 'Products',      icon: Store,    description: 'Retail, e-commerce & product-based businesses' },
 ]
 
 // Role templates
@@ -53,23 +42,17 @@ const roleTemplates = [
 const INDIAN_CITIES = ['Agartala', 'Agra', 'Ahmedabad', 'Ahmednagar', 'Aizawl', 'Ajmer', 'Akola', 'Aligarh', 'Allahabad', 'Alwar', 'Ambala', 'Amravati', 'Amritsar', 'Anand', 'Anantapur', 'Asansol', 'Aurangabad', 'Avadi', 'Bally', 'Bangalore', 'Baranagar', 'Barasat', 'Bardhaman', 'Bareilly', 'Bathinda', 'Begusarai', 'Belgaum', 'Bellary', 'Berhampur', 'Bhagalpur', 'Bharatpur', 'Bhatpara', 'Bhavnagar', 'Bhilai', 'Bhilwara', 'Bhiwandi', 'Bhopal', 'Bhubaneswar', 'Bhuj', 'Bikaner', 'Bilaspur', 'Bokaro', 'Chandigarh', 'Chandrapur', 'Chennai', 'Coimbatore', 'Cuttack', 'Darbhanga', 'Davanagere', 'Dehradun', 'Delhi', 'Deoghar', 'Dhanbad', 'Dhule', 'Dindigul', 'Durg', 'Durgapur', 'Erode', 'Etawah', 'Faridabad', 'Farrukhabad', 'Fatehpur', 'Firozabad', 'Gandhidham', 'Gandhinagar', 'Gangtok', 'Gaya', 'Ghaziabad', 'Gopalpur', 'Gorakhpur', 'Gulbarga', 'Guntur', 'Gurgaon', 'Guwahati', 'Gwalior', 'Haldia', 'Hapur', 'Haridwar', 'Hisar', 'Hoshiarpur', 'Howrah', 'Hubli', 'Hyderabad', 'Imphal', 'Indore', 'Jabalpur', 'Jaipur', 'Jalandhar', 'Jalgaon', 'Jalna', 'Jamalpur', 'Jammu', 'Jamnagar', 'Jamshedpur', 'Jhansi', 'Jodhpur', 'Junagadh', 'Kadapa', 'Kakinada', 'Kalyan', 'Kamarhati', 'Kanchipuram', 'Kannur', 'Kanpur', 'Karnal', 'Kharagpur', 'Kochi', 'Kolhapur', 'Kolkata', 'Kollam', 'Korba', 'Kota', 'Kottayam', 'Kozhikode', 'Kulti', 'Kurnool', 'Latur', 'Loni', 'Lucknow', 'Ludhiana', 'Madurai', 'Malappuram', 'Malegaon', 'Mangalore', 'Mango', 'Mathura', 'Mau', 'Meerut', 'Mira-Bhayandar', 'Mirzapur', 'Moradabad', 'Mumbai', 'Muzaffarnagar', 'Muzaffarpur', 'Mysore', 'Nadiad', 'Nagaon', 'Nagpur', 'Naihati', 'Nanded', 'Nashik', 'Navi Mumbai', 'Nellore', 'New Delhi', 'Nizamabad', 'Noida', 'Ozhukarai', 'Pali', 'Panihati', 'Panipat', 'Parbhani', 'Patiala', 'Patna', 'Phagwara', 'Pimpri-Chinchwad', 'Pondicherry', 'Pune', 'Purnia', 'Raebareli', 'Raichur', 'Raipur', 'Rajahmundry', 'Rajkot', 'Ramagundam', 'Rampur', 'Ranchi', 'Ratlam', 'Raurkela', 'Rewa', 'Rohtak', 'Rourkela', 'Sagar', 'Saharanpur', 'Salem', 'Sangli', 'Satna', 'Secunderabad', 'Shahjahanpur', 'Shimla', 'Shivamogga', 'Sikar', 'Siliguri', 'Solapur', 'Sonipat', 'South Dumdum', 'Sri Ganganagar', 'Srinagar', 'Surat', 'Thane', 'Thiruvananthapuram', 'Thoothukudi', 'Thrissur', 'Tiruchirappalli', 'Tirunelveli', 'Tirupati', 'Tiruppur', 'Tiruvottiyur', 'Tumkur', 'Udaipur', 'Ujjain', 'Ulhasnagar', 'Vadodara', 'Varanasi', 'Vasai-Virar', 'Vellore', 'Vijayanagaram', 'Vijayawada', 'Visakhapatnam', 'Warangal', 'Yamunanagar']
 
 const BUSINESS_DESCRIPTION_TEMPLATES: Record<string, string> = {
-  hotel:     "[BusinessName] is a premier hotel in [City], offering comfortable stays, modern amenities, and exceptional hospitality to every guest.",
-  resort:    "[BusinessName] is a luxury resort in [City], providing guests with world-class experiences, premium facilities, and serene surroundings.",
-  events:    "[BusinessName] is a professional event management company in [City], turning visions into unforgettable experiences.",
-  camping:   "[BusinessName] is an adventure and camping specialist in [City], offering thrilling outdoor experiences and immersive nature getaways.",
-  products:  "[BusinessName] is a premium retail business in [City], offering high-quality products and exceptional customer service.",
-  education: "[BusinessName] is an educational institution in [City], empowering learners with practical skills and industry-relevant knowledge.",
-  other:     "[BusinessName] is a dedicated business in [City], committed to delivering quality and reliability to all our customers.",
-  default:   "[BusinessName] is a dedicated business in [City], focused on quality, reliability, and the best possible experience for our customers."
+  hospitality: "[BusinessName] is a premier hospitality business in [City], offering exceptional stays, world-class amenities, and memorable experiences to every guest.",
+  events:      "[BusinessName] is a professional event management company in [City], turning visions into unforgettable experiences.",
+  products:    "[BusinessName] is a premium retail business in [City], offering high-quality products and exceptional customer service.",
+  default:     "[BusinessName] is a dedicated business in [City], focused on quality, reliability, and the best possible experience for our customers."
 }
 
 const AUDIENCE_SUGGESTIONS: Record<string, string[]> = {
-  retail: ['Fashion Enthusiasts', 'Bargain Hunters', 'Tech Savvy', 'Parents'],
-  education: ['Students', 'Professionals', 'Career Changers', 'Lifelong Learners'],
   hospitality: ['Tourists', 'Business Travelers', 'Families', 'Couples'],
-  events: ['Corporate Clients', 'Engaged Couples', 'Families', 'Music Fans'],
-  services: ['Local Businesses', 'Startups', 'Homeowners', 'Enterprise'],
-  default: ['Local Residents', 'Online Shoppers', 'General Public', 'B2B Clients']
+  events:      ['Corporate Clients', 'Engaged Couples', 'Families', 'Music Fans'],
+  products:    ['Online Shoppers', 'Bargain Hunters', 'Local Residents', 'B2B Clients'],
+  default:     ['Local Residents', 'Online Shoppers', 'General Public', 'B2B Clients']
 }
 export default function OnboardingPage() {
   const router = useRouter()
@@ -160,9 +143,13 @@ export default function OnboardingPage() {
   const [onboardingResult, setOnboardingResult] = useState<OnboardingResult | null>(null)
 
   const handleComplete = () => {
+    const BIZ_TYPE_MAP: Record<string, string> = {
+      hotel: 'hospitality', resort: 'hospitality', camping: 'hospitality',
+    }
+    const mappedType = BIZ_TYPE_MAP[formData.businessType] ?? formData.businessType
     const payload = {
       business_name: formData.businessName,
-      business_type: formData.businessType,
+      business_type: mappedType,
       email: formData.email,
       phone: formData.phone,
       website: formData.website || undefined,
@@ -184,9 +171,7 @@ export default function OnboardingPage() {
     completeOnboarding(payload, {
       onSuccess: (data) => {
         setOnboardingResult(data)
-        // Store business_type + tenant_id in Zustand (persisted via zustand/persist)
-        // This is the source of truth — reactive, SSR-safe, cleared on logout
-        if (user) {
+        if (user && data?.business) {
           setUser({
             ...user,
             business_type: data.business.business_type,
@@ -368,15 +353,27 @@ export default function OnboardingPage() {
 
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-bold text-[#4B4B4B]">Business Type*</label>
-                  <select
-                    id="businessType"
-                    value={formData.businessType}
-                    onChange={(e) => { setFormData({ ...formData, businessType: e.target.value }); setErrors({ ...errors, businessType: '' }) }}
-                    className={`h-10 w-full bg-transparent border text-[#4B4B4B] rounded-[4px] px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 transition-colors shadow-none appearance-none bg-[length:10px_10px] bg-no-repeat bg-[position:right_12px_center] ${errors.businessType ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500 bg-custom-chevron-error text-red-900 focus:ring-red-500 focus:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] bg-custom-chevron'}`}
-                  >
-                    <option value="" disabled hidden>Select Business Type</option>
-                    {businessTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
+                  <div className="grid grid-cols-3 gap-2">
+                    {businessTypes.map((t) => {
+                      const Icon = t.icon
+                      const active = formData.businessType === t.value
+                      return (
+                        <button
+                          key={t.value}
+                          type="button"
+                          onClick={() => { setFormData({ ...formData, businessType: t.value }); setErrors({ ...errors, businessType: '' }) }}
+                          className={`flex flex-col items-center gap-1.5 rounded-[8px] border px-2 py-3 text-center transition-all ${
+                            active
+                              ? 'border-[#0066FF] bg-blue-50 text-[#0066FF]'
+                              : 'border-[#E5E5E5] bg-white text-[#6E6E6E] hover:border-[#0066FF] hover:text-[#0066FF]'
+                          }`}
+                        >
+                          <Icon className="h-5 w-5" />
+                          <span className="text-[12px] font-semibold leading-tight">{t.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
                   {errors.businessType && <p className="mt-1 text-xs text-red-500 font-medium">{errors.businessType}</p>}
                 </div>
 
@@ -572,7 +569,7 @@ export default function OnboardingPage() {
                         </div>
                         <div className="space-y-1 text-[#6E6E6E]">
                           <div><strong>Name:</strong> {formData.businessName}</div>
-                          <div><strong>Type:</strong> {businessTypes.find(t => t.value === formData.businessType)?.label}</div>
+                          <div><strong>Type:</strong> {businessTypes.find(t => t.value === formData.businessType)?.label ?? formData.businessType}</div>
                           <div><strong>City:</strong> {formData.city}</div>
                           <div><strong>Email:</strong> {formData.email}</div>
                           {formData.gstNumber && <div><strong>GST:</strong> {formData.gstNumber}</div>}
@@ -600,11 +597,11 @@ export default function OnboardingPage() {
                       </div>
                       <h3 className="text-[19px] font-semibold text-[#4B4B4B] mb-1">🎉 Setup Complete!</h3>
                       <p className="text-[13px] text-[#6E6E6E]">
-                        <strong>{onboardingResult.business.business_name}</strong> is ready. Share these temporary passwords with your team.
+                        <strong>{onboardingResult.business?.business_name ?? formData.businessName}</strong> is ready. Share these temporary passwords with your team.
                       </p>
                     </div>
 
-                    {onboardingResult.employees_created.length > 0 && (
+                    {onboardingResult?.employees_created?.length > 0 && (
                       <div className="border border-[#E5E5E5] rounded-[4px] overflow-hidden">
                         <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2">
                           <span className="text-amber-700 text-[12px] font-bold">⚠️ Temporary Passwords — share securely with each employee</span>

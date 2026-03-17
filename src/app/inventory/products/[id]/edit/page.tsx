@@ -86,7 +86,6 @@ const productSchema = z.object({
   description: z.string().optional(),
   category: z.string().optional(),
   price: z.string().min(1, 'Price is required'),
-  cost_price: z.string().optional(),
   sku: z.string().optional(),
   stock_quantity: z.string().optional(),
   track_inventory: z.boolean().default(true),
@@ -161,7 +160,6 @@ export default function EditProductPage() {
         description: product.description || '',
         category: product.category || '',
         price: product.price?.toString() || '',
-        cost_price: product.cost_price?.toString() || '',
         sku: product.sku || '',
         stock_quantity: product.stock_quantity?.toString() || '0',
         track_inventory: product.track_inventory ?? true,
@@ -289,7 +287,6 @@ export default function EditProductPage() {
         description: data.description || null,
         category: data.category || null,
         price: parseFloat(data.price),
-        cost_price: data.cost_price ? parseFloat(data.cost_price) : null,
         sku: data.sku || null,
         track_inventory: data.track_inventory,
         is_active: data.is_active,
@@ -622,33 +619,20 @@ export default function EditProductPage() {
                 />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="price">
-                    Price <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    {...register('price')}
-                  />
-                  {errors.price && (
-                    <p className="text-sm text-destructive">{errors.price.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cost_price">Cost Price</Label>
-                  <Input
-                    id="cost_price"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    {...register('cost_price')}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="price">
+                  Price <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  {...register('price')}
+                />
+                {errors.price && (
+                  <p className="text-sm text-destructive">{errors.price.message}</p>
+                )}
               </div>
             </CardContent>
           </Card>

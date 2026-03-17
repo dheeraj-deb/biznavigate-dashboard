@@ -60,6 +60,7 @@ const navigation = [
     children: [
       { name: 'Services', href: '/inventory/services' },
       { name: '+ Add Item', href: '/inventory/add' },
+      { name: 'Bookings', href: '/inventory/bookings' },
       { name: 'Products', href: '/inventory/products' },
       { name: 'WhatsApp Catalog', href: '/inventory/catalog', icon: MessageSquare },
       { name: 'Categories', href: '/inventory/categories' },

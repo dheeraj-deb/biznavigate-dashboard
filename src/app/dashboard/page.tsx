@@ -1,7 +1,6 @@
 'use client'
 
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
-import { ProfileCompletionCheck } from '@/components/dashboard/ProfileCompletionCheck'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -153,9 +152,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <ProfileCompletionCheck>
-      <DashboardLayout>
-        <div className="space-y-6">
+    <DashboardLayout>
+      <div className="space-y-6">
           {/* Header */}
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
@@ -323,7 +321,6 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-      </DashboardLayout>
-    </ProfileCompletionCheck>
+    </DashboardLayout>
   )
 }

@@ -18,7 +18,8 @@ export interface InventoryConfig {
 }
 
 export interface Service {
-  id: string
+  service_id: string
+  id?: string
   name: string
   type: string
   description?: string

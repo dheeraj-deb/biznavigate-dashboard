@@ -39,7 +39,7 @@ const PRODUCT_TYPES = {
     label: 'Physical Product',
     icon: Package,
     color: 'bg-blue-100 text-blue-800',
-    fields: ['name', 'description', 'category', 'price', 'cost_price', 'sku', 'stock_quantity', 'weight', 'dimensions']
+    fields: ['name', 'description', 'category', 'price', 'sku', 'stock_quantity', 'weight', 'dimensions']
   },
   course: {
     label: 'Course',
@@ -102,7 +102,6 @@ export default function BulkUploadPage() {
         case 'description': return 'Product description here'
         case 'category': return 'Category'
         case 'price': return '99.99'
-        case 'cost_price': return '50.00'
         case 'sku': return 'SKU001'
         case 'stock_quantity': return '100'
         case 'weight': return '1.5'
@@ -236,7 +235,6 @@ export default function BulkUploadPage() {
           description: data.description || null,
           category: data.category || null,
           price: parseFloat(data.price),
-          cost_price: data.cost_price ? parseFloat(data.cost_price) : null,
           is_active: true,
           track_inventory: selectedType === 'physical_product',
         }
