@@ -152,7 +152,7 @@ export default function SettingsPage() {
   }
 
   // Loading state
-  if (profileLoading || businessLoading || notifLoading) {
+  if (profileLoading || businessLoading) {
     return (
       <DashboardLayout>
         <div className="flex h-[600px] items-center justify-center">
@@ -165,7 +165,7 @@ export default function SettingsPage() {
     )
   }
 
-  const hasErrors = profileError || businessError || notifError
+  const hasErrors = profileError || businessError
 
   return (
     <DashboardLayout>

@@ -6,6 +6,7 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Switch } from '@/components/ui/switch'
 import { useAuthStore } from '@/store/auth-store'
 import { apiClient } from '@/lib/api-client'
+import { useBusinessType } from '@/hooks/use-business-type'
 import toast from 'react-hot-toast'
 import Image from 'next/image'
 import {
@@ -45,11 +46,6 @@ import {
   BookOpen,
   Info,
 } from 'lucide-react'
-
-// ─── Types ─────────────────────────────────────────────────────────────────────
-
-// hotel, resort → hospitality form | events, camping → events form | products → retail form | education → education form
-type BusinessType = 'hospitality' | 'hotel' | 'resort' | 'events' | 'camping' | 'products' | 'education' | 'other' | 'unknown'
 
 // ─── Amenity / Feature Chips ────────────────────────────────────────────────
 
@@ -306,11 +302,10 @@ export default function AddInventoryPage() {
   const router = useRouter()
   const { user } = useAuthStore()
 
-  // Detect business type from stored user / business data
-  const [bizType, setBizType] = useState<BusinessType>('unknown')
+  // Detect business type from shared hook
+  const { businessType: bizType, isLoading } = useBusinessType()
   // For events clients: they could be event organizers OR camping/adventure organizers
   const [eventsSubType, setEventsSubType] = useState<'event' | 'camping'>('event')
-  const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [uploadingImages, setUploadingImages] = useState(false)
 
@@ -352,10 +347,19 @@ export default function AddInventoryPage() {
   }, [accommodationType])
 
   const [starRating, setStarRating] = useState('3')
-  const [checkInTime, setCheckInTime] = useState('12:00')
+  const [checkInTime, setCheckInTime] = useState('14:00')
   const [checkOutTime, setCheckOutTime] = useState('11:00')
   const [rooms, setRooms] = useState<RoomEntry[]>([{ type: 'Standard Room', capacity: '2', price: '', qty: '1' }])
   const [cancellationPolicy, setCancellationPolicy] = useState('')
+  const [taxPercentage, setTaxPercentage] = useState('')
+  const [extraGuestCharge, setExtraGuestCharge] = useState('')
+  const [maxAdults, setMaxAdults] = useState('')
+  const [mealPlan, setMealPlan] = useState('room_only')
+  const [smokingAllowed, setSmokingAllowed] = useState(false)
+  const [petsAllowed, setPetsAllowed] = useState(false)
+  const [childrenAllowed, setChildrenAllowed] = useState(true)
+  const [maxChildren, setMaxChildren] = useState('')
+  const [highlights, setHighlights] = useState('')
 
   // Events
   const [eventDate, setEventDate] = useState('')
@@ -386,45 +390,6 @@ export default function AddInventoryPage() {
   const [certificate, setCertificate] = useState(false)
 
   const [errors, setErrors] = useState<Record<string, string>>({})
-
-  // Detect business type — read directly from Zustand user (set during onboarding)
-  // Falls back to API only for accounts created before this field was added to the store
-  useEffect(() => {
-    const detect = async () => {
-      const validTypes = ['hospitality', 'hotel', 'resort', 'events', 'camping', 'products', 'education', 'other']
-      const BIZ_TYPE_MAP: Record<string, string> = {
-        hotel: 'hospitality', resort: 'hospitality', camping: 'hospitality',
-      }
-
-      // ── Primary: Zustand user.business_type (instant, reactive, set at onboarding) ──
-      if (user?.business_type && validTypes.includes(user.business_type)) {
-        const normalized = BIZ_TYPE_MAP[user.business_type] ?? user.business_type
-        setBizType(normalized as BusinessType)
-        setIsLoading(false)
-        return
-      }
-
-      // ── Fallback: API call for pre-existing accounts ──────────────────
-      try {
-        const businessId = user?.business_id || FALLBACK_BUSINESS_ID
-        const res = await apiClient.get(`/api/v1/businesses/${businessId}`)
-        const bt = (res.data?.data?.business_type ?? res.data?.business_type ?? '') as string
-        if (bt && validTypes.includes(bt)) {
-          const normalized = BIZ_TYPE_MAP[bt] ?? bt
-          setBizType(normalized as BusinessType)
-          setIsLoading(false)
-          return
-        }
-      } catch {
-        // API unavailable — use safe default below
-      }
-
-      // ── Last resort ───────────────────────────────────────────────────
-      setBizType('hospitality')
-      setIsLoading(false)
-    }
-    detect()
-  }, [user])
 
   // Image handlers
   const handleAddImages = (files: File[]) => {
@@ -530,19 +495,27 @@ export default function AddInventoryPage() {
       if (bizType === 'hospitality' || bizType === 'hotel' || bizType === 'resort') {
         attributes.star_rating = starRating
         attributes.location = location
-        attributes.check_in = checkInTime
-        attributes.check_out = checkOutTime
         attributes.rooms = rooms
-        attributes.amenities = amenities
-        attributes.cancellation_policy = cancellationPolicy
         if (isUnitAccom) attributes.max_guests = Number(maxGuests)
+        // amenities → grouped format
+        const amenityList = RESORT_AMENITIES.filter(a => amenities.includes(a.id)).map(a => a.label)
+        if (amenityList.length) attributes.amenities = { General: amenityList }
+        // new attributes fields
+        attributes.meal_plan = mealPlan
+        attributes.smoking_allowed = smokingAllowed
+        attributes.pets_allowed = petsAllowed
+        attributes.children_allowed = childrenAllowed
+        if (maxChildren) attributes.max_children = parseInt(maxChildren)
+        if (highlights.trim()) attributes.highlights = highlights.split(',').map(h => h.trim()).filter(Boolean)
       } else if (bizType === 'events' || bizType === 'camping') {
         attributes.event_date = eventDate
         attributes.event_end_date = eventEndDate
         attributes.venue = eventVenue
         attributes.location = location
         attributes.tickets = tickets
-        attributes.amenities = amenities
+        const campAmenityList = (bizType === 'camping' ? CAMP_AMENITIES : EVENT_AMENITIES)
+          .filter(a => amenities.includes(a.id)).map(a => a.label)
+        if (campAmenityList.length) attributes.amenities = { General: campAmenityList }
         attributes.refund_policy = refundPolicy
         attributes.age_restriction = ageRestriction
       }
@@ -551,25 +524,42 @@ export default function AddInventoryPage() {
       const isHospitality = ['hospitality', 'hotel', 'resort', 'camping'].includes(bizType)
 
       if (isServiceType) {
-        // ── Hospitality / Events → POST /api/v1/inventory/services ──
+        // ── Hospitality / Events → POST /inventory/services ──
         const basePrice = (bizType === 'hospitality' || bizType === 'hotel' || bizType === 'resort')
           ? parseFloat(rooms[0]?.price || '0')
           : parseFloat(tickets[0]?.price || '0')
 
-        const serviceCapacity = isUnitAccom
-          ? 1
-          : (bizType === 'hospitality' || bizType === 'hotel' || bizType === 'resort')
-          ? rooms.reduce((sum, r) => sum + (parseInt(r.qty) || 0), 0)
-          : parseInt(totalCapacity) || 0
+        const isRoomBased = bizType === 'hospitality' || bizType === 'hotel' || bizType === 'resort'
+
+        // capacity  → Capacity field (guests per room/unit) entered by user
+        // total_units → Number of Rooms/Units field (qty) entered by user
+        const serviceCapacity: number = isUnitAccom
+          ? parseInt(maxGuests) || 1                         // whole-unit: max guests dropdown
+          : isRoomBased
+          ? parseInt(rooms[0]?.capacity) || 0               // room: Capacity field value
+          : parseInt(totalCapacity) || 0                    // events: total capacity field
+
+        const totalUnits: number = isUnitAccom
+          ? 1                                               // whole-unit: always 1 unit
+          : isRoomBased
+          ? rooms.reduce((sum, r) => sum + (parseInt(r.qty) || 0), 0)  // room: Number of Rooms field
+          : parseInt(totalCapacity) || 0                    // events: total capacity field
 
         const serviceType = isHospitality ? accommodationType : bizType
 
-        await apiClient.post('/api/v1/inventory/services', {
+        await apiClient.post('/inventory/services', {
           name,
           description: description || undefined,
           type: serviceType,
           base_price: basePrice,
           capacity: serviceCapacity,
+          total_units: totalUnits,
+          check_in_time: checkInTime || undefined,
+          check_out_time: checkOutTime || undefined,
+          cancellation_policy: cancellationPolicy || undefined,
+          tax_percentage: taxPercentage ? parseFloat(taxPercentage) : undefined,
+          extra_guest_charge: extraGuestCharge ? parseFloat(extraGuestCharge) : undefined,
+          max_adults: maxAdults ? parseInt(maxAdults) : undefined,
           image_urls: imageUrls,
           attributes,
         })
@@ -578,7 +568,7 @@ export default function AddInventoryPage() {
         })
         router.push('/inventory/services')
       } else {
-        // ── Products / Education → POST /api/v1/products ──
+        // ── Products / Education → POST /products ──
         const payload: Record<string, unknown> = {
           business_id: businessId,
           name,
@@ -599,7 +589,7 @@ export default function AddInventoryPage() {
           payload.primary_image_url = imageUrls[primaryIndex]
           payload.images = imageUrls
         }
-        await apiClient.post('/api/v1/products', payload)
+        await apiClient.post('/products', payload)
         toast.success('Product added to inventory! 🎉', {
           style: { borderRadius: '12px', background: '#1e293b', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px' },
         })
@@ -916,6 +906,60 @@ export default function AddInventoryPage() {
                     <option>Non-refundable</option>
                     <option>No cancellation policy</option>
                   </select>
+                </div>
+
+                {/* Pricing extras */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <FieldLabel>Tax %</FieldLabel>
+                    <FieldInput type="number" value={taxPercentage} onChange={setTaxPercentage} placeholder="e.g. 12.5" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>Extra Guest Charge (₹)</FieldLabel>
+                    <FieldInput type="number" value={extraGuestCharge} onChange={setExtraGuestCharge} placeholder="per person/night" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>Max Adults</FieldLabel>
+                    <FieldInput type="number" value={maxAdults} onChange={setMaxAdults} placeholder="e.g. 2" />
+                  </div>
+                </div>
+
+                {/* Meal plan */}
+                <div className="space-y-1.5">
+                  <FieldLabel>Meal Plan</FieldLabel>
+                  <FieldSelect value={mealPlan} onChange={setMealPlan}
+                    options={['room_only', 'breakfast_included', 'all_inclusive']} />
+                </div>
+
+                {/* Guest policies */}
+                <div className="space-y-2">
+                  <FieldLabel>Guest Policies</FieldLabel>
+                  <div className="flex flex-wrap gap-4">
+                    {[
+                      { label: 'Smoking allowed', value: smokingAllowed, set: setSmokingAllowed },
+                      { label: 'Pets allowed',    value: petsAllowed,    set: setPetsAllowed },
+                      { label: 'Children allowed', value: childrenAllowed, set: setChildrenAllowed },
+                    ].map(({ label, value, set }) => (
+                      <label key={label} className="flex items-center gap-2 text-[13px] text-[#4B4B4B] cursor-pointer select-none">
+                        <input type="checkbox" checked={value} onChange={e => set(e.target.checked)}
+                          className="h-4 w-4 accent-[#0066FF]" />
+                        {label}
+                      </label>
+                    ))}
+                    {childrenAllowed && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] text-[#6E6E6E]">Max children</span>
+                        <FieldInput type="number" value={maxChildren} onChange={setMaxChildren} placeholder="e.g. 2" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Highlights */}
+                <div className="space-y-1.5">
+                  <FieldLabel>Highlights</FieldLabel>
+                  <FieldInput value={highlights} onChange={setHighlights} placeholder="Sea view, Private balcony, Jacuzzi (comma-separated)" />
+                  <p className="text-[11px] text-[#989898]">Bullet points shown on the listing</p>
                 </div>
               </div>
             </SectionCard>

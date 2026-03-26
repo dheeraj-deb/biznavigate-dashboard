@@ -175,6 +175,7 @@ export function useChangePassword() {
 /**
  * Get notification preferences
  */
+// TODO: /users/notification-preferences does not exist on the backend yet.
 export function useNotificationPreferences() {
   return useQuery({
     queryKey: ['notification-preferences'],
@@ -182,8 +183,8 @@ export function useNotificationPreferences() {
       const response = await apiClient.get('/users/notification-preferences')
       return response.data?.data as NotificationPreferences
     },
-    retry: 1,
-    retryDelay: 1000,
+    enabled: false,
+    retry: 0,
   })
 }
 
@@ -194,9 +195,8 @@ export function useUpdateNotificationPreferences() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (data: Partial<NotificationPreferences>) => {
-      const response = await apiClient.put('/users/notification-preferences', data)
-      return response.data?.data as NotificationPreferences
+    mutationFn: async (_data: Partial<NotificationPreferences>): Promise<NotificationPreferences> => {
+      throw new Error('Notification preferences endpoint is not yet available')
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notification-preferences'] })

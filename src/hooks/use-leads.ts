@@ -28,7 +28,7 @@ export function useLeads(filters?: LeadFilters) {
   return useQuery({
     queryKey: ['leads', filters],
     queryFn: async () => {
-      const response = await apiClient.get('/api/v1/leads', { params: filters })
+      const response = await apiClient.get('/leads', { params: filters })
       return response.data?.data || { data: [], meta: { total: 0 } }
     },
     retry: 1,
@@ -41,7 +41,7 @@ export function useLead(id: string) {
   return useQuery({
     queryKey: ['lead', id],
     queryFn: async () => {
-      const response = await apiClient.get(`/api/v1/leads/${id}`)
+      const response = await apiClient.get(`/leads/${id}`)
       return response.data?.data
     },
     enabled: !!id,
@@ -53,7 +53,7 @@ export function useLeadTimeline(id: string) {
   return useQuery({
     queryKey: ['lead-timeline', id],
     queryFn: async () => {
-      const response = await apiClient.get(`/api/v1/leads/${id}/timeline`)
+      const response = await apiClient.get(`/leads/${id}/timeline`)
       return response.data?.data || []
     },
     enabled: !!id,
@@ -65,7 +65,7 @@ export function useLeadStats(filters?: any) {
   return useQuery({
     queryKey: ['lead-stats', filters],
     queryFn: async () => {
-      const response = await apiClient.get('/api/v1/leads/stats/overview', { params: filters })
+      const response = await apiClient.get('/leads/stats/overview', { params: filters })
       return response.data?.data as LeadStats
     },
     retry: 1,
@@ -79,7 +79,7 @@ export function useCreateLead() {
 
   return useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiClient.post('/api/v1/leads', data)
+      const response = await apiClient.post('/leads', data)
       return response.data?.data
     },
     onSuccess: () => {
@@ -100,7 +100,7 @@ export function useUpdateLead() {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const response = await apiClient.patch(`/api/v1/leads/${id}`, data)
+      const response = await apiClient.patch(`/leads/${id}`, data)
       return response.data?.data
     },
     onSuccess: (_, variables) => {
@@ -122,7 +122,7 @@ export function useUpdateLeadStatus() {
 
   return useMutation({
     mutationFn: async ({ id, status, notes }: { id: string; status: string; notes?: string }) => {
-      const response = await apiClient.patch(`/api/v1/leads/${id}/status`, { status, notes })
+      const response = await apiClient.patch(`/leads/${id}/status`, { status, notes })
       return response.data?.data
     },
     onSuccess: (_, variables) => {
@@ -145,7 +145,7 @@ export function useAssignLead() {
 
   return useMutation({
     mutationFn: async ({ id, assigned_to }: { id: string; assigned_to: string }) => {
-      const response = await apiClient.post(`/api/v1/leads/${id}/assign`, { assigned_to })
+      const response = await apiClient.post(`/leads/${id}/assign`, { assigned_to })
       return response.data?.data
     },
     onSuccess: (_, variables) => {
@@ -167,7 +167,7 @@ export function useConvertLead() {
 
   return useMutation({
     mutationFn: async ({ id, conversion_value, notes }: { id: string; conversion_value?: number; notes?: string }) => {
-      const response = await apiClient.post(`/api/v1/leads/${id}/convert`, { conversion_value, notes })
+      const response = await apiClient.post(`/leads/${id}/convert`, { conversion_value, notes })
       return response.data?.data
     },
     onSuccess: (_, variables) => {
@@ -189,7 +189,7 @@ export function useDeleteLead() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      await apiClient.delete(`/api/v1/leads/${id}`)
+      await apiClient.delete(`/leads/${id}`)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
@@ -209,7 +209,7 @@ export function useBulkImportLeads() {
 
   return useMutation({
     mutationFn: async (data: { leads: any[] }) => {
-      const response = await apiClient.post('/api/v1/leads/bulk-import', data)
+      const response = await apiClient.post('/leads/bulk-import', data)
       return response.data?.data
     },
     onSuccess: (data) => {

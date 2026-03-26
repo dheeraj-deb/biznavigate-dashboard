@@ -52,6 +52,7 @@ import {
   useDuplicateTemplate,
   useSyncTemplate,
   useSubmitTemplate,
+  useSyncTemplatesFromMeta,
   type TemplateStatus,
   type TemplateCategory,
 } from '@/hooks/use-whatsapp-templates'
@@ -92,10 +93,11 @@ export default function WhatsAppTemplatesPage() {
 
   const { data: stats } = useTemplateStats()
 
-  const deleteMutation    = useDeleteTemplate()
-  const duplicateMutation = useDuplicateTemplate()
-  const syncMutation      = useSyncTemplate()
-  const submitMutation    = useSubmitTemplate()
+  const deleteMutation        = useDeleteTemplate()
+  const duplicateMutation     = useDuplicateTemplate()
+  const syncMutation          = useSyncTemplate()
+  const submitMutation        = useSubmitTemplate()
+  const syncFromMetaMutation  = useSyncTemplatesFromMeta()
 
   const templates  = data?.data ?? []
   const total      = data?.pagination?.total ?? 0
@@ -122,10 +124,22 @@ export default function WhatsAppTemplatesPage() {
               Create and manage Meta-approved message templates
             </p>
           </div>
-          <Button onClick={() => router.push('/settings/whatsapp-templates/new')}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Template
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => syncFromMetaMutation.mutate()}
+              disabled={syncFromMetaMutation.isPending}
+            >
+              {syncFromMetaMutation.isPending
+                ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                : <RefreshCw className="h-4 w-4 mr-2" />}
+              Sync from Meta
+            </Button>
+            <Button onClick={() => router.push('/settings/whatsapp-templates/new')}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Template
+            </Button>
+          </div>
         </div>
 
         {/* Summary cards */}

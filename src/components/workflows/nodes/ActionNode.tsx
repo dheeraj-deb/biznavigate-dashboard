@@ -63,6 +63,62 @@ function StandardNode({ data, selected }: { data: any; selected: boolean }) {
   )
 }
 
+// ── Template node ────────────────────────────────────────────────────────────
+
+function TemplateNode({ data, selected }: { data: any; selected: boolean }) {
+  const params: Record<string, any> = (!Array.isArray(data.params) && data.params) ? data.params : {}
+  const variables: any[] = Array.isArray(params.variables) ? params.variables : []
+
+  return (
+    <div
+      className={`rounded-2xl shadow-md transition-all overflow-hidden ${selected ? 'ring-2 ring-[#25D366] ring-offset-1' : ''}`}
+      style={{ minWidth: 220, maxWidth: 280 }}
+    >
+      <Handle type="target" position={Position.Top} className="w-3 h-3 !bg-[#25D366] border-2 border-white" />
+
+      <div className="bg-[#128C7E] px-3 py-1.5 flex items-center justify-between">
+        <span className="text-[10px] font-bold text-white uppercase tracking-widest">{data.label}</span>
+        <span className="text-[10px] text-white/70">Template</span>
+      </div>
+
+      <div className="bg-[#ECE5DD] px-2 py-2">
+        <div className="bg-white rounded-lg rounded-tl-none px-3 py-2 shadow-sm relative">
+          <span
+            className="absolute -left-2 top-0 w-0 h-0"
+            style={{ borderRight: '8px solid #ffffff', borderBottom: '8px solid transparent' }}
+          />
+          {params.templateName || params.templateId ? (
+            <p className="text-[11px] font-bold text-[#128C7E] font-mono truncate">
+              {params.templateName ?? params.templateId}
+            </p>
+          ) : (
+            <p className="text-xs italic text-gray-400">No template selected</p>
+          )}
+          {params.language && (
+            <p className="text-[10px] text-gray-400 mt-0.5">Lang: {params.language}</p>
+          )}
+          {variables.length > 0 && (
+            <div className="mt-1.5 space-y-0.5 border-t border-gray-100 pt-1.5">
+              {variables.map((v: any, i: number) => (
+                <div key={i} className="flex items-center gap-1 text-[10px]">
+                  <span className="text-gray-400 flex-shrink-0">{`{{${i + 1}}}`}</span>
+                  <span className="font-mono text-[#0066CC] truncate">{v.value || '—'}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-end mt-1 gap-1 items-center">
+            <span className="text-[9px] text-[#8C9A88]">now</span>
+            <CheckCheck className="h-3 w-3 text-[#34B7F1]" />
+          </div>
+        </div>
+      </div>
+
+      <Handle type="source" position={Position.Bottom} id="default" className="w-3 h-3 !bg-[#25D366] border-2 border-white" />
+    </div>
+  )
+}
+
 // ── Interactive (menu / list / buttons) node ─────────────────────────────────
 
 function InteractiveNode({ data, selected, items, interactiveKey }: {
@@ -212,6 +268,10 @@ function InteractiveNode({ data, selected, items, interactiveKey }: {
 export const ActionNode = memo(({ data, selected }: NodeProps<WorkflowNodeData>) => {
   const d = data as any
   const params: Record<string, any> = (!Array.isArray(d.params) && d.params) ? d.params : {}
+
+  if (typeof d.type === 'string' && d.type.includes('template')) {
+    return <TemplateNode data={d} selected={!!selected} />
+  }
 
   const interactiveKey = INTERACTIVE_KEYS.find((k) => Array.isArray(params[k]) && params[k].length > 0)
   const interactiveItems: any[] = interactiveKey ? params[interactiveKey] : []

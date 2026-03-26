@@ -10,7 +10,7 @@ import {
   BedDouble, Star, Clock, MapPin, ShieldCheck,
   Wifi, Car, Utensils, Waves, Dumbbell, Wind, Coffee,
 } from 'lucide-react'
-import { useAuthStore } from '@/store/auth-store'
+import { useBusinessType } from '@/hooks/use-business-type'
 import { InventoryConfig, Service, ServiceFormData } from './types'
 import { ServiceFormPanel } from './form-panel'
 import { AvailabilitySection } from './availability'
@@ -323,14 +323,9 @@ function ServiceCard({ service, accent, onEdit, onDeactivate }: {
 
 const HOSPITALITY_TYPES = ['hospitality', 'hotel', 'resort', 'camping']
 const HOSPITALITY_SERVICE_TYPES = ['room', 'villa', 'dormitory', 'tent_site', 'cabin', 'glamping']
-const BIZ_TYPE_MAP: Record<string, string> = {
-  hotel: 'hospitality', resort: 'hospitality', camping: 'hospitality',
-}
 
 export default function InventoryServicesPage() {
-  const { user } = useAuthStore()
-  const rawBizType = user?.business_type ?? ''
-  const bizType = BIZ_TYPE_MAP[rawBizType] ?? rawBizType
+  const { businessType: bizType } = useBusinessType()
   const isHospitality = HOSPITALITY_TYPES.includes(bizType)
 
   const [config, setConfig] = useState<InventoryConfig | null>(null)
@@ -342,7 +337,7 @@ export default function InventoryServicesPage() {
 
   // Load config (for form schema only)
   useEffect(() => {
-    apiClient.get('/api/v1/inventory/config')
+    apiClient.get('/inventory/config')
       .then(res => {
         const raw = res.data as { data?: InventoryConfig } | InventoryConfig
         const cfg: InventoryConfig = (raw as { data?: InventoryConfig }).data ?? (raw as InventoryConfig)
@@ -357,7 +352,7 @@ export default function InventoryServicesPage() {
     setServicesLoading(true)
 
     const fetchAll = apiClient
-      .get('/api/v1/inventory/services', isHospitality ? {} : { params: { type: bizType } })
+      .get('/inventory/services', isHospitality ? {} : { params: { type: bizType } })
       .then(res => {
         const body = res.data as { data?: Service[] } | Service[]
         return (body as { data?: Service[] }).data ?? (body as Service[]) ?? []
@@ -393,7 +388,7 @@ export default function InventoryServicesPage() {
     setSubmitting(true)
     try {
       if (editingService) {
-        const res = await apiClient.patch(`/api/v1/inventory/services/${sid(editingService)}`, {
+        const res = await apiClient.patch(`/inventory/services/${sid(editingService)}`, {
           name: data.name, description: data.description,
           base_price: Number(data.base_price), capacity: Number(data.capacity),
           image_urls: data.image_urls, attributes: data.attributes,
@@ -403,7 +398,7 @@ export default function InventoryServicesPage() {
         setServices(p => p.map(s => sid(s) === sid(updated) ? updated : s))
         toast.success('Updated!')
       } else {
-        const res = await apiClient.post('/api/v1/inventory/services', {
+        const res = await apiClient.post('/inventory/services', {
           name: data.name, description: data.description, type: serviceType,
           base_price: Number(data.base_price), capacity: Number(data.capacity),
           image_urls: data.image_urls, attributes: data.attributes,
@@ -423,7 +418,7 @@ export default function InventoryServicesPage() {
 
   const handleDeactivate = async (id: string) => {
     try {
-      await apiClient.delete(`/api/v1/inventory/services/${id}`)
+      await apiClient.delete(`/inventory/services/${id}`)
       setServices(p => p.filter(s => sid(s) !== id))
       toast.success('Deactivated')
     } catch {

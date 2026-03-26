@@ -315,16 +315,16 @@ export default function NewTemplatePage() {
   // Buttons
   const [buttons, setButtons] = useState<UIButton[]>([])
 
-  // Variable sample values (for Meta approval)
+  // Variable sample values and descriptions (for Meta approval)
   const variableCount = extractVariableCount(body)
-  const [varSamples, setVarSamples] = useState<string[]>([])
+  const [varSamples,       setVarSamples]       = useState<string[]>([])
+  const [varDescriptions,  setVarDescriptions]  = useState<string[]>([])
 
   const updateVarSample = (i: number, val: string) => {
-    setVarSamples((prev) => {
-      const next = [...prev]
-      next[i] = val
-      return next
-    })
+    setVarSamples((prev) => { const next = [...prev]; next[i] = val; return next })
+  }
+  const updateVarDescription = (i: number, val: string) => {
+    setVarDescriptions((prev) => { const next = [...prev]; next[i] = val; return next })
   }
 
   // ── Button helpers ────────────────────────────────────────────────────────
@@ -345,9 +345,11 @@ export default function NewTemplatePage() {
   const buildComponents = (): TemplateComponents => {
     const components: TemplateComponents = { body }
 
-    // bodyExamples — one sample per {{1}}, {{2}}, …
+    // bodyExamples + variableDescriptions — one entry per {{1}}, {{2}}, …
     if (variableCount > 0) {
       components.bodyExamples = Array.from({ length: variableCount }, (_, i) => varSamples[i]?.trim() ?? '')
+      const descs = Array.from({ length: variableCount }, (_, i) => varDescriptions[i]?.trim() ?? '')
+      if (descs.some(Boolean)) components.variableDescriptions = descs
     }
 
     if (headerType !== 'NONE') {
@@ -598,23 +600,46 @@ export default function NewTemplatePage() {
                 </div>
 
                 {variableCount > 0 && (
-                  <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
-                    <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                      Sample values for Meta approval <span className="font-normal">(required)</span>
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {Array.from({ length: variableCount }, (_, i) => i).map((i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <span className="text-xs font-mono text-amber-600 dark:text-amber-400 w-8 flex-shrink-0">{`{{${i + 1}}}`}</span>
-                          <Input
-                            placeholder={`Sample for {{${i + 1}}}`}
-                            value={varSamples[i] ?? ''}
-                            onChange={(e) => updateVarSample(i, e.target.value)}
-                            className="h-7 text-xs"
-                          />
-                        </div>
-                      ))}
+                  <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 overflow-hidden">
+                    <div className="px-3 py-2 border-b border-amber-200 dark:border-amber-800">
+                      <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                        Variable details <span className="font-normal text-amber-600/70 dark:text-amber-500/70">— example required for Meta approval</span>
+                      </p>
                     </div>
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-amber-200 dark:border-amber-800">
+                          <th className="text-left px-3 py-2 font-medium text-amber-700 dark:text-amber-400 w-16">Variable</th>
+                          <th className="text-left px-3 py-2 font-medium text-amber-700 dark:text-amber-400">Example <span className="font-normal text-amber-600/70">*</span></th>
+                          <th className="text-left px-3 py-2 font-medium text-amber-700 dark:text-amber-400">Description <span className="font-normal text-amber-600/70">(optional)</span></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Array.from({ length: variableCount }, (_, i) => (
+                          <tr key={i} className="border-b border-amber-100 dark:border-amber-900/50 last:border-0">
+                            <td className="px-3 py-2">
+                              <span className="font-mono font-semibold text-amber-600 dark:text-amber-400">{`{{${i + 1}}}`}</span>
+                            </td>
+                            <td className="px-3 py-1.5">
+                              <Input
+                                placeholder={`e.g. John`}
+                                value={varSamples[i] ?? ''}
+                                onChange={(e) => updateVarSample(i, e.target.value)}
+                                className="h-7 text-xs bg-white dark:bg-gray-900"
+                              />
+                            </td>
+                            <td className="px-3 py-1.5">
+                              <Input
+                                placeholder={`e.g. Guest name`}
+                                value={varDescriptions[i] ?? ''}
+                                onChange={(e) => updateVarDescription(i, e.target.value)}
+                                className="h-7 text-xs bg-white dark:bg-gray-900"
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>

@@ -211,6 +211,25 @@ export function useSyncFlow() {
   })
 }
 
+/** POST /whatsapp/flows/sync-from-meta — import all flows from Meta into local DB */
+export function useSyncFlowsFromMeta() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.post('/whatsapp/flows/sync-from-meta')
+      return response.data as { message: string; created: number; updated: number; total: number }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-flows'] })
+      toast.success(`Synced from Meta — ${data.created} created, ${data.updated} updated (${data.total} total)`)
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to sync flows from Meta')
+    },
+  })
+}
+
 /** DELETE /whatsapp/flows/:id */
 export function useDeleteFlow() {
   const queryClient = useQueryClient()

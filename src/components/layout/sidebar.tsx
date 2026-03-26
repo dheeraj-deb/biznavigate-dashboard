@@ -4,110 +4,19 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/store/ui-store'
+import { useNavigation } from '@/hooks/use-navigation'
+import { resolveIcon } from '@/lib/icon-resolver'
 import {
-  LayoutDashboard,
-  Package,
-  Users,
-  ShoppingCart,
-  BarChart3,
-  Settings,
-  MessageSquare,
-  TrendingUp,
-  Mail,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  Instagram,
-  Inbox,
-  Star,
-  Globe,
-  Brain,
-  Zap,
-  Activity,
   Home,
-  FileText,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Layers,
+  LayoutDashboard,
+  Package,
+  Lock,
 } from 'lucide-react'
-import { useState, useEffect, useCallback } from 'react'
-
-const navigation = [
-  {
-    name: 'CRM',
-    icon: Users,
-    children: [
-      { name: 'Leads', href: '/crm/leads' },
-      { name: 'Social Inbox', href: '/crm/inbox', icon: Inbox },
-      { name: 'Follow-Ups', href: '/crm/follow-ups' },
-      { name: 'Contacts', href: '/crm/contacts' },
-      { name: 'Campaigns', href: '/crm/campaigns', icon: Mail },
-    ],
-  },
-  {
-    name: 'Sales & Orders',
-    icon: ShoppingCart,
-    children: [
-      { name: 'Customers', href: '/customers' },
-      { name: 'Orders', href: '/orders' },
-      { name: 'Payments', href: '/payments' },
-      { name: 'Reviews', href: '/reviews', icon: Star },
-    ],
-  },
-  {
-    name: 'Inventory',
-    icon: Package,
-    children: [
-      { name: 'Services', href: '/inventory/services' },
-      { name: '+ Add Item', href: '/inventory/add' },
-      { name: 'Bookings', href: '/inventory/bookings' },
-      { name: 'Products', href: '/inventory/products' },
-      { name: 'WhatsApp Catalog', href: '/inventory/catalog', icon: MessageSquare },
-      { name: 'Categories', href: '/inventory/categories' },
-      { name: 'Suppliers', href: '/inventory/suppliers' },
-      { name: 'Stock Movements', href: '/inventory/stock-movements' },
-    ],
-  },
-  {
-    name: 'Analytics',
-    icon: BarChart3,
-    children: [
-      { name: 'Overview', href: '/analytics/overview' },
-      { name: 'AI Forecasting', href: '/analytics/forecasting', icon: Brain },
-      { name: 'Lead Conversions', href: '/analytics/conversions' },
-      { name: 'Sales Reports', href: '/analytics/sales' },
-      { name: 'Inventory Reports', href: '/analytics/inventory' },
-      { name: 'Social Media', href: '/analytics/social-media', icon: Instagram },
-    ],
-  },
-  {
-    name: 'Automations',
-    icon: Zap,
-    href: '/automations',
-  },
-  {
-    name: 'AI Optimization',
-    icon: Brain,
-    children: [
-      { name: 'Campaign Optimizer', href: '/campaigns/optimizer', icon: Zap },
-      { name: 'Live Monitor', href: '/campaigns/live', icon: Activity },
-    ],
-  },
-  {
-    name: 'Settings',
-    icon: Settings,
-    children: [
-      { name: 'General', href: '/settings' },
-      { name: 'Business Profile', href: '/settings/business' },
-      { name: 'WhatsApp', href: '/settings/whatsapp', icon: MessageSquare },
-      { name: 'WA Templates', href: '/settings/whatsapp-templates', icon: FileText },
-      { name: 'WA Flows', href: '/settings/whatsapp-flows', icon: Layers },
-      { name: 'Instagram', href: '/settings/instagram', icon: Instagram },
-      { name: 'Mini Website', href: '/settings/website', icon: Globe },
-      { name: 'Roles & Permissions', href: '/settings/roles' },
-    ],
-  },
-]
+import { useState, useEffect } from 'react'
+import type { NavGroup } from '@/config/navigation.types'
 
 // Tooltip for collapsed mode
 function Tooltip({ label, children }: { label: string; children: React.ReactNode }) {
@@ -125,6 +34,8 @@ function Tooltip({ label, children }: { label: string; children: React.ReactNode
 export function Sidebar() {
   const pathname = usePathname()
   const { sidebarOpen, toggleSidebar, sidebarCollapsed, toggleSidebarCollapsed, setSidebarCollapsed } = useUIStore()
+  const { quickLinks, groups, businessType } = useNavigation()
+  const homeHref = businessType === 'hospitality' ? '/dashboard' : '/'
   const [expandedSections, setExpandedSections] = useState<string[]>([])
 
   // Auto-collapse sidebar when navigating to any page
@@ -141,6 +52,138 @@ export function Sidebar() {
   }
 
   const isCollapsed = sidebarCollapsed
+
+  // Render a single nav group
+  const renderGroup = (item: NavGroup) => {
+    const GroupIcon = resolveIcon(item.icon)
+    const isExpanded = expandedSections.includes(item.name)
+    const isActive = item.href === pathname
+    const hasActiveChild = item.children?.some(child => child.href === pathname)
+
+    if (isCollapsed) {
+      return (
+        <Tooltip key={item.name} label={item.name}>
+          {item.href && !item.comingSoon ? (
+            <Link
+              href={item.href}
+              className={cn(
+                'flex items-center justify-center rounded-lg p-2.5 transition-all duration-200',
+                isActive
+                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
+                  : hasActiveChild
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              )}
+            >
+              <GroupIcon className="h-5 w-5 flex-shrink-0" />
+            </Link>
+          ) : (
+            <button
+              onMouseEnter={() => {
+                setSidebarCollapsed(false)
+              }}
+              onClick={() => {
+                toggleSidebarCollapsed()
+                if (!expandedSections.includes(item.name)) {
+                  setExpandedSections(prev => [...prev, item.name])
+                }
+              }}
+              className={cn(
+                'flex w-full items-center justify-center rounded-lg p-2.5 transition-all duration-200',
+                hasActiveChild
+                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              )}
+            >
+              <GroupIcon className="h-5 w-5 flex-shrink-0" />
+            </button>
+          )}
+        </Tooltip>
+      )
+    }
+
+    return (
+      <div key={item.name}>
+        {item.href && !item.comingSoon ? (
+          <Link
+            href={item.href}
+            className={cn(
+              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors group',
+              isActive
+                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+            )}
+          >
+            <GroupIcon className="h-5 w-5 flex-shrink-0" />
+            <span>{item.name}</span>
+            {item.comingSoon && (
+              <span className="ml-auto text-[10px] font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">Soon</span>
+            )}
+          </Link>
+        ) : (
+          <>
+            <button
+              onClick={() => !item.comingSoon && toggleSection(item.name)}
+              className={cn(
+                'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors group',
+                item.comingSoon
+                  ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                  : hasActiveChild
+                    ? 'text-blue-700 dark:text-blue-400'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              )}
+            >
+              <div className="flex items-center gap-3 flex-1">
+                <GroupIcon className="h-5 w-5 flex-shrink-0" />
+                <span>{item.name}</span>
+                {item.comingSoon && (
+                  <span className="text-[10px] font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">Soon</span>
+                )}
+              </div>
+              {!item.comingSoon && (
+                isExpanded ? (
+                  <ChevronDown className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
+                )
+              )}
+            </button>
+            {item.children && isExpanded && !item.comingSoon && (
+              <div className="ml-8 mt-1 space-y-1 border-l-2 border-gray-200 dark:border-gray-800 pl-3">
+                {item.children.map((child) => {
+                  if (child.comingSoon) {
+                    return (
+                      <div
+                        key={child.href}
+                        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                      >
+                        <span>{child.name}</span>
+                        <Lock className="h-3 w-3 ml-auto" />
+                      </div>
+                    )
+                  }
+                  return (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      className={cn(
+                        'block rounded-md px-3 py-2 text-sm transition-colors',
+                        pathname === child.href
+                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 font-medium'
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                      )}
+                    >
+                      {child.name}
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
 
   return (
     <>
@@ -173,7 +216,7 @@ export function Sidebar() {
           isCollapsed ? 'justify-center px-2' : 'justify-between px-4'
         )}>
           {!isCollapsed && (
-            <Link href="/" className="flex items-center space-x-3 overflow-hidden">
+            <Link href={homeHref} className="flex items-center space-x-3 overflow-hidden">
               <div className="rounded-lg bg-blue-600 p-1.5 flex-shrink-0">
                 <Package className="h-5 w-5 text-white" />
               </div>
@@ -207,10 +250,10 @@ export function Sidebar() {
           {isCollapsed ? (
             <Tooltip label="Home">
               <Link
-                href="/"
+                href={homeHref}
                 className={cn(
                   'flex items-center justify-center rounded-lg p-2.5 transition-all duration-200',
-                  pathname === '/'
+                  pathname === homeHref
                     ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                 )}
@@ -220,10 +263,10 @@ export function Sidebar() {
             </Tooltip>
           ) : (
             <Link
-              href="/"
+              href={homeHref}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
-                pathname === '/'
+                pathname === homeHref
                   ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
               )}
@@ -233,34 +276,36 @@ export function Sidebar() {
             </Link>
           )}
 
-          {/* Dashboard Link */}
-          {isCollapsed ? (
-            <Tooltip label="Dashboard">
+          {/* Dashboard Link — hidden for hospitality since Home already goes to /dashboard */}
+          {businessType !== 'hospitality' && (
+            isCollapsed ? (
+              <Tooltip label="Dashboard">
+                <Link
+                  href="/dashboard"
+                  className={cn(
+                    'flex items-center justify-center rounded-lg p-2.5 transition-all duration-200',
+                    pathname === '/dashboard'
+                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  )}
+                >
+                  <LayoutDashboard className="h-5 w-5 flex-shrink-0" />
+                </Link>
+              </Tooltip>
+            ) : (
               <Link
                 href="/dashboard"
                 className={cn(
-                  'flex items-center justify-center rounded-lg p-2.5 transition-all duration-200',
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
                   pathname === '/dashboard'
-                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                 )}
               >
                 <LayoutDashboard className="h-5 w-5 flex-shrink-0" />
+                <span>Dashboard</span>
               </Link>
-            </Tooltip>
-          ) : (
-            <Link
-              href="/dashboard"
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
-                pathname === '/dashboard'
-                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-              )}
-            >
-              <LayoutDashboard className="h-5 w-5 flex-shrink-0" />
-              <span>Dashboard</span>
-            </Link>
+            )
           )}
 
           {/* Separator */}
@@ -273,13 +318,9 @@ export function Sidebar() {
             </h3>
           )}
 
-          {[
-            { href: '/crm/contacts', label: 'Contacts', icon: Users },
-            { href: '/crm/campaigns', label: 'Campaigns', icon: TrendingUp },
-            { href: '/crm/inbox', label: 'Live Chat', icon: Inbox },
-            { href: '/orders', label: 'Orders', icon: ShoppingCart },
-          ].map(({ href, label, icon: Icon }) =>
-            isCollapsed ? (
+          {quickLinks.map(({ href, label, icon: iconName }) => {
+            const Icon = resolveIcon(iconName)
+            return isCollapsed ? (
               <Tooltip key={href} label={label}>
                 <Link
                   href={href}
@@ -308,119 +349,13 @@ export function Sidebar() {
                 <span>{label}</span>
               </Link>
             )
-          )}
+          })}
 
           {/* Separator */}
           <div className="my-3 border-t border-gray-200 dark:border-gray-800" />
 
-          {/* Main Navigation */}
-          {navigation.map((item) => {
-            const isExpanded = expandedSections.includes(item.name)
-            const isActive = item.href === pathname
-            const hasActiveChild = item.children?.some(child => child.href === pathname)
-
-            if (isCollapsed) {
-              return (
-                <Tooltip key={item.name} label={item.name}>
-                  {item.href ? (
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        'flex items-center justify-center rounded-lg p-2.5 transition-all duration-200',
-                        isActive
-                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
-                          : hasActiveChild
-                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
-                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                      )}
-                    >
-                      {item.icon && <item.icon className="h-5 w-5 flex-shrink-0" />}
-                    </Link>
-                  ) : (
-                    <button
-                      onMouseEnter={() => {
-                        setSidebarCollapsed(false)
-                      }}
-                      onClick={() => {
-                        toggleSidebarCollapsed()
-                        // Open the section after expanding
-                        if (!expandedSections.includes(item.name)) {
-                          setExpandedSections(prev => [...prev, item.name])
-                        }
-                      }}
-                      className={cn(
-                        'flex w-full items-center justify-center rounded-lg p-2.5 transition-all duration-200',
-                        hasActiveChild
-                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                      )}
-                    >
-                      {item.icon && <item.icon className="h-5 w-5 flex-shrink-0" />}
-                    </button>
-                  )}
-                </Tooltip>
-              )
-            }
-
-            return (
-              <div key={item.name}>
-                {item.href ? (
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors group',
-                      isActive
-                        ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                    )}
-                  >
-                    {item.icon && <item.icon className="h-5 w-5 flex-shrink-0" />}
-                    <span>{item.name}</span>
-                  </Link>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => toggleSection(item.name)}
-                      className={cn(
-                        'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors group',
-                        hasActiveChild
-                          ? 'text-blue-700 dark:text-blue-400'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                      )}
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        {item.icon && <item.icon className="h-5 w-5 flex-shrink-0" />}
-                        <span>{item.name}</span>
-                      </div>
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
-                      )}
-                    </button>
-                    {item.children && isExpanded && (
-                      <div className="ml-8 mt-1 space-y-1 border-l-2 border-gray-200 dark:border-gray-800 pl-3">
-                        {item.children.map((child) => (
-                          <Link
-                            key={child.href}
-                            href={child.href}
-                            className={cn(
-                              'block rounded-md px-3 py-2 text-sm transition-colors',
-                              pathname === child.href
-                                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 font-medium'
-                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
-                            )}
-                          >
-                            {child.name}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )
-          })}
+          {/* Main Navigation — config-driven */}
+          {groups.map(renderGroup)}
         </nav>
 
         {/* Footer */}

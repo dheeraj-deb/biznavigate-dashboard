@@ -47,7 +47,7 @@ export function useRecentLeads(limit = 5) {
   return useQuery({
     queryKey: ['recent-leads', limit],
     queryFn: async () => {
-      const response = await apiClient.get('/api/v1/leads', {
+      const response = await apiClient.get('/leads', {
         params: { limit, sort: '-created_at' }
       })
       return response.data?.data?.data || []

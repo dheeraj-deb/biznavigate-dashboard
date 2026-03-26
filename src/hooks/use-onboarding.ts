@@ -63,7 +63,7 @@ export interface OnboardingResult {
 export function useCompleteOnboarding() {
   return useMutation({
     mutationFn: async (payload: OnboardingPayload): Promise<OnboardingResult> => {
-      const response = await apiClient.post('/api/v1/onboarding/complete', payload)
+      const response = await apiClient.post('/onboarding/complete', payload)
       const body = response.data as { success?: boolean; data?: OnboardingResult; message?: string } & Partial<OnboardingResult>
       if (body.success === false) throw new Error(body.message || 'Onboarding failed')
       // Handle both { data: { business, employees_created } } and { business, employees_created } shapes

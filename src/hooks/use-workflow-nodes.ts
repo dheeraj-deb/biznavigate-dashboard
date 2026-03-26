@@ -34,6 +34,30 @@ interface NodeDefinitionsResponse {
   }
 }
 
+export interface WorkflowVariable {
+  path: string
+  label: string
+  example: string
+}
+
+export interface WorkflowVariablesResponse {
+  system: WorkflowVariable[]
+  node_outputs: WorkflowVariable[]
+}
+
+/** GET /workflows/variables — optionally filtered by node types */
+export function useWorkflowVariables(nodeTypes?: string[]) {
+  return useQuery({
+    queryKey: ['workflow-variables', nodeTypes ?? []],
+    queryFn: async () => {
+      const params = nodeTypes?.length ? { nodeTypes: nodeTypes.join(',') } : undefined
+      const response = await apiClient.get('/workflows/variables', { params })
+      return response.data as WorkflowVariablesResponse
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
 export function useWorkflowNodes() {
   return useQuery({
     queryKey: ['workflow-nodes'],

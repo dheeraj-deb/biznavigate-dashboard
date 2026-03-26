@@ -16,6 +16,7 @@ export interface User {
   user_id?: string
   business_id?: string
   business_type?: string      // set from onboarding / business profile
+  subscription_tier?: string  // future: free | starter | pro | enterprise
   tenant_id?: string          // set from onboarding response
   role_id?: string
   profile_completed?: boolean

@@ -347,7 +347,7 @@ export default function WorkflowBuilderPage() {
               <NodePalette />
             </div>
 
-            {/* Center - Canvas */}
+            {/* Canvas */}
             <div className="flex-1 min-w-0">
               <WorkflowCanvas
                 nodes={nodes}
@@ -359,31 +359,27 @@ export default function WorkflowBuilderPage() {
                   setWorkflowDefinition(def)
                 }}
                 onNodeSelect={(node) => {
-                  // Triggers are self-contained — no properties needed
                   if (node?.type === 'trigger') return
                   setSelectedNode(node)
                 }}
               />
             </div>
-
-            {/* Right Sidebar - Properties */}
-            {selectedNode && (
-              <div className="w-80 flex-shrink-0 overflow-y-auto">
-                <NodeProperties
-                  node={selectedNode}
-                  onUpdate={(updatedNode) => {
-                    console.log("updateNode", updatedNode);
-                    const updatedNodes = nodes.map(n => n.id === updatedNode.id ? updatedNode : n)
-                    setNodes(updatedNodes)
-                    setSelectedNode(updatedNode)
-                    const def = buildDefinition(updatedNodes, edges)
-                    setWorkflowDefinition(def)
-                  }}
-                  onClose={() => setSelectedNode(null)}
-                />
-              </div>
-            )}
           </div>
+        )}
+
+        {/* Full-screen node editor — rendered outside the flex layout */}
+        {selectedNode && (
+          <NodeProperties
+            node={selectedNode}
+            onUpdate={(updatedNode) => {
+              const updatedNodes = nodes.map(n => n.id === updatedNode.id ? updatedNode : n)
+              setNodes(updatedNodes)
+              setSelectedNode(updatedNode)
+              const def = buildDefinition(updatedNodes, edges)
+              setWorkflowDefinition(def)
+            }}
+            onClose={() => setSelectedNode(null)}
+          />
         )}
       </div>
     </DashboardLayout>

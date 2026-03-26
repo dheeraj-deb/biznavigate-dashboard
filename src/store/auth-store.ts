@@ -51,6 +51,7 @@ export const useAuthStore = create<AuthStore>()(
             updatedAt: new Date().toISOString(),
             user_id: userData.user_id,
             business_id: userData.business_id,
+            business_type: userData.business_type,
             role_id: userData.role_id,
             profile_completed: userData.profile_completed,
           }
@@ -93,6 +94,7 @@ export const useAuthStore = create<AuthStore>()(
             updatedAt: new Date().toISOString(),
             user_id: userData.user_id,
             business_id: userData.business_id,
+            business_type: userData.business_type,
             role_id: userData.role_id,
             profile_completed: userData.profile_completed,
           }
@@ -170,6 +172,7 @@ export const useAuthStore = create<AuthStore>()(
             updatedAt: new Date().toISOString(),
             user_id: userData.user_id,
             business_id: userData.business_id,
+            business_type: userData.business_type ?? get().user?.business_type,
             role_id: userData.role_id,
             profile_completed: userData.profile_completed,
           }

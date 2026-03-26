@@ -13,20 +13,28 @@ import {
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface Booking {
-  id: string
+  booking_id: string
+  booking_reference?: string
   service_id: string
-  service_name?: string
-  guest_name: string
-  guest_email?: string
-  guest_phone?: string
-  check_in: string
-  check_out?: string
-  guests?: number
-  amount: number
+  business_id?: string
+  lead_id?: string
+  customer_name: string
+  customer_phone?: string
+  customer_email?: string
+  check_in_date: string
+  check_out_date?: string
+  slots_booked?: number
+  total_price: string | number
   status: string
   payment_status?: string
-  notes?: string
+  special_requests?: string
   created_at: string
+  updated_at?: string
+  services?: {
+    name: string
+    type?: string
+    base_price?: string
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -69,6 +77,7 @@ function StatusBadge({ status }: { status: string }) {
 
 const PAYMENT_CONFIG: Record<string, { label: string; cls: string }> = {
   paid:    { label: 'Paid',    cls: 'bg-green-50 text-green-700 border border-green-200' },
+  unpaid:  { label: 'Unpaid',  cls: 'bg-red-50 text-red-600 border border-red-200' },
   pending: { label: 'Pending', cls: 'bg-yellow-50 text-yellow-700 border border-yellow-200' },
   partial: { label: 'Partial', cls: 'bg-orange-50 text-orange-700 border border-orange-200' },
   refunded:{ label: 'Refunded',cls: 'bg-slate-100 text-slate-600 border border-slate-200' },
@@ -96,9 +105,11 @@ function SkeletonRow() {
 function BookingRow({ booking }: { booking: Booking }) {
   const [expanded, setExpanded] = useState(false)
   const paymentCfg = PAYMENT_CONFIG[booking.payment_status ?? 'pending']
+  const amount = typeof booking.total_price === 'string' ? parseFloat(booking.total_price) || 0 : booking.total_price
+  const serviceName = booking.services?.name ?? 'Service'
 
-  const nights = booking.check_out
-    ? Math.max(1, Math.round((new Date(booking.check_out).getTime() - new Date(booking.check_in).getTime()) / 86400000))
+  const nights = booking.check_out_date
+    ? Math.max(1, Math.round((new Date(booking.check_out_date).getTime() - new Date(booking.check_in_date).getTime()) / 86400000))
     : null
 
   return (
@@ -109,20 +120,20 @@ function BookingRow({ booking }: { booking: Booking }) {
       >
         {/* Guest */}
         <div className="min-w-0">
-          <p className="font-bold text-[13px] text-[#4B4B4B] truncate">{booking.guest_name}</p>
-          <p className="text-[11px] text-[#6E6E6E] mt-0.5 truncate">{booking.guest_email ?? booking.guest_phone ?? '—'}</p>
+          <p className="font-bold text-[13px] text-[#4B4B4B] truncate">{booking.customer_name}</p>
+          <p className="text-[11px] text-[#6E6E6E] mt-0.5 truncate">{booking.customer_email ?? booking.customer_phone ?? '—'}</p>
         </div>
 
         {/* Service + dates */}
         <div className="min-w-0">
           <div className="flex items-center gap-1 mb-0.5">
             <BedDouble className="h-3 w-3 text-[#0066FF] flex-shrink-0" />
-            <p className="text-[12px] font-semibold text-[#4B4B4B] truncate">{booking.service_name ?? 'Room'}</p>
+            <p className="text-[12px] font-semibold text-[#4B4B4B] truncate">{serviceName}</p>
           </div>
           <div className="flex items-center gap-1 text-[11px] text-[#6E6E6E]">
             <CalendarDays className="h-3 w-3 flex-shrink-0" />
-            {fmtDate(booking.check_in)}
-            {booking.check_out && <> — {fmtDate(booking.check_out)}</>}
+            {fmtDate(booking.check_in_date)}
+            {booking.check_out_date && <> — {fmtDate(booking.check_out_date)}</>}
             {nights && <span className="ml-1 text-[10px] text-[#989898]">({nights}n)</span>}
           </div>
         </div>
@@ -130,7 +141,7 @@ function BookingRow({ booking }: { booking: Booking }) {
         {/* Amount */}
         <div className="space-y-1">
           <p className="font-bold text-[13px] text-[#4B4B4B] flex items-center gap-0.5">
-            <IndianRupee className="h-3 w-3 text-[#0066FF]" />{fmt(booking.amount).replace('₹', '')}
+            <IndianRupee className="h-3 w-3 text-[#0066FF]" />{fmt(amount).replace('₹', '')}
           </p>
           {booking.payment_status && (
             <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${paymentCfg?.cls ?? ''}`}>
@@ -152,35 +163,35 @@ function BookingRow({ booking }: { booking: Booking }) {
       {expanded && (
         <div className="px-5 py-4 bg-slate-50/80 border-b border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-4 text-[12px]">
           <div>
-            <p className="text-[11px] font-bold text-[#989898] uppercase tracking-wider mb-1">Booking ID</p>
-            <p className="font-mono text-[#4B4B4B] text-[11px] break-all">{booking.id}</p>
+            <p className="text-[11px] font-bold text-[#989898] uppercase tracking-wider mb-1">Booking Ref</p>
+            <p className="font-mono text-[#4B4B4B] text-[11px] break-all">{booking.booking_reference ?? booking.booking_id}</p>
           </div>
-          {booking.guest_phone && (
+          {booking.customer_phone && (
             <div>
               <p className="text-[11px] font-bold text-[#989898] uppercase tracking-wider mb-1">Phone</p>
-              <p className="flex items-center gap-1 text-[#4B4B4B]"><Phone className="h-3 w-3" />{booking.guest_phone}</p>
+              <p className="flex items-center gap-1 text-[#4B4B4B]"><Phone className="h-3 w-3" />{booking.customer_phone}</p>
             </div>
           )}
-          {booking.guest_email && (
+          {booking.customer_email && (
             <div>
               <p className="text-[11px] font-bold text-[#989898] uppercase tracking-wider mb-1">Email</p>
-              <p className="flex items-center gap-1 text-[#4B4B4B]"><Mail className="h-3 w-3" />{booking.guest_email}</p>
+              <p className="flex items-center gap-1 text-[#4B4B4B]"><Mail className="h-3 w-3" />{booking.customer_email}</p>
             </div>
           )}
-          {booking.guests && (
+          {booking.slots_booked && (
             <div>
-              <p className="text-[11px] font-bold text-[#989898] uppercase tracking-wider mb-1">Guests</p>
-              <p className="flex items-center gap-1 text-[#4B4B4B]"><Users className="h-3 w-3" />{booking.guests} guest{booking.guests !== 1 ? 's' : ''}</p>
+              <p className="text-[11px] font-bold text-[#989898] uppercase tracking-wider mb-1">Slots Booked</p>
+              <p className="flex items-center gap-1 text-[#4B4B4B]"><Users className="h-3 w-3" />{booking.slots_booked}</p>
             </div>
           )}
           <div>
             <p className="text-[11px] font-bold text-[#989898] uppercase tracking-wider mb-1">Booked</p>
             <p className="text-[#4B4B4B]">{fmtRelative(booking.created_at)}</p>
           </div>
-          {booking.notes && (
+          {booking.special_requests && (
             <div className="col-span-2">
-              <p className="text-[11px] font-bold text-[#989898] uppercase tracking-wider mb-1">Notes</p>
-              <p className="text-[#6E6E6E]">{booking.notes}</p>
+              <p className="text-[11px] font-bold text-[#989898] uppercase tracking-wider mb-1">Special Requests</p>
+              <p className="text-[#6E6E6E]">{booking.special_requests}</p>
             </div>
           )}
         </div>
@@ -205,7 +216,7 @@ export default function BookingsPage() {
     if (!silent) setLoading(true)
     else setRefreshing(true)
     try {
-      const res = await apiClient.get('/api/v1/inventory/bookings')
+      const res = await apiClient.get('/inventory/bookings')
       const body = res.data as unknown
       const list: Booking[] = Array.isArray(body)
         ? body
@@ -227,20 +238,22 @@ export default function BookingsPage() {
     const matchStatus = statusFilter === 'all' || b.status === statusFilter
     const q = search.toLowerCase()
     const matchSearch = !q ||
-      b.guest_name.toLowerCase().includes(q) ||
-      b.guest_email?.toLowerCase().includes(q) ||
-      b.guest_phone?.includes(q) ||
-      b.service_name?.toLowerCase().includes(q) ||
-      b.id.toLowerCase().includes(q)
+      b.customer_name.toLowerCase().includes(q) ||
+      b.customer_email?.toLowerCase().includes(q) ||
+      b.customer_phone?.includes(q) ||
+      b.services?.name?.toLowerCase().includes(q) ||
+      b.booking_reference?.toLowerCase().includes(q) ||
+      b.booking_id.toLowerCase().includes(q)
     return matchStatus && matchSearch
   })
 
   // Stats
+  const parsePrice = (p: string | number) => typeof p === 'string' ? parseFloat(p) || 0 : p
   const stats = {
     total: bookings.length,
     confirmed: bookings.filter(b => b.status === 'confirmed').length,
     pending: bookings.filter(b => b.status === 'pending').length,
-    revenue: bookings.filter(b => b.status !== 'cancelled').reduce((s, b) => s + (b.amount || 0), 0),
+    revenue: bookings.filter(b => b.status !== 'cancelled').reduce((s, b) => s + parsePrice(b.total_price), 0),
   }
 
   return (
@@ -356,7 +369,7 @@ export default function BookingsPage() {
             </div>
           ) : (
             <div>
-              {filtered.map(b => <BookingRow key={b.id} booking={b} />)}
+              {filtered.map(b => <BookingRow key={b.booking_id} booking={b} />)}
             </div>
           )}
         </div>

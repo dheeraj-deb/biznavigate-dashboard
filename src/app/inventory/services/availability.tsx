@@ -28,7 +28,7 @@ export function AvailabilitySection({ serviceId, accent }: { serviceId: string |
     if (!from || !to) { toast('Please select both dates', { icon: '⚠️' }); return }
     setLoading(true)
     try {
-      const res = await apiClient.get(`/api/v1/inventory/services/${serviceId}/availability`, { params: { from, to } })
+      const res = await apiClient.get(`/inventory/services/${serviceId}/availability`, { params: { from, to } })
       const raw = res.data as { data?: AvailabilitySlot[] } | AvailabilitySlot[]
       setSlots((raw as { data?: AvailabilitySlot[] }).data ?? (raw as AvailabilitySlot[]) ?? [])
     } catch {
@@ -41,7 +41,7 @@ export function AvailabilitySection({ serviceId, accent }: { serviceId: string |
   const blockDate = async (date: string) => {
     setBlocking(date)
     try {
-      await apiClient.patch(`/api/v1/inventory/services/${serviceId}/availability/block`, { date })
+      await apiClient.patch(`/inventory/services/${serviceId}/availability/block`, { date })
       toast.success(`${date} blocked`)
       setSlots(p => p.map(s => s.date === date ? { ...s, is_blocked: true } : s))
     } catch {
@@ -58,7 +58,7 @@ export function AvailabilitySection({ serviceId, accent }: { serviceId: string |
     }
     setSetSubmitting(true)
     try {
-      await apiClient.post(`/api/v1/inventory/services/${serviceId}/availability`, {
+      await apiClient.post(`/inventory/services/${serviceId}/availability`, {
         dates,
         total_slots: Number(setSlotCount),
         effective_price: Number(setPrice),

@@ -36,7 +36,8 @@ export type TemplateButton = TemplateButtonQuickReply | TemplateButtonCTA
 export interface TemplateComponents {
   header?: TemplateHeader
   body: string
-  bodyExamples?: string[]  // one sample value per {{1}}, {{2}}, … in body — required when body has variables
+  bodyExamples?: string[]          // one sample value per {{1}}, {{2}}, … — required when body has variables
+  variableDescriptions?: string[]  // human-readable description per variable, [0] = {{1}}, [1] = {{2}}, …
   footer?: string
   buttons?: TemplateButton[]
 }
@@ -137,7 +138,7 @@ export function useCreateTemplateDraft() {
   return useMutation({
     mutationFn: async (data: CreateTemplatePayload) => {
       const response = await apiClient.post('/whatsapp/templates', data)
-      return (response.data?.data || response.data) as WhatsAppTemplate
+      return ((response as any).data?.data || (response as any).data) as WhatsAppTemplate
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-templates'] })
@@ -170,7 +171,7 @@ export function useUpdateTemplate() {
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<CreateTemplatePayload> }) => {
       const response = await apiClient.patch(`/whatsapp/templates/${id}`, data)
-      return (response.data?.data || response.data) as WhatsAppTemplate
+      return ((response as any).data?.data || (response as any).data) as WhatsAppTemplate
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-templates'] })
@@ -228,7 +229,7 @@ export function useDuplicateTemplate() {
   return useMutation({
     mutationFn: async (id: string) => {
       const response = await apiClient.post(`/whatsapp/templates/${id}/duplicate`)
-      return (response.data?.data || response.data) as WhatsAppTemplate
+      return ((response as any).data?.data || (response as any).data) as WhatsAppTemplate
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-templates'] })
@@ -238,6 +239,82 @@ export function useDuplicateTemplate() {
     onError: (error: any) => {
       toast.error(error.message || 'Failed to duplicate template')
     },
+  })
+}
+
+/** POST /whatsapp/templates/sync-from-meta — import all templates from Meta into local DB */
+export function useSyncTemplatesFromMeta() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.post('/whatsapp/templates/sync-from-meta')
+      return response.data as { message: string; created: number; updated: number; total: number }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-templates'] })
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-template-stats'] })
+      toast.success(`Synced from Meta — ${data.created} created, ${data.updated} updated (${data.total} total)`)
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to sync templates from Meta')
+    },
+  })
+}
+
+// ── Approved templates (flat components array format) ─────────────────────────
+
+// Actual API response shape: components is an object, not an array
+export interface ApprovedTemplateComponents {
+  body?: string
+  bodyExamples?: string[]
+  variableDescriptions?: string[]
+  header?: { type: string; text?: string; format?: string; mediaUrl?: string }
+  footer?: string
+  buttons?: any[]
+}
+
+export interface ApprovedTemplate {
+  _id: string
+  businessId?: string
+  name: string
+  language: string
+  category: string
+  status: string
+  metaTemplateId?: string
+  components: ApprovedTemplateComponents
+  createdAt: string
+  updatedAt: string
+}
+
+/** GET /whatsapp/templates/approved — all APPROVED templates for the business */
+export function useApprovedTemplates() {
+  return useQuery({
+    queryKey: ['whatsapp-templates-approved'],
+    queryFn: async () => {
+      const response = await apiClient.get('/whatsapp/templates/approved')
+      const raw = (response as any).data
+      // unwrap { success, data: [...] } envelope if present
+      const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : [])
+      return list as ApprovedTemplate[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/** GET /whatsapp/templates/by-name/:name — single template by exact Meta name */
+export function useTemplateByName(name: string) {
+  return useQuery({
+    queryKey: ['whatsapp-template-by-name', name],
+    queryFn: async () => {
+      const response = await apiClient.get(`/whatsapp/templates/by-name/${encodeURIComponent(name)}`)
+      const raw = (response as any).data
+      // unwrap { success, data: {...}, message, meta } envelope
+      return (raw?.data ?? raw) as ApprovedTemplate
+    },
+    enabled: !!name,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
   })
 }
 

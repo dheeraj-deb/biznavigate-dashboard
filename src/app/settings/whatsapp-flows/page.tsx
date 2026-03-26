@@ -52,6 +52,7 @@ import {
   usePublishFlow,
   useDeprecateFlow,
   useSyncFlow,
+  useSyncFlowsFromMeta,
   type FlowStatus,
   type FlowCategory,
 } from '@/hooks/use-whatsapp-flows'
@@ -95,11 +96,12 @@ export default function WhatsAppFlowsPage() {
     limit,
   })
 
-  const deleteMutation    = useDeleteFlow()
-  const submitMutation    = useSubmitFlow()
-  const publishMutation   = usePublishFlow()
-  const deprecateMutation = useDeprecateFlow()
-  const syncMutation      = useSyncFlow()
+  const deleteMutation        = useDeleteFlow()
+  const submitMutation        = useSubmitFlow()
+  const publishMutation       = usePublishFlow()
+  const deprecateMutation     = useDeprecateFlow()
+  const syncMutation          = useSyncFlow()
+  const syncFromMetaMutation  = useSyncFlowsFromMeta()
 
   const flows      = data?.data ?? []
   const total      = data?.pagination?.total ?? 0
@@ -134,10 +136,22 @@ export default function WhatsAppFlowsPage() {
               Build interactive forms and surveys sent via WhatsApp
             </p>
           </div>
-          <Button onClick={() => router.push('/settings/whatsapp-flows/new')}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Flow
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => syncFromMetaMutation.mutate()}
+              disabled={syncFromMetaMutation.isPending}
+            >
+              {syncFromMetaMutation.isPending
+                ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                : <RefreshCw className="h-4 w-4 mr-2" />}
+              Sync from Meta
+            </Button>
+            <Button onClick={() => router.push('/settings/whatsapp-flows/new')}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Flow
+            </Button>
+          </div>
         </div>
 
         {/* Summary cards */}

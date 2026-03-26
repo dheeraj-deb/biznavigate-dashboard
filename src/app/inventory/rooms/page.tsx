@@ -267,7 +267,7 @@ export default function RoomsPage() {
   const loadRooms = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await apiClient.get('/api/v1/inventory/services', { params: { type: 'hospitality' } })
+      const res = await apiClient.get('/inventory/services', { params: { type: 'hospitality' } })
       // Handle both: { data: [...] } wrapper and raw array
       const body = res.data as unknown
       const list: Service[] = Array.isArray(body)
@@ -286,7 +286,7 @@ export default function RoomsPage() {
   useEffect(() => { loadRooms() }, [loadRooms])
 
   const handleDeactivate = async (id: string) => {
-    await apiClient.delete(`/api/v1/inventory/services/${id}`)
+    await apiClient.delete(`/inventory/services/${id}`)
     setRooms(p => p.filter(r => r.id !== id))
     toast.success('Room deactivated')
   }
