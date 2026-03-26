@@ -46,8 +46,8 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     try {
-      console.log('Logging in with credentials:')
       await login(data)
+      const user = useAuthStore.getState().user
       toast.success('Login successful!', {
         icon: '🚀',
         style: {
@@ -58,7 +58,7 @@ export default function LoginPage() {
           boxShadow: '0 10px 40px -10px rgba(0,0,0,0.1)',
         },
       })
-      router.push('/onboarding')
+      router.push(user?.profile_completed ? '/dashboard' : '/onboarding')
     } catch (error: unknown) {
       toast(error instanceof Error ? error.message : 'Authentication failed. Please check your credentials.', {
         icon: '⚠️',
