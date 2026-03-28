@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { User, AuthState, LoginCredentials, RegisterData, AuthResponse } from '@/types'
+import { User, UserRole, AuthState, LoginCredentials, RegisterData, AuthResponse } from '@/types'
 import axios from 'axios'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
@@ -46,7 +46,7 @@ export const useAuthStore = create<AuthStore>()(
             id: userData.user_id,
             email: userData.email,
             name: userData.name,
-            role: 'ADMIN', // You can map role_id to UserRole here if needed
+            role: UserRole.ADMIN, // You can map role_id to UserRole here if needed
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             user_id: userData.user_id,
@@ -92,7 +92,7 @@ export const useAuthStore = create<AuthStore>()(
             id: userData.user_id,
             email: userData.email,
             name: userData.name,
-            role: 'ADMIN',
+            role: UserRole.ADMIN,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             user_id: userData.user_id,
@@ -171,7 +171,7 @@ export const useAuthStore = create<AuthStore>()(
             id: userData.user_id,
             email: userData.email,
             name: userData.name,
-            role: 'ADMIN',
+            role: UserRole.ADMIN,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             user_id: userData.user_id,

@@ -171,7 +171,7 @@ export default function RolesPage() {
     )
   }
 
-  const permissionKeys: Array<keyof RolePermissions> = ['view', 'create', 'edit', 'delete']
+  const permissionKeys = ['view', 'create', 'edit', 'delete'] as const
 
   return (
     <DashboardLayout>

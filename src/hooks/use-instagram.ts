@@ -51,7 +51,7 @@ export function useInstagramOAuthUrl(businessId: string) {
     queryKey: [...instagramKeys.all, 'oauthUrl', businessId],
     queryFn: async () => {
       const response = await instagramApi.getOAuthUrl(businessId);
-      return response.data.url;
+      return response.data!.url;
     },
     enabled: !!businessId,
     staleTime: 10 * 60 * 1000, // 10 minutes

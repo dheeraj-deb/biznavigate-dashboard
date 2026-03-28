@@ -191,7 +191,7 @@ export default function NewProductPage() {
           console.log('Upload response:', uploadResponse)
           console.log('Upload response data:', uploadResponse.data)
 
-          imageUrls = uploadResponse.data.map((item: any) => item.url)
+          imageUrls = (uploadResponse.data as any[]).map((item: any) => item.url)
 
           toast.success(`${imageUrls.length} image(s) uploaded successfully`, {
             id: 'upload-images',

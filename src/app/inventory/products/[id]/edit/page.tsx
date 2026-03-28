@@ -260,7 +260,7 @@ export default function EditProductPage() {
             folder: 'products',
           })
 
-          newImageUrls = uploadResponse.data.map((item: any) => item.url)
+          newImageUrls = (uploadResponse.data as any[]).map((item: any) => item.url)
 
           toast.success(`${newImageUrls.length} image(s) uploaded successfully`, {
             id: 'upload-images',

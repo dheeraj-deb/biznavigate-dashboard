@@ -156,8 +156,15 @@ export interface GetMediaInsightsRequest {
 // API Response types
 export interface ApiResponse<T> {
   success: boolean;
-  data: T;
+  data?: T;
   message?: string;
+  error?: string;
+  meta?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+    totalPages?: number;
+  };
 }
 
 export interface PaginatedResponse<T> {
