@@ -56,10 +56,13 @@ export const useAuthStore = create<AuthStore>()(
             profile_completed: userData.profile_completed,
           }
 
-          // Store tokens
+          // Store tokens and business type
           if (typeof window !== 'undefined') {
             localStorage.setItem('biznavigate_auth_token', access_token)
             localStorage.setItem('biznavigate_refresh_token', refresh_token)
+            if (userData.business_type) {
+              localStorage.setItem('biznavigate_business_type', userData.business_type)
+            }
           }
 
           set({
@@ -142,6 +145,7 @@ export const useAuthStore = create<AuthStore>()(
           if (typeof window !== 'undefined') {
             localStorage.removeItem('biznavigate_auth_token')
             localStorage.removeItem('biznavigate_refresh_token')
+            localStorage.removeItem('biznavigate_business_type')
           }
           set({ user: null, token: null, refreshToken: null, isAuthenticated: false })
         }

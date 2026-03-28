@@ -6,66 +6,95 @@ import { apiClient } from '@/lib/api-client'
 import { BusinessType, BIZ_TYPE_MAP } from '@/config/navigation.types'
 
 const VALID_TYPES: string[] = ['hospitality', 'events', 'products']
-const DEFAULT_TYPE: BusinessType = 'hospitality'
+
+function normalize(raw: string): string {
+  return BIZ_TYPE_MAP[raw] ?? raw
+}
+
+function isValid(t: string): t is BusinessType {
+  return VALID_TYPES.includes(t)
+}
 
 /**
  * Resolves the current user's canonical BusinessType.
  *
- * 1. Reads user.business_type from Zustand (set during onboarding)
- * 2. Normalizes via BIZ_TYPE_MAP (hotel→hospitality, retail→products, etc.)
- * 3. Falls back to GET /businesses/{business_id} for legacy accounts
- * 4. Last resort: 'hospitality'
+ * Priority order (first valid value wins):
+ * 1. localStorage key 'biznavigate_business_type' — written on onboarding/login
+ * 2. user.business_type from Zustand auth store
+ * 3. GET /api/v1/inventory/config — fallback for legacy accounts
  */
 export function useBusinessType() {
-  const { user } = useAuthStore()
+  const { user, setUser } = useAuthStore()
 
-  const [businessType, setBusinessType] = useState<BusinessType>(() => {
-    const raw = user?.business_type ?? ''
-    const normalized = BIZ_TYPE_MAP[raw] ?? raw
-    return VALID_TYPES.includes(normalized) ? (normalized as BusinessType) : DEFAULT_TYPE
-  })
-  const [isLoading, setIsLoading] = useState(() => {
-    const raw = user?.business_type ?? ''
-    const normalized = BIZ_TYPE_MAP[raw] ?? raw
-    return !VALID_TYPES.includes(normalized)
-  })
+  function resolveFromLocal(): BusinessType | null {
+    if (typeof window === 'undefined') return null
+    const raw = normalize(localStorage.getItem('biznavigate_business_type') ?? '')
+    return isValid(raw) ? (raw as BusinessType) : null
+  }
+
+  function resolveFromStore(): BusinessType | null {
+    const raw = normalize(user?.business_type ?? '')
+    return isValid(raw) ? (raw as BusinessType) : null
+  }
+
+  const immediate = resolveFromLocal() ?? resolveFromStore()
+
+  const [businessType, setBusinessType] = useState<BusinessType>(immediate ?? 'hospitality')
+  const [isLoading, setIsLoading] = useState(immediate === null)
 
   useEffect(() => {
-    const raw = user?.business_type ?? ''
-    const normalized = BIZ_TYPE_MAP[raw] ?? raw
+    // Re-check on every render in case localStorage was just written
+    const local = resolveFromLocal()
+    if (local) {
+      setBusinessType(local)
+      setIsLoading(false)
+      // Sync into auth store so future renders are instant
+      if (user && user.business_type !== local) {
+        setUser({ ...user, business_type: local })
+      }
+      return
+    }
 
-    if (VALID_TYPES.includes(normalized)) {
-      setBusinessType(normalized as BusinessType)
+    const fromStore = resolveFromStore()
+    if (fromStore) {
+      setBusinessType(fromStore)
       setIsLoading(false)
       return
     }
 
-    // Fallback: fetch from API for legacy accounts
-    if (!user?.business_id) {
-      setBusinessType(DEFAULT_TYPE)
-      setIsLoading(false)
-      return
+    // Last resort: try businesses API first, then config API
+    setIsLoading(true)
+
+    const persist = (resolved: BusinessType) => {
+      setBusinessType(resolved)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('biznavigate_business_type', resolved)
+      }
+      if (user) setUser({ ...user, business_type: resolved })
     }
 
-    apiClient
-      .get(`/businesses/${user.business_id}`)
-      .then((res) => {
-        const body = res.data as any
-        const bt = (body?.data?.business_type ?? body?.business_type ?? '') as string
-        const norm = BIZ_TYPE_MAP[bt] ?? bt
-        if (VALID_TYPES.includes(norm)) {
-          setBusinessType(norm as BusinessType)
-        } else {
-          setBusinessType(DEFAULT_TYPE)
-        }
+    const tryBizAPI = user?.business_id
+      ? apiClient.get(`/api/v1/businesses/${user.business_id}`).then((res) => {
+          const body = res.data as any
+          const bt = (body?.data?.business_type ?? body?.business_type ?? '') as string
+          return normalize(bt)
+        })
+      : Promise.resolve('')
+
+    tryBizAPI
+      .then((norm) => {
+        if (isValid(norm)) { persist(norm as BusinessType); return }
+        // Fall back to inventory config
+        return apiClient.get('/api/v1/inventory/config').then((res) => {
+          const body = res.data as any
+          const bt = (body?.data?.business_type ?? body?.business_type ?? '') as string
+          const n = normalize(bt)
+          if (isValid(n)) persist(n as BusinessType)
+        })
       })
-      .catch(() => {
-        setBusinessType(DEFAULT_TYPE)
-      })
-      .finally(() => {
-        setIsLoading(false)
-      })
-  }, [user])
+      .catch(() => {})
+      .finally(() => setIsLoading(false))
+  }, [user?.business_type])
 
   return { businessType, isLoading }
 }
