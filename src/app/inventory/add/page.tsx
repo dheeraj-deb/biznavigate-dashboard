@@ -440,7 +440,7 @@ export default function AddInventoryPage() {
     const e: Record<string, string> = {}
     if (!name.trim()) e.name = 'Name is required'
     // For hospitality, price comes from room entries; for events, from ticket entries
-    if (bizType !== 'hospitality' && bizType !== 'hotel' && bizType !== 'resort' && bizType !== 'events' && bizType !== 'camping') {
+    if (bizType !== 'hospitality' && bizType !== 'events') {
       if (!price.trim() || isNaN(Number(price))) e.price = 'Valid price is required'
     }
     if (bizType === 'hospitality') {
@@ -501,7 +501,7 @@ export default function AddInventoryPage() {
 
       // Build attributes (service metadata)
       const attributes: Record<string, unknown> = {}
-      if (bizType === 'hospitality' || bizType === 'hotel' || bizType === 'resort') {
+      if (bizType === 'hospitality') {
         attributes.star_rating = starRating
         attributes.location = location
         attributes.rooms = rooms
@@ -516,29 +516,29 @@ export default function AddInventoryPage() {
         attributes.children_allowed = childrenAllowed
         if (maxChildren) attributes.max_children = parseInt(maxChildren)
         if (highlights.trim()) attributes.highlights = highlights.split(',').map(h => h.trim()).filter(Boolean)
-      } else if (bizType === 'events' || bizType === 'camping') {
+      } else if (bizType === 'events') {
         attributes.event_date = eventDate
         attributes.event_end_date = eventEndDate
         attributes.venue = eventVenue
         attributes.location = location
         attributes.tickets = tickets
-        const campAmenityList = (bizType === 'camping' ? CAMP_AMENITIES : EVENT_AMENITIES)
+        const campAmenityList = EVENT_AMENITIES
           .filter(a => amenities.includes(a.id)).map(a => a.label)
         if (campAmenityList.length) attributes.amenities = { General: campAmenityList }
         attributes.refund_policy = refundPolicy
         attributes.age_restriction = ageRestriction
       }
 
-      const isServiceType = ['hospitality', 'hotel', 'resort', 'events', 'camping'].includes(bizType)
-      const isHospitality = ['hospitality', 'hotel', 'resort', 'camping'].includes(bizType)
+      const isServiceType = ['hospitality', 'events'].includes(bizType)
+      const isHospitality = bizType === 'hospitality'
 
       if (isServiceType) {
         // ── Hospitality / Events → POST /inventory/services ──
-        const basePrice = (bizType === 'hospitality' || bizType === 'hotel' || bizType === 'resort')
+        const basePrice = (bizType === 'hospitality')
           ? parseFloat(rooms[0]?.price || '0')
           : parseFloat(tickets[0]?.price || '0')
 
-        const isRoomBased = bizType === 'hospitality' || bizType === 'hotel' || bizType === 'resort'
+        const isRoomBased = bizType === 'hospitality'
 
         // capacity  → Capacity field (guests per room/unit) entered by user
         // total_units → Number of Rooms/Units field (qty) entered by user
@@ -771,10 +771,10 @@ export default function AddInventoryPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
                 <FieldLabel required>
-                  {['hospitality', 'hotel', 'resort'].includes(bizType)
+                  {bizType === 'hospitality'
                     ? 'Property Name'
-                    : bizType === 'events' || bizType === 'camping' ? (eventsSubType === 'camping' ? 'Camp Name' : 'Event Name')
-                    : bizType === 'education' ? 'Course / Program Title'
+                    : bizType === 'events' ? (eventsSubType === 'camping' ? 'Camp Name' : 'Event Name')
+                    : bizType === ('education' as string) ? 'Course / Program Title'
                     : 'Product Name'}
                 </FieldLabel>
                 <FieldInput
@@ -782,7 +782,7 @@ export default function AddInventoryPage() {
                   placeholder={
                     bizType === 'hospitality' ? 'e.g. The Grand Aravalli Resort'
                     : bizType === 'events' ? (eventsSubType === 'camping' ? 'e.g. Himalayan Base Camp Experience' : 'e.g. Sunburn Music Festival 2026')
-                    : bizType === 'education' ? 'e.g. Advanced Digital Marketing Course'
+                    : (bizType as string) === 'education' ? 'e.g. Advanced Digital Marketing Course'
                     : 'e.g. Premium Leather Wallet'
                   }
                   error={errors.name}
@@ -801,14 +801,14 @@ export default function AddInventoryPage() {
               )}
 
 
-              {bizType === 'education' && (
+              {(bizType as string) === 'education' && (
                 <div className="space-y-1.5">
                   <FieldLabel>Instructor Name</FieldLabel>
                   <FieldInput id="instructor" value={instructor} onChange={setInstructor} placeholder="e.g. Rahul Sharma, Dr. Priya Nair" />
                 </div>
               )}
 
-              {(bizType === 'products' || bizType === 'education') && (
+              {(bizType === 'products' || (bizType as string) === 'education') && (
                 <div className="space-y-1.5">
                   <FieldLabel required>Price (₹)</FieldLabel>
                   <FieldInput
@@ -828,7 +828,7 @@ export default function AddInventoryPage() {
                     ? 'Describe the experience — views, surroundings, what makes it special…'
                     : bizType === 'events'
                     ? 'Describe the event — lineup, highlights, what attendees can expect…'
-                    : bizType === 'education'
+                    : (bizType as string) === 'education'
                     ? 'Describe the course — outcomes, who it is for, and key highlights…'
                     : 'Describe the product — materials, features, and key benefits…'
                 }
@@ -840,7 +840,7 @@ export default function AddInventoryPage() {
 
 
         {/* ══ HOSPITALITY SPECIFIC — Hotel & Resort ════════════════════ */}
-        {(bizType === 'hospitality' || bizType === 'hotel' || bizType === 'resort') && (
+        {bizType === 'hospitality' && (
           <>
             {/* Property Details */}
             <SectionCard
@@ -1121,7 +1121,7 @@ export default function AddInventoryPage() {
         )}
 
         {/* ══ CAMPING SPECIFIC ═════════════════════════════════════════════ */}
-        {bizType === 'camping' && (
+        {bizType === 'events' && eventsSubType === 'camping' && (
           <>
             {/* Camp Details */}
             <SectionCard
@@ -1261,7 +1261,7 @@ export default function AddInventoryPage() {
         )}
 
         {/* ══ EDUCATION SPECIFIC ═══════════════════════════════════════════ */}
-        {bizType === 'education' && (
+        {(bizType as string) === 'education' && (
           <>
             <SectionCard title="Course Details" subtitle="Duration, level, delivery and capacity" icon={BookOpen} accent="#D97706">
               <div className="space-y-4">

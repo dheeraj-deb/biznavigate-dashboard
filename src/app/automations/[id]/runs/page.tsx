@@ -432,7 +432,7 @@ export default function WorkflowRunsPage() {
                                   {log.duration_ms !== null && (
                                     <p>Duration: {formatDuration(log.duration_ms)}</p>
                                   )}
-                                  {log.output_data && (
+                                  {'output_data' in log && log.output_data && (
                                     <details className="mt-2">
                                       <summary className="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline">
                                         View output data
@@ -442,7 +442,7 @@ export default function WorkflowRunsPage() {
                                       </pre>
                                     </details>
                                   )}
-                                  {log.error && (
+                                  {'error' in log && log.error && (
                                     <p className="text-red-600 dark:text-red-400">
                                       Error: {log.error}
                                     </p>

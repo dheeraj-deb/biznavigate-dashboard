@@ -10,7 +10,7 @@ export function useProducts(page = 1, pageSize = 10, business_id?: string) {
       const params: any = { page, limit: pageSize }
       if (business_id) params.business_id = business_id
 
-      const response = await apiClient.get(`/products`, { params })
+      const response: any = await apiClient.get(`/products`, { params })
       console.log('Products API response:', response.data)
       return {
         data: response.data || [],

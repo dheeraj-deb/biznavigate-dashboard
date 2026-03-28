@@ -298,7 +298,7 @@ function FlowPhonePreview({ jsonText, flowName }: { jsonText: string; flowName: 
               <ChevronLeft className="h-4 w-4 text-gray-500 flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 truncate leading-none" style={{ fontSize: 12 }}>
-                  {firstScreen?.title ?? flowName || 'Flow'}
+                  {firstScreen?.title ?? (flowName || 'Flow')}
                 </p>
                 {screenCount > 1 && (
                   <p className="text-gray-400" style={{ fontSize: 9, marginTop: 1 }}>

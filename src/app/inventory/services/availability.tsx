@@ -12,7 +12,6 @@ function fmt(n: number) {
 }
 
 export function AvailabilitySection({ serviceId, accent }: { serviceId: string | undefined; accent: string }) {
-  if (!serviceId) return null
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [slots, setSlots] = useState<AvailabilitySlot[]>([])
@@ -37,6 +36,8 @@ export function AvailabilitySection({ serviceId, accent }: { serviceId: string |
       setLoading(false)
     }
   }, [serviceId, from, to])
+
+  if (!serviceId) return null
 
   const blockDate = async (date: string) => {
     setBlocking(date)

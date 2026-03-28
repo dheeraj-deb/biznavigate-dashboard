@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useWhatsAppAccounts, useDisconnectWhatsAppAccount } from '@/hooks/use-whatsapp-account'
 import { useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
@@ -74,7 +74,15 @@ const mockSettings = {
   payment_reminders_enabled: true,
 }
 
-export default function WhatsAppSettingsPage() {
+export default function WhatsAppSettingsPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+      <WhatsAppSettingsPage />
+    </Suspense>
+  )
+}
+
+function WhatsAppSettingsPage() {
   const { user } = useAuthStore()
   const searchParams = useSearchParams()
   const [showOnboarding, setShowOnboarding] = useState(false)

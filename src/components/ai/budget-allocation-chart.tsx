@@ -106,11 +106,11 @@ export function BudgetAllocationChart({
                         <div className="space-y-1">
                           <div className="flex items-center justify-between gap-4">
                             <span className="text-xs text-gray-600 dark:text-gray-400">Current:</span>
-                            <span className="text-sm font-semibold">{formatCurrency(payload[0].value)}</span>
+                            <span className="text-sm font-semibold">{formatCurrency(payload[0].value as number)}</span>
                           </div>
                           <div className="flex items-center justify-between gap-4">
                             <span className="text-xs text-gray-600 dark:text-gray-400">Recommended:</span>
-                            <span className="text-sm font-semibold">{formatCurrency(payload[1].value)}</span>
+                            <span className="text-sm font-semibold">{formatCurrency(payload[1].value as number)}</span>
                           </div>
                           <div className="flex items-center justify-between gap-4 pt-1 border-t border-gray-200 dark:border-gray-700">
                             <span className="text-xs text-gray-600 dark:text-gray-400">Change:</span>

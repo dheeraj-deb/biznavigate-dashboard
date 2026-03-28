@@ -672,7 +672,7 @@ export default function NewCampaignPage() {
                               onClick={() => {
                                 setSelectedContactIds((prev) => {
                                   const next = new Set(prev)
-                                  next.has(c.customer_id) ? next.delete(c.customer_id) : next.add(c.customer_id)
+                                  if (next.has(c.customer_id)) { next.delete(c.customer_id) } else { next.add(c.customer_id) }
                                   return next
                                 })
                               }}

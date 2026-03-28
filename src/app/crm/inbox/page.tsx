@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -88,7 +88,15 @@ const getAiSuggestions = (lastMessage: string | undefined | null, platform: UIPl
   ]
 }
 
-export default function SocialInboxPage() {
+export default function SocialInboxPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+      <SocialInboxPage />
+    </Suspense>
+  )
+}
+
+function SocialInboxPage() {
   const searchParams = useSearchParams()
   const messagesEndRef = useRef<HTMLDivElement>(null)
 

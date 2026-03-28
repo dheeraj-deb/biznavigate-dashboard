@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 
 // Order filters interface
 interface OrderFilters {
+  business_id?: string
   status?: string
   payment_status?: string
   page?: number

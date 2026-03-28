@@ -65,7 +65,7 @@ export default function CategoriesPage() {
     return rootCategories
   }
 
-  const categoryTree = buildCategoryTree(categoriesData || [])
+  const categoryTree = buildCategoryTree(Array.isArray(categoriesData) ? categoriesData : [])
 
   // Filter categories by search
   const filteredCategories = searchQuery

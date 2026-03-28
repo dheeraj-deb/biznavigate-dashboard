@@ -161,7 +161,7 @@ const mockRecommendations = [
 const mockAutoOptimizeSettings = {
   enabled: true,
   aggressiveness: 3,
-  frequency: 'hourly' as const,
+  frequency: 'hourly' as 'realtime' | 'hourly' | 'daily',
   autoApply: false,
   threshold: 20,
 }
