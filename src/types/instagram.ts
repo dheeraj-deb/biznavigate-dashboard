@@ -69,15 +69,45 @@ export interface InstagramMessage {
 }
 
 export interface InstagramInsights {
+  // Core metrics
   follower_count?: number;
-  impressions?: number;
   reach?: number;
   profile_views?: number;
-  email_contacts?: number;
-  phone_call_clicks?: number;
-  text_message_clicks?: number;
-  get_directions_clicks?: number;
   website_clicks?: number;
+
+  // Engagement metrics
+  online_followers?: number;
+  accounts_engaged?: number;
+  total_interactions?: number;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  saves?: number;
+  replies?: number;
+
+  // Demographics (these return arrays/objects)
+  engaged_audience_demographics?: any;
+  reached_audience_demographics?: any;
+  follower_demographics?: any;
+
+  // Profile actions
+  follows_and_unfollows?: number;
+  profile_links_taps?: number;
+
+  // Content metrics
+  views?: number;
+
+  // Threads metrics
+  threads_likes?: number;
+  threads_replies?: number;
+  reposts?: number;
+  quotes?: number;
+  threads_followers?: number;
+  threads_follower_demographics?: any;
+  content_views?: number;
+  threads_views?: number;
+  threads_clicks?: number;
+  threads_reposts?: number;
 }
 
 export interface InstagramMediaInsights {

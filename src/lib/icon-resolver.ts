@@ -1,0 +1,92 @@
+import {
+  Activity,
+  AlertTriangle,
+  ArrowLeftRight,
+  BadgeDollarSign,
+  BarChart3,
+  BedDouble,
+  Bot,
+  Brain,
+  Building,
+  Calendar,
+  CalendarCheck,
+  Clock,
+  ConciergeBell,
+  Contact,
+  CreditCard,
+  Database,
+  DoorOpen,
+  FileText,
+  Home,
+  Inbox,
+  Instagram,
+  Layers,
+  LayoutDashboard,
+  Mail,
+  MessageSquare,
+  Package,
+  Plug,
+  Plus,
+  Settings,
+  Shield,
+  ShoppingCart,
+  Star,
+  Ticket,
+  TrendingUp,
+  UserPlus,
+  Users,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react'
+
+/**
+ * Curated icon map — only icons actually used in navigation config.
+ * Avoids `import *` which would bloat the bundle.
+ */
+const ICON_MAP: Record<string, LucideIcon> = {
+  Activity,
+  AlertTriangle,
+  ArrowLeftRight,
+  BadgeDollarSign,
+  BarChart3,
+  BedDouble,
+  Bot,
+  Brain,
+  Building,
+  Calendar,
+  CalendarCheck,
+  Clock,
+  ConciergeBell,
+  Contact,
+  CreditCard,
+  Database,
+  DoorOpen,
+  FileText,
+  Home,
+  Inbox,
+  Instagram,
+  Layers,
+  LayoutDashboard,
+  Mail,
+  MessageSquare,
+  Package,
+  Plug,
+  Plus,
+  Settings,
+  Shield,
+  ShoppingCart,
+  Star,
+  Ticket,
+  TrendingUp,
+  UserPlus,
+  Users,
+  Zap,
+}
+
+/**
+ * Resolves a string icon name to a Lucide component.
+ * Returns `Package` as a safe fallback for unknown names.
+ */
+export function resolveIcon(name: string): LucideIcon {
+  return ICON_MAP[name] ?? Package
+}

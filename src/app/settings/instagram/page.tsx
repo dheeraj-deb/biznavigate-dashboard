@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { useAuthStore } from '@/store/auth-store';
 import {
@@ -33,7 +33,6 @@ import { toast } from 'react-hot-toast';
 
 export default function InstagramSettingsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user } = useAuthStore();
   const businessId = user?.business_id || '';
 
@@ -44,31 +43,41 @@ export default function InstagramSettingsPage() {
   const syncAccountMutation = useSyncInstagramAccount(businessId);
   const connectAccountMutation = useConnectInstagramAccount();
 
-  // Handle OAuth callback
-  useState(() => {
-    const code = searchParams.get('code');
-    const state = searchParams.get('state');
+  // Listen for messages from OAuth popup
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      // Verify origin for security
+      if (event.origin !== window.location.origin) {
+        return;
+      }
 
-    if (code && state) {
-      // Exchange code for access token
-      fetch(`/api/instagram/callback?code=${code}&state=${state}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            toast.success('Instagram account connected successfully!');
-            router.replace('/settings/instagram');
-            refetch();
-          } else {
-            toast.error('Failed to connect Instagram account');
-          }
-        })
-        .catch(() => {
-          toast.error('Failed to connect Instagram account');
-        });
-    }
-  });
+      if (event.data.type === 'INSTAGRAM_CONNECT_ACCOUNT') {
+        // Popup found Instagram account, now parent window connects it with JWT auth
+        try {
+          const { facebookPageId, accessToken, businessId: popupBusinessId } = event.data.data;
 
-  console.log("businessId", businessId)
+          await connectAccountMutation.mutateAsync({
+            facebookPageId,
+            accessToken,
+            businessId: popupBusinessId,
+          });
+
+          toast.success('Instagram account connected successfully!');
+          refetch(); // Refresh the accounts list
+        } catch (error: any) {
+          toast.error(error.message || 'Failed to connect Instagram account');
+        }
+      } else if (event.data.type === 'INSTAGRAM_OAUTH_ERROR') {
+        toast.error(event.data.errorDescription || 'Failed to connect Instagram account');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [refetch, connectAccountMutation]);
 
   const handleConnectInstagram = () => {
     if (oauthUrl) {
@@ -134,25 +143,56 @@ export default function InstagramSettingsPage() {
         </p>
       </div>
 
+      {/* Requirements Info */}
+      <Card className="mb-6 border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-blue-600" />
+            Before You Connect
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm">Make sure you have completed these steps:</p>
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
+              <p className="text-sm">Your Instagram account is a Business or Creator account</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
+              <p className="text-sm">Your Instagram is connected to a Facebook Page</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
+              <p className="text-sm">You have admin access to the Facebook Page</p>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            Need help? <a href="https://help.instagram.com/502981923235522" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Learn how to convert to a Business account</a>
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Connect New Account */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Connect Instagram Account</CardTitle>
           <CardDescription>
-            Connect your Instagram Business or Creator account via Facebook to start receiving and responding to messages.
+            Click the button below to connect your Instagram Business or Creator account
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Button
             onClick={handleConnectInstagram}
             disabled={!oauthUrl}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            size="lg"
           >
-            <Instagram className="w-4 h-4" />
+            <Instagram className="w-5 h-5" />
             Connect via Facebook
           </Button>
           <p className="text-sm text-muted-foreground mt-4">
-            Note: You need to have your Instagram account connected to a Facebook Page.
+            A popup window will open to complete the authorization process
           </p>
         </CardContent>
       </Card>

@@ -53,9 +53,9 @@ export const instagramApi = {
   /**
    * Disconnect Instagram account
    */
-  disconnectAccount: async (accountId: string): Promise<ApiResponse<void>> => {
+  disconnectAccount: async (accountId: string, businessId: string): Promise<ApiResponse<void>> => {
     return apiClient.delete(`/instagram/accounts/${accountId}`, {
-      data: { accountId },
+      data: { businessId },
     });
   },
 

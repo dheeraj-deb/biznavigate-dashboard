@@ -15,6 +15,9 @@ export interface User {
   updatedAt: string
   user_id?: string
   business_id?: string
+  business_type?: string      // set from onboarding / business profile
+  subscription_tier?: string  // future: free | starter | pro | enterprise
+  tenant_id?: string          // set from onboarding response
   role_id?: string
   profile_completed?: boolean
 }
@@ -91,6 +94,12 @@ export interface Product {
   unit: string
   imageUrl?: string
   status: 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED'
+  // WhatsApp Catalog fields
+  in_whatsapp_catalog?: boolean
+  whatsapp_catalog_id?: string
+  whatsapp_sync_status?: 'not_synced' | 'pending' | 'syncing' | 'synced' | 'failed'
+  whatsapp_sync_error?: string
+  whatsapp_synced_at?: string
   createdAt: string
   updatedAt: string
 }
@@ -369,6 +378,12 @@ export interface ApiResponse<T> {
   data?: T
   error?: string
   message?: string
+  meta?: {
+    total?: number
+    page?: number
+    limit?: number
+    totalPages?: number
+  }
 }
 
 export interface PaginatedResponse<T> {

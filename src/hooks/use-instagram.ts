@@ -85,7 +85,7 @@ export function useDisconnectInstagramAccount(businessId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (accountId: string) => instagramApi.disconnectAccount(accountId),
+    mutationFn: (accountId: string) => instagramApi.disconnectAccount(accountId, businessId),
     onSuccess: () => {
       toast.success('Instagram account disconnected');
       queryClient.invalidateQueries({ queryKey: instagramKeys.accounts(businessId) });

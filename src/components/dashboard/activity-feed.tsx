@@ -33,7 +33,7 @@ export function ActivityFeed({ activities, maxItems = 10 }: ActivityFeedProps) {
       case 'order':
         return 'text-green-600 bg-green-50 dark:bg-green-950'
       case 'inventory':
-        return 'text-orange-600 bg-orange-50 dark:bg-orange-950'
+        return 'text-blue-600 bg-blue-50 dark:bg-blue-950'
       default:
         return 'text-gray-600 bg-gray-50 dark:bg-gray-950'
     }
