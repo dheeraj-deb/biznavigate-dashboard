@@ -21,9 +21,9 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
     // Redirect to onboarding if profile is not completed
     // (skip if already on the onboarding page)
-    if (!profileCompleted && pathname !== '/onboarding') {
-      router.push('/onboarding')
-    }
+    // if (!profileCompleted && pathname !== '/onboarding') {
+    //   router.push('/onboarding')
+    // }
   }, [isAuthenticated, hasHydrated, profileCompleted, pathname, router])
 
   // Show loading while waiting for hydration or authentication check

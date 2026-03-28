@@ -325,7 +325,7 @@ const HOSPITALITY_TYPES = ['hospitality', 'hotel', 'resort', 'camping']
 const HOSPITALITY_SERVICE_TYPES = ['room', 'villa', 'dormitory', 'tent_site', 'cabin', 'glamping']
 
 export default function InventoryServicesPage() {
-  const { businessType: bizType } = useBusinessType()
+  const { businessType: bizType, isLoading: bizTypeLoading } = useBusinessType()
   const isHospitality = HOSPITALITY_TYPES.includes(bizType)
 
   const [config, setConfig] = useState<InventoryConfig | null>(null)
@@ -424,6 +424,65 @@ export default function InventoryServicesPage() {
     } catch {
       toast.error('Failed to deactivate')
     }
+  }
+
+  // ── Wait for business type to resolve ──
+  if (bizTypeLoading) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-5xl mx-auto space-y-6 pb-12 pt-4">
+          <div className="animate-pulse space-y-3">
+            <div className="h-7 w-48 rounded bg-slate-200" />
+            <div className="h-4 w-64 rounded bg-slate-100" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {[1,2,3,4].map(i => <SkeletonCard key={i} />)}
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  // ── Wrong-type safety net: if hospitality was assumed but user has no services,
+  //    offer a type selector so they're not permanently stuck ──
+  if (isHospitality && !servicesLoading && services.length === 0) {
+    return (
+      <DashboardLayout>
+        <div className="max-w-lg mx-auto mt-24 text-center space-y-6">
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0066FF]/10 mx-auto">
+            <Package className="h-8 w-8 text-[#0066FF]" />
+          </div>
+          <div>
+            <h2 className="text-[20px] font-bold text-[#4B4B4B]">What kind of business are you?</h2>
+            <p className="text-[13px] text-[#6E6E6E] mt-1">We couldn't detect your business type. Select yours to see the right inventory.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-3">
+            {[
+              { label: 'Product Seller', sub: 'Physical goods, e-commerce', type: 'products', href: '/inventory/products' },
+              { label: 'Hotel / Resort', sub: 'Rooms, villas, accommodations', type: 'hospitality', href: '/inventory/add' },
+              { label: 'Events / Camping', sub: 'Events, tickets, experiences', type: 'events', href: '/inventory/add' },
+            ].map(opt => (
+              <button
+                key={opt.type}
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    localStorage.setItem('biznavigate_business_type', opt.type)
+                  }
+                  window.location.href = opt.href
+                }}
+                className="flex items-start gap-3 rounded-2xl border-2 border-[#E5E5E5] bg-white p-4 text-left hover:border-[#0066FF] transition-colors"
+              >
+                <div className="flex-1">
+                  <p className="font-bold text-[14px] text-[#4B4B4B]">{opt.label}</p>
+                  <p className="text-[12px] text-[#6E6E6E]">{opt.sub}</p>
+                </div>
+                <span className="text-[#0066FF] font-bold text-[12px] mt-0.5">Select →</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </DashboardLayout>
+    )
   }
 
   // ── Products redirect ──

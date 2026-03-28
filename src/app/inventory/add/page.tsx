@@ -91,7 +91,15 @@ const ROOM_TYPES = ['Standard Room', 'Deluxe Room', 'Suite', 'Premium Suite', 'D
 const TICKET_TYPES = ['General Admission', 'VIP', 'Early Bird', 'Group (5+)', 'Student', 'Corporate Pass']
 const COURSE_LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'All Levels']
 const DELIVERY_MODES = ['Online (Live)', 'Online (Self-Paced)', 'Offline (In-Person)', 'Hybrid']
-const PRODUCT_CONDITIONS = ['New', 'Like New', 'Good', 'Refurbished']
+const PRODUCT_CONDITIONS = ['new', 'like_new', 'good', 'refurbished']
+const PRODUCT_CONDITION_LABELS: Record<string, string> = {
+  new: 'New', like_new: 'Like New', good: 'Good', refurbished: 'Refurbished',
+}
+const PRODUCT_CATEGORIES = [
+  'Clothing', 'Footwear & Sneakers', 'Jewellery', 'Accessories',
+  'Food & Sweets', 'Car Care', 'Beauty & Personal Care',
+  'Electronics', 'Home & Living', 'Other',
+]
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -374,7 +382,8 @@ export default function AddInventoryPage() {
   const [sku, setSku] = useState('')
   const [stockQty, setStockQty] = useState('')
   const [brand, setBrand] = useState('')
-  const [condition, setCondition] = useState('New')
+  const [category, setCategory] = useState('')
+  const [condition, setCondition] = useState('new')
   const [weight, setWeight] = useState('')
   const [dimensions, setDimensions] = useState('')
   const [trackInventory, setTrackInventory] = useState(true)
@@ -568,28 +577,22 @@ export default function AddInventoryPage() {
         })
         router.push('/inventory/services')
       } else {
-        // ── Products / Education → POST /products ──
+        // ── Products → POST /api/v1/products ──
         const payload: Record<string, unknown> = {
-          business_id: businessId,
           name,
           description: description || null,
-          category: bizType,
           price: parseFloat(price),
-          sku: sku || null,
+          brand: brand || null,
+          category: category || null,
           track_inventory: trackInventory,
           stock_quantity: trackInventory && stockQty ? parseInt(stockQty) : 0,
           is_active: isActive,
-          metadata: {
-            brand, condition, weight, dimensions,
-            duration, level, delivery_mode: deliveryMode,
-            capacity, prerequisites, syllabus, instructor, certificate,
-          },
         }
         if (imageUrls.length > 0) {
           payload.primary_image_url = imageUrls[primaryIndex]
           payload.images = imageUrls
         }
-        await apiClient.post('/products', payload)
+        await apiClient.post('/api/v1/products', payload)
         toast.success('Product added to inventory! 🎉', {
           style: { borderRadius: '12px', background: '#1e293b', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px' },
         })
@@ -797,12 +800,6 @@ export default function AddInventoryPage() {
                 </div>
               )}
 
-              {bizType === 'products' && (
-                <div className="space-y-1.5">
-                  <FieldLabel>Brand</FieldLabel>
-                  <FieldInput id="brand" value={brand} onChange={setBrand} placeholder="e.g. Nike, Samsung, Homebrand" />
-                </div>
-              )}
 
               {bizType === 'education' && (
                 <div className="space-y-1.5">
@@ -1233,39 +1230,29 @@ export default function AddInventoryPage() {
 
         {/* ══ RETAIL / PRODUCTS SPECIFIC ═════════════════════════════════ */}
         {bizType === 'products' && (
-          <SectionCard title="Product Details & Stock" subtitle="SKU, inventory tracking, and physical specifications" icon={Package} accent="#059669">
+          <SectionCard title="Stock & Category" subtitle="Category, brand, and how many units you have available" icon={Package} accent="#059669">
             <div className="space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-1.5">
-                  <FieldLabel>SKU</FieldLabel>
-                  <FieldInput id="sku" value={sku} onChange={setSku} placeholder="e.g. PRD-001-BLK" />
+                  <FieldLabel>Category</FieldLabel>
+                  <FieldSelect value={category} onChange={setCategory} options={PRODUCT_CATEGORIES} placeholder="Select category" />
                 </div>
                 <div className="space-y-1.5">
-                  <FieldLabel>Condition</FieldLabel>
-                  <FieldSelect value={condition} onChange={setCondition} options={PRODUCT_CONDITIONS} />
+                  <FieldLabel>Brand</FieldLabel>
+                  <FieldInput value={brand} onChange={setBrand} placeholder="e.g. Nike, Zara, Local brand" />
                 </div>
                 <div className="space-y-1.5">
-                  <FieldLabel>Stock Quantity {trackInventory && <span className="text-[#0066FF]">*</span>}</FieldLabel>
+                  <FieldLabel>Stock Quantity</FieldLabel>
                   <FieldInput
                     id="stockQty" type="number" value={stockQty} onChange={setStockQty}
-                    placeholder="0" disabled={!trackInventory} error={errors.stockQty}
+                    placeholder="e.g. 20" disabled={!trackInventory} error={errors.stockQty}
                   />
-                </div>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <FieldLabel>Weight (kg)</FieldLabel>
-                  <FieldInput value={weight} onChange={setWeight} placeholder="e.g. 0.5" />
-                </div>
-                <div className="space-y-1.5">
-                  <FieldLabel>Dimensions (L × W × H cm)</FieldLabel>
-                  <FieldInput value={dimensions} onChange={setDimensions} placeholder="e.g. 30 × 20 × 10" />
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-xl border border-[#E5E5E5] bg-slate-50/60 px-4 py-3.5">
                 <div>
                   <p className="text-[13px] font-bold text-[#4B4B4B]">Track Inventory</p>
-                  <p className="text-[12px] text-[#6E6E6E] mt-0.5">Monitor and alert on low stock levels</p>
+                  <p className="text-[12px] text-[#6E6E6E] mt-0.5">Get alerts when stock runs low</p>
                 </div>
                 <Switch checked={trackInventory} onCheckedChange={setTrackInventory} />
               </div>
