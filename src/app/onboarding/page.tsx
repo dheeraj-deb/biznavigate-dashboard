@@ -171,12 +171,17 @@ export default function OnboardingPage() {
     completeOnboarding(payload, {
       onSuccess: (data) => {
         setOnboardingResult(data)
-        if (user && data?.business) {
+        const resolvedType = data?.business?.business_type ?? mappedType
+        // Persist business type immediately so all pages can read it synchronously
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('biznavigate_business_type', resolvedType)
+        }
+        if (user) {
           setUser({
             ...user,
-            business_type: data.business.business_type,
-            tenant_id: data.business.tenant_id,
-            business_id: data.business.business_id,
+            business_type: resolvedType,
+            tenant_id: data?.business?.tenant_id ?? user.tenant_id,
+            business_id: data?.business?.business_id ?? user.business_id,
           })
         }
         router.push('/dashboard')
