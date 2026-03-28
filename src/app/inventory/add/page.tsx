@@ -577,7 +577,7 @@ export default function AddInventoryPage() {
         })
         router.push('/inventory/services')
       } else {
-        // ── Products → POST /api/v1/products ──
+        // ── Products → POST /products ──
         const payload: Record<string, unknown> = {
           name,
           description: description || null,
@@ -590,9 +590,9 @@ export default function AddInventoryPage() {
         }
         if (imageUrls.length > 0) {
           payload.primary_image_url = imageUrls[primaryIndex]
-          payload.images = imageUrls
+          payload.image_urls = imageUrls
         }
-        await apiClient.post('/api/v1/products', payload)
+        await apiClient.post('/products', payload)
         toast.success('Product added to inventory! 🎉', {
           style: { borderRadius: '12px', background: '#1e293b', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px' },
         })

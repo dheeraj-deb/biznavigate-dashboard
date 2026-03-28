@@ -21,7 +21,7 @@ function isValid(t: string): t is BusinessType {
  * Priority order (first valid value wins):
  * 1. localStorage key 'biznavigate_business_type' — written on onboarding/login
  * 2. user.business_type from Zustand auth store
- * 3. GET /api/v1/inventory/config — fallback for legacy accounts
+ * 3. GET /inventory/config — fallback for legacy accounts
  */
 export function useBusinessType() {
   const { user, setUser } = useAuthStore()
@@ -74,7 +74,7 @@ export function useBusinessType() {
     }
 
     const tryBizAPI = user?.business_id
-      ? apiClient.get(`/api/v1/businesses/${user.business_id}`).then((res) => {
+      ? apiClient.get(`/businesses/${user.business_id}`).then((res) => {
           const body = res.data as any
           const bt = (body?.data?.business_type ?? body?.business_type ?? '') as string
           return normalize(bt)
@@ -85,7 +85,7 @@ export function useBusinessType() {
       .then((norm) => {
         if (isValid(norm)) { persist(norm as BusinessType); return }
         // Fall back to inventory config
-        return apiClient.get('/api/v1/inventory/config').then((res) => {
+        return apiClient.get('/inventory/config').then((res) => {
           const body = res.data as any
           const bt = (body?.data?.business_type ?? body?.business_type ?? '') as string
           const n = normalize(bt)

@@ -181,13 +181,9 @@ export default function ProductsPage() {
     if (!silent) setLoading(true)
     else setRefreshing(true)
     try {
-      const res = await apiClient.get('/api/v1/products')
-      const body = res.data as unknown
-      const list: Product[] = Array.isArray(body)
-        ? body
-        : Array.isArray((body as { data?: unknown }).data)
-        ? (body as { data: Product[] }).data
-        : []
+      const res = await apiClient.get('/products', { params: { limit: 500 } })
+      const inner = res.data as { products?: Product[] } | null
+      const list: Product[] = inner?.products ?? []
       setProducts(list)
     } catch {
       toast.error('Failed to load products')
@@ -201,7 +197,7 @@ export default function ProductsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await apiClient.delete(`/api/v1/products/${id}`)
+      await apiClient.delete(`/products/${id}`)
       setProducts(p => p.filter(x => pid(x) !== id))
       toast.success('Product deleted')
     } catch {
