@@ -100,7 +100,7 @@ export default function ChatbotConfigPage() {
                   id="systemPrompt"
                   rows={6}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  defaultValue="You are a helpful customer service assistant for BizNavigate, an inventory and CRM management platform. Your role is to assist users with their questions about products, orders, and account management. Be professional, friendly, and concise in your responses."
+                  defaultValue="You are a helpful customer service assistant for BizNavigo, an inventory and CRM management platform. Your role is to assist users with their questions about products, orders, and account management. Be professional, friendly, and concise in your responses."
                 />
               </div>
             </CardContent>
@@ -124,7 +124,7 @@ export default function ChatbotConfigPage() {
                   id="welcomeMessage"
                   rows={3}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  defaultValue="Hello! Welcome to BizNavigate. How can I help you today?"
+                  defaultValue="Hello! Welcome to BizNavigo. How can I help you today?"
                 />
               </div>
 

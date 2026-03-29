@@ -43,6 +43,17 @@ export interface MessageData {
     platform_message_id?: string;
     delivery_status?: DeliveryStatus;
     timestamp: string;
+    metadata?: {
+        template?: {
+            name: string;
+            language: string;
+            header?: { type: string; text?: string };
+            body: string;
+            footer?: string;
+            buttons?: { type: string; text: string }[];
+        };
+        [key: string]: unknown;
+    };
 }
 
 export interface InboxPagination {
@@ -150,6 +161,7 @@ export function useInboxWebSocket() {
         };
 
         socket.on('new_message', ({ conversationId, message }: { conversationId: string, message: MessageData }) => {
+            console.log('[Socket] new_message', { conversationId, message });
             // Update the chat panel (customer_conversations is what the page reads)
             appendToCustomerConversations(conversationId, message);
 
@@ -158,6 +170,8 @@ export function useInboxWebSocket() {
         });
 
         socket.on('message_sent', ({ conversationId, message }: { conversationId: string, message: MessageData }) => {
+            console.log('[Socket] message_sent', { conversationId, message });
+
             // Replace optimistic temp message or append the confirmed sent message
             appendToCustomerConversations(conversationId, message);
         });

@@ -6,7 +6,7 @@ import { Providers } from '@/components/providers'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'BizNavigate - Inventory & CRM',
+  title: 'BizNavigo - Inventory & CRM',
   description: 'Modern Inventory Management and CRM System',
 }
 
