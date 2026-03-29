@@ -43,7 +43,7 @@ import { useAuthStore } from '@/store/auth-store'
 const mockWhatsAppAccount = {
   account_id: '1',
   phone_number: '+919876543210',
-  display_name: 'BizNavigate Store',
+  display_name: 'BizNavigo Store',
   quality_rating: 'GREEN',
   messaging_limit_tier: 'TIER_1K',
   is_verified: true,

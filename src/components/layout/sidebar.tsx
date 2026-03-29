@@ -12,7 +12,6 @@ import {
   ChevronDown,
   Home,
   LayoutDashboard,
-  Package,
   Lock,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -23,9 +22,9 @@ function Tooltip({ label, children }: { label: string; children: React.ReactNode
   return (
     <div className="relative group/tooltip">
       {children}
-      <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
+      <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-[#1a1a2e] text-white text-[11px] font-semibold rounded-lg whitespace-nowrap opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg tracking-wide">
         {label}
-        <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900 dark:border-r-gray-700" />
+        <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[#1a1a2e]" />
       </div>
     </div>
   )
@@ -34,7 +33,7 @@ function Tooltip({ label, children }: { label: string; children: React.ReactNode
 export function Sidebar() {
   const pathname = usePathname()
   const { sidebarOpen, toggleSidebar, sidebarCollapsed, toggleSidebarCollapsed, setSidebarCollapsed } = useUIStore()
-  const { quickLinks, groups, businessType } = useNavigation()
+  const { groups, businessType } = useNavigation()
   const homeHref = businessType === 'hospitality' ? '/dashboard' : '/'
   const [expandedSections, setExpandedSections] = useState<string[]>([])
 
@@ -52,6 +51,7 @@ export function Sidebar() {
   }
 
   const isCollapsed = sidebarCollapsed
+  const [logoError, setLogoError] = useState(false)
 
   // Render a single nav group
   const renderGroup = (item: NavGroup) => {
@@ -59,29 +59,26 @@ export function Sidebar() {
     const isExpanded = expandedSections.includes(item.name)
     const isActive = item.href === pathname
     const hasActiveChild = item.children?.some(child => child.href === pathname)
+    const groupLabel = item.displayName?.[businessType] ?? item.name
 
     if (isCollapsed) {
       return (
-        <Tooltip key={item.name} label={item.name}>
+        <Tooltip key={item.name} label={groupLabel}>
           {item.href && !item.comingSoon ? (
             <Link
               href={item.href}
               className={cn(
-                'flex items-center justify-center rounded-lg p-2.5 transition-all duration-200',
-                isActive
-                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
-                  : hasActiveChild
-                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                'flex items-center justify-center rounded-xl p-2.5 transition-all duration-200',
+                isActive || hasActiveChild
+                  ? 'bg-[#0066FF]/12 text-[#0066FF]'
+                  : 'text-[#4B4B4B] hover:bg-[#0066FF]/8'
               )}
             >
               <GroupIcon className="h-5 w-5 flex-shrink-0" />
             </Link>
           ) : (
             <button
-              onMouseEnter={() => {
-                setSidebarCollapsed(false)
-              }}
+              onMouseEnter={() => setSidebarCollapsed(false)}
               onClick={() => {
                 toggleSidebarCollapsed()
                 if (!expandedSections.includes(item.name)) {
@@ -89,10 +86,10 @@ export function Sidebar() {
                 }
               }}
               className={cn(
-                'flex w-full items-center justify-center rounded-lg p-2.5 transition-all duration-200',
+                'flex w-full items-center justify-center rounded-xl p-2.5 transition-all duration-200',
                 hasActiveChild
-                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  ? 'bg-[#0066FF]/12 text-[#0066FF]'
+                  : 'text-[#4B4B4B] hover:bg-[#0066FF]/8'
               )}
             >
               <GroupIcon className="h-5 w-5 flex-shrink-0" />
@@ -108,16 +105,16 @@ export function Sidebar() {
           <Link
             href={item.href}
             className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors group',
+              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors group',
               isActive
-                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                ? 'bg-[#0066FF]/12 text-[#0066FF]'
+                : 'text-[#4B4B4B] hover:bg-[#0066FF]/8 hover:text-[#0066FF]'
             )}
           >
-            <GroupIcon className="h-5 w-5 flex-shrink-0" />
-            <span>{item.name}</span>
+            <GroupIcon className="h-4.5 w-4.5 flex-shrink-0" />
+            <span>{groupLabel}</span>
             {item.comingSoon && (
-              <span className="ml-auto text-[10px] font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">Soon</span>
+              <span className="ml-auto text-[10px] font-bold text-[#989898] bg-[#F5F5F5] px-1.5 py-0.5 rounded-full">Soon</span>
             )}
           </Link>
         ) : (
@@ -125,40 +122,41 @@ export function Sidebar() {
             <button
               onClick={() => !item.comingSoon && toggleSection(item.name)}
               className={cn(
-                'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors group',
+                'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors group',
                 item.comingSoon
-                  ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                  ? 'text-[#989898] cursor-not-allowed'
                   : hasActiveChild
-                    ? 'text-blue-700 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    ? 'text-[#0066FF]'
+                    : 'text-[#4B4B4B] hover:bg-[#0066FF]/8 hover:text-[#0066FF]'
               )}
             >
               <div className="flex items-center gap-3 flex-1">
-                <GroupIcon className="h-5 w-5 flex-shrink-0" />
-                <span>{item.name}</span>
+                <GroupIcon className="h-4.5 w-4.5 flex-shrink-0" />
+                <span>{groupLabel}</span>
                 {item.comingSoon && (
-                  <span className="text-[10px] font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">Soon</span>
+                  <span className="text-[10px] font-bold text-[#989898] bg-[#F5F5F5] px-1.5 py-0.5 rounded-full">Soon</span>
                 )}
               </div>
               {!item.comingSoon && (
                 isExpanded ? (
-                  <ChevronDown className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
+                  <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 transition-transform duration-200 text-[#989898]" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
+                  <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 transition-transform duration-200 text-[#989898]" />
                 )
               )}
             </button>
             {item.children && isExpanded && !item.comingSoon && (
-              <div className="ml-8 mt-1 space-y-1 border-l-2 border-gray-200 dark:border-gray-800 pl-3">
+              <div className="ml-7 mt-0.5 space-y-0.5 border-l-2 border-[#E5E5E5] pl-3">
                 {item.children.map((child) => {
+                  const childLabel = child.displayName?.[businessType] ?? child.name
                   if (child.comingSoon) {
                     return (
                       <div
                         key={child.href}
-                        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] text-[#989898] cursor-not-allowed"
                       >
-                        <span>{child.name}</span>
-                        <Lock className="h-3 w-3 ml-auto" />
+                        <span>{childLabel}</span>
+                        <Lock className="h-3 w-3 ml-auto opacity-50" />
                       </div>
                     )
                   }
@@ -167,13 +165,13 @@ export function Sidebar() {
                       key={child.href}
                       href={child.href}
                       className={cn(
-                        'block rounded-md px-3 py-2 text-sm transition-colors',
+                        'block rounded-lg px-3 py-2 text-[12px] font-medium transition-colors',
                         pathname === child.href
-                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 font-medium'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                          ? 'bg-[#0066FF]/10 text-[#0066FF] font-semibold'
+                          : 'text-[#6E6E6E] hover:bg-[#0066FF]/6 hover:text-[#4B4B4B]'
                       )}
                     >
-                      {child.name}
+                      {childLabel}
                     </Link>
                   )
                 })}
@@ -190,17 +188,18 @@ export function Sidebar() {
       {/* Sidebar */}
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col border-r bg-white dark:bg-gray-950 transition-all duration-300 ease-in-out',
+          'fixed inset-y-0 left-0 z-50 flex flex-col border-r border-[#E8EEFF] transition-all duration-300 ease-in-out',
+          'bg-gradient-to-b from-[#EEF3FF] via-[#F5F8FF] to-white dark:from-gray-900 dark:via-gray-900 dark:to-gray-950 dark:border-gray-800',
           isCollapsed ? 'w-16' : 'w-64',
           'lg:translate-x-0',
           !sidebarOpen && 'max-lg:-translate-x-full'
         )}
-        style={{ boxShadow: '1px 0 2px rgba(0, 0, 0, 0.02)' }}
+        style={{ boxShadow: '2px 0 16px rgba(0, 102, 255, 0.06)' }}
       >
         {/* Floating Toggle Button for Desktop */}
         <button
           onClick={toggleSidebarCollapsed}
-          className="hidden lg:flex absolute -right-3 top-6 z-50 h-5 w-5 items-center justify-center rounded-full border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950 text-gray-400 hover:text-gray-900 dark:text-gray-500 dark:hover:text-gray-100 shadow-sm transition-all focus:outline-none"
+          className="hidden lg:flex absolute -right-3 top-6 z-50 h-5 w-5 items-center justify-center rounded-full border border-[#E5E5E5] bg-white dark:border-gray-800 dark:bg-gray-950 text-[#989898] hover:text-[#0066FF] shadow-sm transition-all focus:outline-none"
           title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {isCollapsed ? (
@@ -212,39 +211,63 @@ export function Sidebar() {
 
         {/* Logo Header */}
         <div className={cn(
-          'flex h-16 items-center border-b border-gray-200 dark:border-gray-800 flex-shrink-0',
+          'flex h-16 items-center border-b border-[#E8EEFF] dark:border-gray-800 flex-shrink-0',
           isCollapsed ? 'justify-center px-2' : 'justify-between px-4'
         )}>
           {!isCollapsed && (
-            <Link href={homeHref} className="flex items-center space-x-3 overflow-hidden">
-              <div className="rounded-lg bg-blue-600 p-1.5 flex-shrink-0">
-                <Package className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent whitespace-nowrap">
-                BizNavigate
+            <Link href={homeHref} className="flex items-center space-x-2.5 overflow-hidden">
+              {logoError ? (
+                <div className="rounded-xl bg-[#0066FF] h-8 w-8 flex-shrink-0 flex items-center justify-center shadow-sm">
+                  <span className="text-white font-bold text-sm">B</span>
+                </div>
+              ) : (
+                <img
+                  src="/logo.png"
+                  alt="BizNavigo"
+                  width={32}
+                  height={32}
+                  className="rounded-xl flex-shrink-0 object-contain"
+                  style={{ mixBlendMode: 'multiply' }}
+                  onError={() => setLogoError(true)}
+                />
+              )}
+              <span className="text-[17px] font-bold tracking-tight bg-gradient-to-r from-[#0066FF] to-indigo-500 bg-clip-text text-transparent whitespace-nowrap">
+                BizNavigo
               </span>
             </Link>
           )}
 
           {isCollapsed && (
-            <div className="rounded-lg bg-blue-600 p-1.5">
-              <Package className="h-5 w-5 text-white" />
-            </div>
+            logoError ? (
+              <div className="rounded-xl bg-[#0066FF] h-8 w-8 flex items-center justify-center shadow-sm">
+                <span className="text-white font-bold text-sm">B</span>
+              </div>
+            ) : (
+              <img
+                src="/logo.png"
+                alt="BizNavigo"
+                width={32}
+                height={32}
+                className="rounded-xl object-contain"
+                style={{ mixBlendMode: 'multiply' }}
+                onError={() => setLogoError(true)}
+              />
+            )
           )}
 
           {/* Mobile close button */}
           <button
             onClick={toggleSidebar}
-            className="lg:hidden rounded-md p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="lg:hidden rounded-lg p-1.5 hover:bg-[#0066FF]/8 transition-colors"
           >
-            <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            <ChevronLeft className="h-5 w-5 text-[#6E6E6E]" />
           </button>
         </div>
 
         {/* Navigation */}
         <nav className={cn(
           'flex-1 overflow-y-auto overflow-x-hidden py-4',
-          isCollapsed ? 'px-2 space-y-1' : 'px-3 py-6 space-y-1'
+          isCollapsed ? 'px-2 space-y-1' : 'px-3 py-5 space-y-0.5'
         )}>
           {/* Home Link */}
           {isCollapsed ? (
@@ -252,10 +275,10 @@ export function Sidebar() {
               <Link
                 href={homeHref}
                 className={cn(
-                  'flex items-center justify-center rounded-lg p-2.5 transition-all duration-200',
+                  'flex items-center justify-center rounded-xl p-2.5 transition-all duration-200',
                   pathname === homeHref
-                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    ? 'bg-[#0066FF]/12 text-[#0066FF]'
+                    : 'text-[#4B4B4B] hover:bg-[#0066FF]/8'
                 )}
               >
                 <Home className="h-5 w-5 flex-shrink-0" />
@@ -265,13 +288,13 @@ export function Sidebar() {
             <Link
               href={homeHref}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200',
                 pathname === homeHref
-                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  ? 'bg-[#0066FF]/12 text-[#0066FF]'
+                  : 'text-[#4B4B4B] hover:bg-[#0066FF]/8 hover:text-[#0066FF]'
               )}
             >
-              <Home className="h-5 w-5 flex-shrink-0" />
+              <Home className="h-4.5 w-4.5 flex-shrink-0" />
               <span>Home</span>
             </Link>
           )}
@@ -283,10 +306,10 @@ export function Sidebar() {
                 <Link
                   href="/dashboard"
                   className={cn(
-                    'flex items-center justify-center rounded-lg p-2.5 transition-all duration-200',
+                    'flex items-center justify-center rounded-xl p-2.5 transition-all duration-200',
                     pathname === '/dashboard'
-                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      ? 'bg-[#0066FF]/12 text-[#0066FF]'
+                      : 'text-[#4B4B4B] hover:bg-[#0066FF]/8'
                   )}
                 >
                   <LayoutDashboard className="h-5 w-5 flex-shrink-0" />
@@ -296,63 +319,20 @@ export function Sidebar() {
               <Link
                 href="/dashboard"
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200',
                   pathname === '/dashboard'
-                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 shadow-sm'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    ? 'bg-[#0066FF]/12 text-[#0066FF]'
+                    : 'text-[#4B4B4B] hover:bg-[#0066FF]/8 hover:text-[#0066FF]'
                 )}
               >
-                <LayoutDashboard className="h-5 w-5 flex-shrink-0" />
+                <LayoutDashboard className="h-4.5 w-4.5 flex-shrink-0" />
                 <span>Dashboard</span>
               </Link>
             )
           )}
 
           {/* Separator */}
-          <div className="my-3 border-t border-gray-200 dark:border-gray-800" />
-
-          {/* Quick Links Section */}
-          {!isCollapsed && (
-            <h3 className="px-3 mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Quick Links
-            </h3>
-          )}
-
-          {quickLinks.map(({ href, label, icon: iconName }) => {
-            const Icon = resolveIcon(iconName)
-            return isCollapsed ? (
-              <Tooltip key={href} label={label}>
-                <Link
-                  href={href}
-                  className={cn(
-                    'flex items-center justify-center rounded-lg p-2.5 transition-all duration-200',
-                    pathname === href
-                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                  )}
-                >
-                  <Icon className="h-5 w-5 flex-shrink-0" />
-                </Link>
-              </Tooltip>
-            ) : (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  pathname === href
-                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                )}
-              >
-                <Icon className="h-5 w-5 flex-shrink-0" />
-                <span>{label}</span>
-              </Link>
-            )
-          })}
-
-          {/* Separator */}
-          <div className="my-3 border-t border-gray-200 dark:border-gray-800" />
+          <div className="my-3 border-t border-[#E8EEFF] dark:border-gray-800" />
 
           {/* Main Navigation — config-driven */}
           {groups.map(renderGroup)}
@@ -360,11 +340,11 @@ export function Sidebar() {
 
         {/* Footer */}
         {!isCollapsed && (
-          <div className="border-t border-gray-200 dark:border-gray-800 p-4 flex-shrink-0">
-            <div className="rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4">
-              <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">Need Help?</p>
-              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">Check our documentation</p>
-              <button className="mt-3 w-full rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors">
+          <div className="border-t border-[#E8EEFF] dark:border-gray-800 p-4 flex-shrink-0">
+            <div className="rounded-2xl bg-gradient-to-br from-[#0066FF]/10 to-indigo-500/10 border border-[#0066FF]/15 p-4">
+              <p className="text-[13px] font-bold text-[#4B4B4B] dark:text-gray-100">Need Help?</p>
+              <p className="mt-0.5 text-[12px] text-[#6E6E6E] dark:text-gray-400">Check our documentation</p>
+              <button className="mt-3 w-full rounded-full bg-[#0066FF] px-3 py-1.5 text-[12px] font-bold text-white hover:bg-[#0052CC] transition-colors">
                 Get Support
               </button>
             </div>

@@ -19,6 +19,7 @@ export interface NavItem {
   href: string
   icon?: string                        // Lucide icon name (resolved at render)
   businessTypes?: BusinessType[]       // omit → visible to ALL types
+  displayName?: Partial<Record<BusinessType, string>>  // override label per business type
   minTier?: SubscriptionTier           // future: subscription gating
   comingSoon?: boolean                 // renders disabled with badge
 }
@@ -29,6 +30,7 @@ export interface NavGroup {
   href?: string                        // if set, group is a direct link (no children)
   children?: NavItem[]
   businessTypes?: BusinessType[]       // omit → visible to ALL types
+  displayName?: Partial<Record<BusinessType, string>>  // override label per business type
   minTier?: SubscriptionTier
   comingSoon?: boolean
 }
