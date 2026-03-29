@@ -28,7 +28,7 @@ export default function IntegrationsPage() {
   })
 
   const copyWidgetCode = async () => {
-    const widgetCode = `<!-- BizNavigate Chat Widget -->
+    const widgetCode = `<!-- BizNavigo Chat Widget -->
 <script>
   window.bizNavigateConfig = {
     businessId: 'YOUR_BUSINESS_ID',
@@ -286,7 +286,7 @@ export default function IntegrationsPage() {
                 <h4 className="font-semibold text-sm mb-2">Installation Code:</h4>
                 <div className="bg-gray-900 dark:bg-gray-950 rounded-lg p-4 relative">
                   <pre className="text-xs text-green-400 overflow-x-auto">
-{`<!-- BizNavigate Chat Widget -->
+{`<!-- BizNavigo Chat Widget -->
 <script>
   window.bizNavigateConfig = {
     businessId: 'YOUR_BUSINESS_ID',

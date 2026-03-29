@@ -181,7 +181,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                     2
                   </div>
                   <p className="text-blue-900 dark:text-blue-100 font-medium">
-                    Authorize BizNavigate on Facebook
+                    Authorize BizNavigo on Facebook
                   </p>
                 </div>
                 <div className="flex items-center gap-3">

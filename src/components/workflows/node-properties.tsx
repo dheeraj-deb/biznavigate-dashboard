@@ -926,7 +926,7 @@ export function NodeProperties({ node, onUpdate, onClose }: NodePropertiesProps)
             <div className="bg-[#075E54] px-3 py-2 flex items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-[#25D366] flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">BN</div>
               <div className="flex-1 min-w-0">
-                <p className="text-white text-[10px] font-semibold leading-none truncate">BizNavigate Bot</p>
+                <p className="text-white text-[10px] font-semibold leading-none truncate">BizNavigo Bot</p>
                 <p className="text-white/60 text-[9px] mt-0.5">online</p>
               </div>
             </div>

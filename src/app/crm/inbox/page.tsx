@@ -32,7 +32,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Plus, Search, MessageSquare, Phone, Video, MoreVertical, Paperclip, Send, CheckCheck, Info, RefreshCw, X, Link as LinkIcon, Image as ImageIcon, FileText, Smile, Star, Trash2, UserPlus, Tag, Filter, Instagram, Sparkles, Archive, AlertCircle, Clock } from 'lucide-react'
+import { Plus, Search, MessageSquare, Phone, Video, MoreVertical, Paperclip, Send, Check, CheckCheck, Info, RefreshCw, X, Link as LinkIcon, Image as ImageIcon, FileText, Smile, Star, Trash2, UserPlus, Tag, Filter, Instagram, Sparkles, Archive, AlertCircle, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, formatDistanceToNow } from 'date-fns'
 import { useConversations, useCustomerConversations, useSendMessage, useUpdateConversationStatus, useInboxWebSocket, ConversationListItem, MessageData, Channel as Platform, ConversationStatus as MessageStatus, GroupedCustomer, AggregatedCustomerDetail } from '@/hooks/use-inbox'
@@ -86,6 +86,77 @@ const getAiSuggestions = (lastMessage: string | undefined | null, platform: UIPl
     'I\'d be happy to assist you. What would you like to know?',
     'Great to hear from you! Let me know if you need any specific details.',
   ]
+}
+
+interface TemplateButton { type: string; text: string }
+interface TemplateHeader { type: string; text?: string }
+interface TemplateMeta {
+  name: string
+  language: string
+  header?: TemplateHeader
+  body: string
+  footer?: string
+  buttons?: TemplateButton[]
+}
+
+function TemplateBubble({ template, timestamp, deliveryStatus }: {
+  template: TemplateMeta
+  timestamp: string
+  deliveryStatus?: string
+}) {
+  return (
+    <div className="flex flex-col rounded-2xl overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-sm shadow-blue-500/10 min-w-[220px] max-w-full">
+      {/* Header */}
+      {template.header?.type === 'TEXT' && template.header.text && (
+        <div className="px-4 pt-3 pb-1 font-semibold text-[14px] leading-snug border-b border-white/10">
+          {template.header.text}
+        </div>
+      )}
+
+      {/* Body */}
+      <div className="px-4 pt-2.5 pb-1 text-[14.5px] leading-relaxed whitespace-pre-wrap">
+        {template.body}
+      </div>
+
+      {/* Footer */}
+      {template.footer && (
+        <div className="px-4 pb-2 text-[11px] text-blue-100/60">
+          {template.footer}
+        </div>
+      )}
+
+      {/* Timestamp + tick */}
+      <div className="px-4 pb-2 flex items-center justify-end gap-1.5 select-none text-blue-100/80">
+        <span className="text-[10px] font-medium tracking-wide">
+          {formatDate(new Date(timestamp), 'HH:mm')}
+        </span>
+        <MessageTickIcon status={deliveryStatus} />
+      </div>
+
+      {/* Buttons */}
+      {template.buttons && template.buttons.length > 0 && (
+        <div className="border-t border-white/10">
+          {template.buttons.map((btn, i) => (
+            <div
+              key={i}
+              className="px-4 py-2 text-center text-[13px] font-medium text-blue-100 border-b border-white/10 last:border-0 cursor-default select-none"
+            >
+              {btn.text}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MessageTickIcon({ status }: { status?: string }) {
+  if (!status) return null
+  if (status === 'failed') return <X className="h-3.5 w-3.5 text-red-400" />
+  if (status === 'sent') return <Check className="h-3.5 w-3.5 opacity-70" />
+  if (status === 'delivered') return <CheckCheck className="h-3.5 w-3.5 opacity-70" />
+  if (status === 'read') return <CheckCheck className="h-3.5 w-3.5 text-blue-200" />
+  return null
 }
 
 export default function SocialInboxPageWrapper() {
@@ -674,35 +745,28 @@ function SocialInboxPage() {
                                     )
                                 )}
                               >
-                                <p className="whitespace-pre-wrap word-break-word font-inter">{msg.message_text}</p>
+                                {msg.message_type === 'template' && msg.metadata?.template ? (
+                                  <TemplateBubble
+                                    template={msg.metadata.template}
+                                    timestamp={msg.timestamp}
+                                    deliveryStatus={msg.delivery_status}
+                                  />
+                                ) : (
+                                  <>
+                                    <p className="whitespace-pre-wrap word-break-word font-inter">{msg.message_text}</p>
 
-                                {/* Metadata inside bubble */}
-                                <div className={cn(
-                                  "mt-1 flex flex-wrap items-center justify-end gap-1.5 select-none",
-                                  isIncoming ? "text-slate-400" : "text-blue-100/80"
-                                )}>
-                                  <span className="text-[10px] font-medium tracking-wide">
-                                    {formatDate(new Date(msg.timestamp), 'HH:mm')}
-                                  </span>
-                                  {/* Metadata inside bubble */}
-                                  <div className={cn(
-                                    "mt-1 flex flex-wrap items-center justify-end gap-1.5 select-none",
-                                    isIncoming ? "text-slate-400" : "text-blue-100/80"
-                                  )}>
-                                    <span className="text-[10px] font-medium tracking-wide">
-                                      {formatDate(new Date(msg.timestamp), 'HH:mm')}
-                                    </span>
-                                    {!isIncoming && msg.delivery_status && (
-                                      <CheckCheck
-                                        className={cn(
-                                          'h-3.5 w-3.5',
-                                          msg.delivery_status === 'read' ? 'text-blue-200' : 'opacity-70'
-                                        )}
-                                      />
-                                    )}
-                                  </div>
-                                </div>
-
+                                    {/* Metadata inside bubble */}
+                                    <div className={cn(
+                                      "mt-1 flex items-center justify-end gap-1.5 select-none",
+                                      isIncoming ? "text-slate-400" : "text-blue-100/80"
+                                    )}>
+                                      <span className="text-[10px] font-medium tracking-wide">
+                                        {formatDate(new Date(msg.timestamp), 'HH:mm')}
+                                      </span>
+                                      {!isIncoming && <MessageTickIcon status={msg.delivery_status} />}
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>

@@ -590,7 +590,7 @@ export function WhatsAppOnboardingWizard({ onComplete, onCancel }: WhatsAppOnboa
               <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
                 <Info className="h-4 w-4 text-blue-600" />
                 <AlertDescription className="text-blue-900 dark:text-blue-100">
-                  <strong>What are webhooks?</strong> Webhooks allow BizNavigate to receive instant notifications
+                  <strong>What are webhooks?</strong> Webhooks allow BizNavigo to receive instant notifications
                   when customers send messages or when message statuses change.
                 </AlertDescription>
               </Alert>
