@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { toast } from 'sonner';
 
 // Define our types based on the API docs
-export type SenderType = 'lead' | 'business';
+export type SenderType = 'lead' | 'business' | 'system';
 export type MessageType = 'text' | 'image' | 'audio' | 'video' | 'document' | 'interactive' | 'order';
 export type DeliveryStatus = 'received' | 'sent' | 'delivered' | 'read' | 'failed';
 export type ConversationStatus = 'active' | 'waiting' | 'ended';
@@ -20,8 +20,12 @@ export interface ConversationListItem {
     status: ConversationStatus;
     message_text: string;
     updated_at: string;
-    unreadCount?: number; // UI state tracking
-    contactAvatar?: string; // UI state tracking
+    unreadCount?: number;
+    contactAvatar?: string;
+    is_ai_handled?: boolean;
+    needs_attention?: boolean;
+    human_takeover_at?: string;
+    human_takeover_reason?: string;
 }
 
 export interface ConversationDetail {
@@ -38,10 +42,12 @@ export interface ConversationDetail {
 export interface MessageData {
     conversation_id: string;
     sender_type: SenderType;
+    sender_name?: string;
     message_type: MessageType;
     message_text: string;
     platform_message_id?: string;
     delivery_status?: DeliveryStatus;
+    workflow_node_id?: string;
     timestamp: string;
     metadata?: {
         template?: {
@@ -52,6 +58,9 @@ export interface MessageData {
             footer?: string;
             buttons?: { type: string; text: string }[];
         };
+        is_ai?: boolean;
+        is_escalation?: boolean;
+        reason?: string;
         [key: string]: unknown;
     };
 }
@@ -78,6 +87,8 @@ export interface GroupedCustomer {
     latest_message: string;
     updated_at: string;
     unreadCount: number;
+    is_ai_handled?: boolean;
+    needs_attention?: boolean;
 }
 
 export interface AggregatedCustomerDetail {
@@ -174,6 +185,31 @@ export function useInboxWebSocket() {
 
             // Replace optimistic temp message or append the confirmed sent message
             appendToCustomerConversations(conversationId, message);
+        });
+
+        socket.on('escalation', ({ conversationId, reason, phone, escalated_at }: { conversationId: string; reason: string; phone: string; escalated_at: string }) => {
+            console.log('[Socket] escalation', { conversationId, reason, phone, escalated_at });
+
+            // Update the conversation list — mark needs_attention, clear is_ai_handled
+            queryClient.setQueriesData(
+                { queryKey: ['conversations'], exact: false },
+                (old: any) => {
+                    if (!old?.data) return old;
+                    return {
+                        ...old,
+                        data: old.data.map((c: ConversationListItem) =>
+                            c.conversation_id === conversationId
+                                ? { ...c, is_ai_handled: false, needs_attention: true, human_takeover_at: escalated_at, human_takeover_reason: reason }
+                                : c
+                        ),
+                    };
+                }
+            );
+
+            toast(`${phone} needs a human agent`, {
+                description: reason,
+                duration: 8000,
+            });
         });
 
         socket.on('status_update', ({ platformMessageId, status }: { conversationId: string, platformMessageId: string, status: DeliveryStatus }) => {
