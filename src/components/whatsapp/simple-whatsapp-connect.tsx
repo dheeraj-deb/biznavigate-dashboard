@@ -47,7 +47,7 @@ interface FBLoginOptions {
   }
 }
 
-const EMBEDDED_SIGNUP_CONFIG_ID = '1471673638000770'
+const EMBEDDED_SIGNUP_CONFIG_ID = '2071186320122440'
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || ''
 
 type ConnectionStep = 'intro' | 'connecting' | 'success' | 'error'
