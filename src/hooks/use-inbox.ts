@@ -129,23 +129,52 @@ export function useInboxWebSocket() {
         socketRef.current = socket;
 
         socket.on('connect', () => {
-            console.log('Inbox WebSocket connected');
+            console.log('[Socket] connected, socket.id:', socket.id);
+            console.log('[Socket] emitting join for businessId:', businessId);
             socket.emit('join', businessId);
+        });
+
+        socket.on('connect_error', (err) => {
+            console.error('[Socket] connect_error:', err.message, err);
+        });
+
+        socket.on('disconnect', (reason) => {
+            console.warn('[Socket] disconnected:', reason);
         });
 
         // Helper: append a message to the customer_conversations infinite query cache
         // The page reads from ['customer_conversations', ...] NOT ['conversation', id]
         const appendToCustomerConversations = (conversationId: string, message: MessageData, tempId?: string) => {
+            const allKeys = queryClient.getQueriesData({ queryKey: ['customer_conversations'] });
+            console.log('[Socket] appendToCustomerConversations — active cache keys:', allKeys.map(([k]) => k));
+
             queryClient.setQueriesData(
                 { queryKey: ['customer_conversations'], exact: false },
                 (old: any) => {
-                    if (!old?.pages) return old;
+                    if (!old?.pages) {
+                        console.log('[Socket] cache entry has no pages, skipping');
+                        return old;
+                    }
                     const pages = old.pages as any[];
-                    // Only update if this customer has the conversation open
+                    // Check if this conversation is currently open
                     const hasConv = pages.some((p: any) =>
                         p?.messages?.some((m: MessageData) => m.conversation_id === conversationId)
                     );
-                    if (!hasConv) return old;
+                    console.log('[Socket] hasConv for', conversationId, ':', hasConv,
+                        '| existing conv IDs:', pages.flatMap((p: any) => (p?.messages || []).map((m: MessageData) => m.conversation_id)).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i)
+                    );
+                    if (!hasConv) {
+                        // Conversation is open but has no messages yet (e.g. empty first load)
+                        // Append to last page anyway so first incoming message still shows
+                        const newPages = pages.map((p: any, i: number) => {
+                            if (i !== pages.length - 1) return p;
+                            const msgs: MessageData[] = p?.messages || [];
+                            const isDupe = msgs.some((m: MessageData) => m.platform_message_id && m.platform_message_id === message.platform_message_id);
+                            if (isDupe) return p;
+                            return { ...p, messages: [...msgs, message] };
+                        });
+                        return { ...old, pages: newPages };
+                    }
 
                     const newPages = pages.map((p: any, i: number) => {
                         if (i !== pages.length - 1) return p;
@@ -163,7 +192,10 @@ export function useInboxWebSocket() {
                         const isDupe = msgs.some(
                             (m: MessageData) => m.platform_message_id && m.platform_message_id === message.platform_message_id
                         );
-                        if (isDupe) return p;
+                        if (isDupe) {
+                            console.log('[Socket] duplicate message skipped:', message.platform_message_id);
+                            return p;
+                        }
                         return { ...p, messages: [...msgs, message] };
                     });
                     return { ...old, pages: newPages };
