@@ -32,7 +32,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Plus, Search, MessageSquare, Phone, Video, MoreVertical, Paperclip, Send, Check, CheckCheck, Info, RefreshCw, X, Link as LinkIcon, Image as ImageIcon, FileText, Smile, Star, Trash2, UserPlus, Tag, Filter, Instagram, Sparkles, Archive, AlertCircle, Clock, Bot } from 'lucide-react'
+import { Plus, Search, MessageSquare, Phone, Video, MoreVertical, Paperclip, Send, Check, CheckCheck, Info, RefreshCw, X, Link as LinkIcon, Image as ImageIcon, FileText, Smile, Star, Trash2, UserPlus, Tag, Filter, Instagram, Archive, AlertCircle, Clock, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, formatDistanceToNow } from 'date-fns'
 import { useConversations, useCustomerConversations, useSendMessage, useUpdateConversationStatus, useInboxWebSocket, useTakeoverConversation, useResolveConversation, ConversationListItem, MessageData, Channel as Platform, ConversationStatus as MessageStatus, GroupedCustomer, AggregatedCustomerDetail } from '@/hooks/use-inbox'
@@ -40,53 +40,6 @@ import { isToday, isYesterday, format as formatDate } from 'date-fns'
 
 // Define platform type based on what we use in UI
 type UIPlatform = 'whatsapp' | 'instagram' | 'comment'
-// AI suggested responses - context-aware based on conversation
-const getAiSuggestions = (lastMessage: string | undefined | null, platform: UIPlatform | string) => {
-  const lowerMessage = (lastMessage || '').toLowerCase()
-
-  // Product inquiry suggestions
-  if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('how much')) {
-    return [
-      'Our prices range from ₹999 to ₹4,999. I can share detailed pricing with images. Would you like to see?',
-      'Great question! Let me send you our complete price list with product details.',
-      'We have various options in different price ranges. What\'s your budget?',
-    ]
-  }
-
-  // Product availability suggestions
-  if (lowerMessage.includes('available') || lowerMessage.includes('stock') || lowerMessage.includes('have')) {
-    return [
-      'Yes! We have this in stock. Would you like to place an order?',
-      'Currently available in multiple colors and sizes. Which one would you prefer?',
-      'We have limited stock left. I can reserve one for you right away!',
-    ]
-  }
-
-  // Interest/inquiry suggestions
-  if (lowerMessage.includes('interested') || lowerMessage.includes('want') || lowerMessage.includes('need')) {
-    return [
-      'Wonderful! Let me share more details about this product. When would you like to receive it?',
-      'Great choice! I can send you high-quality images and full specifications.',
-      'Perfect! Would you like to know about our current offers and discounts?',
-    ]
-  }
-
-  // Shipping/delivery suggestions
-  if (lowerMessage.includes('deliver') || lowerMessage.includes('shipping') || lowerMessage.includes('ship')) {
-    return [
-      'We offer free delivery within 2-3 business days. What\'s your location?',
-      'Delivery is available across India. Share your pincode and I\'ll confirm delivery time.',
-      'We provide express shipping! Your order can reach you in 24-48 hours.',
-    ]
-  }
-
-  // Default friendly responses
-  return [
-    'Thank you for your interest! How can I help you with this product?',
-    'I\'d be happy to assist you. What would you like to know?',
-    'Great to hear from you! Let me know if you need any specific details.',
-  ]
-}
 
 interface TemplateButton { type: string; text: string }
 interface TemplateHeader { type: string; text?: string }
@@ -203,7 +156,7 @@ function SocialInboxPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'escalated' | 'resolved' | 'bot'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [replyText, setReplyText] = useState('')
-  const [showAiSuggestions, setShowAiSuggestions] = useState(true)
+
   const [showNewConversationDialog, setShowNewConversationDialog] = useState(false)
   const [newConversationData, setNewConversationData] = useState({
     name: '',
@@ -408,17 +361,11 @@ function SocialInboxPage() {
     ? (groupedCustomers.find(c => c.customer_id === selectedCustomerId) ?? null)
     : null
 
-  // Get AI suggestions based on latest unified message
-  const currentAiSuggestions = selectedCustomer
-    ? getAiSuggestions(selectedCustomer.latest_message, selectedCustomer.channels[0])
-    : []
-
   const handleSendMessage = async () => {
     if (!replyText.trim() || !selectedCustomer || selectedCustomer.conversation_ids.length === 0) return
 
     const text = replyText
     setReplyText('')
-    setShowAiSuggestions(true)
 
     try {
       // Send on the most recent active channel or first channel available
@@ -428,11 +375,6 @@ function SocialInboxPage() {
       console.error('Failed to send message', err)
       // Revert reply text on fail if needed
     }
-  }
-
-  const handleUseSuggestion = (suggestion: string) => {
-    setReplyText(suggestion)
-    setShowAiSuggestions(false)
   }
 
   const handleSelectCustomer = (customer: GroupedCustomer) => {
@@ -922,41 +864,6 @@ function SocialInboxPage() {
                 </div>
               </div>
 
-              {/* Floating AI Suggestions */}
-              {showAiSuggestions && currentAiSuggestions.length > 0 && (
-                <div className="absolute bottom-[90px] left-0 right-0 z-20 px-4 sm:px-6 pointer-events-none">
-                  <div className="mx-auto max-w-4xl flex flex-col items-end pointer-events-auto">
-                    <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-purple-100 dark:border-purple-900/40 p-1.5 rounded-2xl shadow-xl shadow-purple-500/5 flex flex-col gap-1 w-full max-w-sm sm:max-w-md translate-y-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                      <div className="flex items-center gap-1.5 px-3 py-1.5">
-                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 shadow-sm">
-                          <Sparkles className="h-3 w-3 text-white" />
-                        </div>
-                        <span className="text-xs font-semibold text-purple-700 dark:text-purple-300 tracking-tight">Smart Replies</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="ml-auto h-5 w-5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                          onClick={() => setShowAiSuggestions(false)}
-                        >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                        </Button>
-                      </div>
-
-                      <div className="flex flex-col gap-1 overflow-x-hidden p-1">
-                        {currentAiSuggestions.slice(0, 3).map((suggestion, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleUseSuggestion(suggestion)}
-                            className="text-left px-3 py-2 text-[13px] text-slate-600 dark:text-slate-300 bg-purple-50/50 hover:bg-purple-100/80 dark:bg-purple-900/10 dark:hover:bg-purple-900/30 rounded-xl transition-all border border-transparent hover:border-purple-200/50 dark:hover:border-purple-800/50 hover:text-purple-900 dark:hover:text-purple-100 line-clamp-2"
-                          >
-                            {suggestion}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Input Area */}
               <div className="mt-auto bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-200/60 dark:border-slate-800 z-10 px-4 py-3 sm:px-6">
@@ -1023,23 +930,6 @@ function SocialInboxPage() {
                       rows={1}
                     />
 
-                    {/* Inline AI toggle */}
-                    <div className="flex-shrink-0 flex items-center">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setShowAiSuggestions(!showAiSuggestions)}
-                        className={cn(
-                          "h-8 w-8 rounded-full transition-all",
-                          showAiSuggestions
-                            ? "bg-purple-100 text-purple-600 hover:bg-purple-200 dark:bg-purple-900/50 dark:text-purple-400"
-                            : "text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-slate-800"
-                        )}
-                        title="AI Suggestions"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                      </Button>
-                    </div>
                   </div>
 
                   {/* Send Button */}
