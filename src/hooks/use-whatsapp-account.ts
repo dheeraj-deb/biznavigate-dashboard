@@ -24,7 +24,6 @@ export function useWhatsAppAccounts(businessId: string) {
             const body = (response as any)?.data;
             // Axios wraps body in .data; API returns array directly
             const data: WhatsAppAccountMapped[] = Array.isArray(body) ? body : [];
-            console.log('[WhatsApp] accounts raw:', data);
             return data;
         },
         enabled: !!businessId,

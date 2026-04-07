@@ -113,6 +113,7 @@ function WhatsAppSettingsPage() {
     TIER_50:      { label: '250/day',    description: '250 conversations per day' },
     TIER_250:     { label: '1K/day',     description: '1,000 conversations per day' },
     TIER_1K:      { label: '10K/day',    description: '10,000 conversations per day' },
+    TIER_2K:      { label: '2K/day',     description: '2,000 conversations per day' },
     TIER_10K:     { label: '100K/day',   description: '100,000 conversations per day' },
     TIER_100K:    { label: 'Unlimited',  description: 'Unlimited conversations per day' },
   }
@@ -236,9 +237,8 @@ function WhatsAppSettingsPage() {
 
                   {/* Messaging Limits */}
                   {(() => {
-                    const tier = account.messaging_limit_tier
+                    const tier = account.messaging_limit
                     const cfg = tier ? tierConfig[tier] : null
-                    console.log('[WhatsApp] tier:', tier, 'cfg:', cfg)
                     return (
                       <div className="border border-gray-200 dark:border-gray-800 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
                         <div className="flex items-center justify-between mb-1">

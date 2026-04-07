@@ -4,7 +4,7 @@ import { ApiResponse } from '@/types';
 // ==================== Types ====================
 
 export type QualityRating = 'GREEN' | 'YELLOW' | 'RED';
-export type MessagingLimitTier = 'TIER_NOT_SET' | 'TIER_50' | 'TIER_250' | 'TIER_1K' | 'TIER_10K' | 'TIER_100K';
+export type MessagingLimitTier = 'TIER_NOT_SET' | 'TIER_50' | 'TIER_250' | 'TIER_1K' | 'TIER_2K' | 'TIER_10K' | 'TIER_100K';
 
 export interface WhatsAppAccount {
     account_id: string;
@@ -13,7 +13,7 @@ export interface WhatsAppAccount {
     display_phone_number: string | null;
     verified_name: string | null;
     quality_rating: QualityRating | null;
-    messaging_limit_tier: MessagingLimitTier | null;
+    messaging_limit: MessagingLimitTier | null;
     is_active: boolean;
     created_at: string;
 }
