@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { apiClient } from '@/lib/api-client';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
@@ -26,6 +26,8 @@ export interface ConversationListItem {
     needs_attention?: boolean;
     human_takeover_at?: string;
     human_takeover_reason?: string;
+    is_resolved?: boolean;
+    agent_id?: string | null;
 }
 
 export interface ConversationDetail {
@@ -89,6 +91,10 @@ export interface GroupedCustomer {
     unreadCount: number;
     is_ai_handled?: boolean;
     needs_attention?: boolean;
+    is_resolved?: boolean;
+    agent_id?: string | null;
+    human_takeover_reason?: string;
+    human_takeover_at?: string;
 }
 
 export interface AggregatedCustomerDetail {
@@ -219,7 +225,7 @@ export function useInboxWebSocket() {
             appendToCustomerConversations(conversationId, message);
         });
 
-        socket.on('escalation', ({ conversationId, reason, phone, escalated_at }: { conversationId: string; reason: string; phone: string; escalated_at: string }) => {
+        socket.on('escalation', ({ conversationId, reason, phone, escalated_at, is_ai_handled }: { conversationId: string; reason: string; phone: string; escalated_at: string; is_ai_handled?: boolean }) => {
             console.log('[Socket] escalation', { conversationId, reason, phone, escalated_at });
 
             // Update the conversation list — mark needs_attention, clear is_ai_handled
@@ -231,17 +237,83 @@ export function useInboxWebSocket() {
                         ...old,
                         data: old.data.map((c: ConversationListItem) =>
                             c.conversation_id === conversationId
-                                ? { ...c, is_ai_handled: false, needs_attention: true, human_takeover_at: escalated_at, human_takeover_reason: reason }
+                                ? { ...c, is_ai_handled: is_ai_handled ?? false, needs_attention: true, human_takeover_at: escalated_at, human_takeover_reason: reason }
                                 : c
                         ),
                     };
                 }
             );
 
+            // Inject live notification into the bell dropdown cache
+            const liveNotif = {
+                notification_id: `escalation_${conversationId}_${Date.now()}`,
+                user_id: '',
+                business_id: '',
+                title: `${phone} needs human support`,
+                message: reason,
+                type: 'escalation' as const,
+                priority: 'urgent' as const,
+                is_read: false,
+                action_url: `/crm/handoff`,
+                metadata: { conversationId },
+                created_at: escalated_at,
+                updated_at: escalated_at,
+            };
+            queryClient.setQueryData(['notifications', 'recent'], (old: any) => {
+                const list = Array.isArray(old) ? old : [];
+                return [liveNotif, ...list].slice(0, 5);
+            });
+            queryClient.setQueryData(['notifications', 'unread-count'], (old: any) => (old || 0) + 1);
+
+            // Play notification sound
+            try {
+                const audio = new Audio('/notification.mp3');
+                audio.volume = 0.5;
+                audio.play().catch(() => {});
+            } catch (_) {}
+
             toast(`${phone} needs a human agent`, {
                 description: reason,
                 duration: 8000,
             });
+        });
+
+        socket.on('conversation_resolved', ({ conversationId, resolved_at }: { conversationId: string; resolved_at: string }) => {
+            console.log('[Socket] conversation_resolved', { conversationId, resolved_at });
+
+            queryClient.setQueriesData(
+                { queryKey: ['conversations'], exact: false },
+                (old: any) => {
+                    if (!old?.data) return old;
+                    return {
+                        ...old,
+                        data: old.data.map((c: ConversationListItem) =>
+                            c.conversation_id === conversationId
+                                ? { ...c, is_resolved: true, needs_attention: false }
+                                : c
+                        ),
+                    };
+                }
+            );
+        });
+
+        socket.on('conversation_updated', ({ conversationId, message_text, timestamp }: { conversationId: string; message_text: string; timestamp: string }) => {
+            console.log('[Socket] conversation_updated', { conversationId, message_text, timestamp });
+
+            queryClient.setQueriesData(
+                { queryKey: ['conversations'], exact: false },
+                (old: any) => {
+                    if (!old?.data) return old;
+                    return {
+                        ...old,
+                        data: old.data.map((c: ConversationListItem) =>
+                            c.conversation_id === conversationId
+                                ? { ...c, message_text, updated_at: timestamp }
+                                : c
+                        ),
+                    };
+                }
+            );
         });
 
         socket.on('status_update', ({ platformMessageId, status }: { conversationId: string, platformMessageId: string, status: DeliveryStatus }) => {
@@ -453,7 +525,7 @@ export function useSendMessage() {
 
             return { previousData, tempId };
         },
-        onError: (err, _vars, context) => {
+        onError: (_err, _vars, context) => {
             toast.error('Failed to send message');
             // Rollback all optimistic updates
             if (context?.previousData) {
@@ -478,7 +550,7 @@ export function useUpdateConversationStatus() {
             if (assignedTo) body.assigned_to = assignedTo;
             await apiClient.patch(`/inbox/conversations/${conversationId}`, body);
         },
-        onSuccess: (data, { conversationId, status }) => {
+        onSuccess: (_data, { conversationId, status }) => {
             // Update conversation list status
             queryClient.setQueryData(['conversations'], (old: any) => {
                 if (!old?.data) return old;
@@ -502,5 +574,67 @@ export function useUpdateConversationStatus() {
         onError: () => {
             toast.error('Failed to update conversation status');
         }
+    });
+}
+
+export function useTakeoverConversation() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (conversationId: string) => {
+            const response = await apiClient.post(`/inbox/conversations/${conversationId}/takeover`);
+            return response.data as { success: boolean; agent_id: string; is_ai_handled: boolean };
+        },
+        onSuccess: (data, conversationId) => {
+            queryClient.setQueriesData(
+                { queryKey: ['conversations'], exact: false },
+                (old: any) => {
+                    if (!old?.data) return old;
+                    return {
+                        ...old,
+                        data: old.data.map((c: ConversationListItem) =>
+                            c.conversation_id === conversationId
+                                ? { ...c, is_ai_handled: false, needs_attention: false, agent_id: data.agent_id }
+                                : c
+                        ),
+                    };
+                }
+            );
+            toast.success('You have taken over this conversation');
+        },
+        onError: () => {
+            toast.error('Failed to take over conversation');
+        },
+    });
+}
+
+export function useResolveConversation() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (conversationId: string) => {
+            const response = await apiClient.post(`/inbox/conversations/${conversationId}/resolve`);
+            return response.data as { success: boolean; resolved_at: string };
+        },
+        onSuccess: (_data, conversationId) => {
+            queryClient.setQueriesData(
+                { queryKey: ['conversations'], exact: false },
+                (old: any) => {
+                    if (!old?.data) return old;
+                    return {
+                        ...old,
+                        data: old.data.map((c: ConversationListItem) =>
+                            c.conversation_id === conversationId
+                                ? { ...c, is_resolved: true, needs_attention: false }
+                                : c
+                        ),
+                    };
+                }
+            );
+            toast.success('Conversation resolved');
+        },
+        onError: () => {
+            toast.error('Failed to resolve conversation');
+        },
     });
 }

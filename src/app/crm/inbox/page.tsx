@@ -35,7 +35,7 @@ import {
 import { Plus, Search, MessageSquare, Phone, Video, MoreVertical, Paperclip, Send, Check, CheckCheck, Info, RefreshCw, X, Link as LinkIcon, Image as ImageIcon, FileText, Smile, Star, Trash2, UserPlus, Tag, Filter, Instagram, Sparkles, Archive, AlertCircle, Clock, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, formatDistanceToNow } from 'date-fns'
-import { useConversations, useCustomerConversations, useSendMessage, useUpdateConversationStatus, useInboxWebSocket, ConversationListItem, MessageData, Channel as Platform, ConversationStatus as MessageStatus, GroupedCustomer, AggregatedCustomerDetail } from '@/hooks/use-inbox'
+import { useConversations, useCustomerConversations, useSendMessage, useUpdateConversationStatus, useInboxWebSocket, useTakeoverConversation, useResolveConversation, ConversationListItem, MessageData, Channel as Platform, ConversationStatus as MessageStatus, GroupedCustomer, AggregatedCustomerDetail } from '@/hooks/use-inbox'
 import { isToday, isYesterday, format as formatDate } from 'date-fns'
 
 // Define platform type based on what we use in UI
@@ -179,9 +179,12 @@ function SocialInboxPage() {
   const messages = convData?.data || []
 
   const { mutateAsync: sendMessageAsync } = useSendMessage()
-  const { mutateAsync: updateStatusAsync } = useUpdateConversationStatus()
+  useUpdateConversationStatus() // keep hook registered for cache side-effects
+  const { mutateAsync: takeoverAsync, isPending: isTakingOver } = useTakeoverConversation()
+  const { mutateAsync: resolveAsync, isPending: isResolving } = useResolveConversation()
 
-  const [selectedCustomer, setSelectedCustomer] = useState<GroupedCustomer | null>(null)
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null)
+  const [selectedConversationIds, setSelectedConversationIds] = useState<string[]>([])
 
   const {
     data: detailData,
@@ -189,7 +192,7 @@ function SocialInboxPage() {
     hasNextPage,
     fetchNextPage,
     isFetchingNextPage
-  } = useCustomerConversations(selectedCustomer?.conversation_ids || [])
+  } = useCustomerConversations(selectedConversationIds)
 
   const activeMessages = useMemo(() => {
     if (!detailData?.pages) return []
@@ -197,6 +200,7 @@ function SocialInboxPage() {
     return all.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
   }, [detailData])
 
+  const [activeTab, setActiveTab] = useState<'all' | 'escalated' | 'resolved' | 'bot'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [replyText, setReplyText] = useState('')
   const [showAiSuggestions, setShowAiSuggestions] = useState(true)
@@ -235,7 +239,7 @@ function SocialInboxPage() {
   useEffect(() => {
     // Scroll down instantly on customer switch
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
-  }, [selectedCustomer])
+  }, [selectedCustomerId])
 
   useEffect(() => {
     // Scroll down smoothly if a new message arrives at the bottom
@@ -249,7 +253,7 @@ function SocialInboxPage() {
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 1024) {
-        setIsSidebarOpen(!selectedCustomer)
+        setIsSidebarOpen(!selectedCustomerId)
       } else {
         setIsSidebarOpen(true)
       }
@@ -258,7 +262,7 @@ function SocialInboxPage() {
     handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [selectedCustomer])
+  }, [selectedCustomerId])
 
   // Handle opening specific chat from URL parameters
   useEffect(() => {
@@ -282,18 +286,13 @@ function SocialInboxPage() {
           updated_at: message.updated_at,
           unreadCount: message.unreadCount || 0
         }
-        if (!selectedCustomer || selectedCustomer.customer_id !== tempCust.customer_id) {
+        if (!selectedCustomerId || selectedCustomerId !== tempCust.customer_id) {
           handleSelectCustomer(tempCust)
         }
       }
     }
-  }, [searchParams, messages, selectedCustomer]) // removed handleSelectCustomer to prevent infinite loop
+  }, [searchParams, messages, selectedCustomerId]) // removed handleSelectCustomer to prevent infinite loop
 
-
-  // Get AI suggestions based on latest unified message
-  const currentAiSuggestions = selectedCustomer
-    ? getAiSuggestions(selectedCustomer.latest_message, selectedCustomer.channels[0])
-    : []
 
   const getPlatformIcon = (platform: Platform) => {
     switch (platform) {
@@ -351,7 +350,16 @@ function SocialInboxPage() {
       }
       existing.unreadCount += (msg.unreadCount || 0)
       // Propagate escalation/AI state — any conversation escalated makes the group escalated
-      if (msg.needs_attention) existing.needs_attention = true
+      if (msg.needs_attention) {
+        existing.needs_attention = true
+        if (msg.human_takeover_reason) existing.human_takeover_reason = msg.human_takeover_reason
+        if (msg.human_takeover_at) existing.human_takeover_at = msg.human_takeover_at
+      }
+      // Only mark group resolved if this conversation is resolved AND no active escalation overrides it
+      if (msg.is_resolved && !existing.needs_attention) existing.is_resolved = true
+      // If any conversation is NOT resolved, the group is not resolved
+      if (!msg.is_resolved) existing.is_resolved = false
+      if (msg.agent_id) existing.agent_id = msg.agent_id
       if (msg.is_ai_handled === false) existing.is_ai_handled = false
       else if (existing.is_ai_handled === undefined && msg.is_ai_handled) existing.is_ai_handled = true
     } else {
@@ -366,6 +374,10 @@ function SocialInboxPage() {
         unreadCount: msg.unreadCount || 0,
         is_ai_handled: msg.is_ai_handled,
         needs_attention: msg.needs_attention,
+        is_resolved: !!msg.is_resolved,
+        agent_id: msg.agent_id,
+        human_takeover_reason: msg.human_takeover_reason,
+        human_takeover_at: msg.human_takeover_at,
       })
     }
     return acc
@@ -374,11 +386,32 @@ function SocialInboxPage() {
   const filteredCustomers = groupedCustomers.filter((cust) => {
     const matchesSearch = (cust.sender_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (cust.latest_message || '').toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesSearch
+
+    const isEscalated = !cust.is_ai_handled && !cust.is_resolved
+    const isResolved = !!cust.is_resolved
+    const isBot = !!cust.is_ai_handled && !cust.is_resolved
+
+    const matchesTab =
+      activeTab === 'all' ||
+      (activeTab === 'escalated' && isEscalated && !!cust.needs_attention) ||
+      (activeTab === 'resolved' && isResolved) ||
+      (activeTab === 'bot' && isBot)
+
+    return matchesSearch && matchesTab
   })
 
   // Sort by most recent
   filteredCustomers.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+
+  // Derive selectedCustomer from live query data so real-time cache updates (is_resolved, needs_attention etc.) are always reflected
+  const selectedCustomer = selectedCustomerId
+    ? (groupedCustomers.find(c => c.customer_id === selectedCustomerId) ?? null)
+    : null
+
+  // Get AI suggestions based on latest unified message
+  const currentAiSuggestions = selectedCustomer
+    ? getAiSuggestions(selectedCustomer.latest_message, selectedCustomer.channels[0])
+    : []
 
   const handleSendMessage = async () => {
     if (!replyText.trim() || !selectedCustomer || selectedCustomer.conversation_ids.length === 0) return
@@ -403,8 +436,18 @@ function SocialInboxPage() {
   }
 
   const handleSelectCustomer = (customer: GroupedCustomer) => {
-    setSelectedCustomer(customer)
-    // The useCustomerConversations hook automatically activates based on selectedCustomer.conversation_ids
+    setSelectedCustomerId(customer.customer_id)
+    setSelectedConversationIds(customer.conversation_ids)
+  }
+
+  const handleTakeover = async () => {
+    if (!selectedCustomer) return
+    await takeoverAsync(selectedCustomer.conversation_ids[0])
+  }
+
+  const handleResolve = async () => {
+    if (!selectedCustomer) return
+    await resolveAsync(selectedCustomer.conversation_ids[0])
   }
 
   const handleCreateNewConversation = () => {
@@ -423,7 +466,8 @@ function SocialInboxPage() {
     }
 
     // Select the new (temporary) conversation for drafting
-    setSelectedCustomer(newCust)
+    setSelectedCustomerId(newCust.customer_id)
+    setSelectedConversationIds(newCust.conversation_ids)
 
     // Reset dialog
     setNewConversationData({
@@ -477,6 +521,29 @@ function SocialInboxPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 h-10 bg-slate-100/50 dark:bg-slate-800/50 border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500/50 focus:ring-blue-500/20 transition-all rounded-xl shadow-none"
                 />
+              </div>
+
+              {/* Tabs */}
+              <div className="flex gap-1 p-1 bg-slate-100/70 dark:bg-slate-800/50 rounded-xl">
+                {([
+                  { key: 'all', label: 'All' },
+                  { key: 'escalated', label: 'Escalated' },
+                  { key: 'resolved', label: 'Resolved' },
+                  { key: 'bot', label: 'Bot' },
+                ] as const).map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={cn(
+                      'flex-1 text-[12px] font-medium py-1.5 rounded-lg transition-all',
+                      activeTab === tab.key
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -550,13 +617,19 @@ function SocialInboxPage() {
                       </div>
 
                       <div className="ml-auto flex items-center gap-1 flex-shrink-0">
-                        {customer.needs_attention && (
-                          <Badge className="flex items-center gap-0.5 h-4 px-1.5 text-[10px] font-bold bg-red-500 text-white rounded-full shadow-sm shadow-red-500/30">
-                            <AlertCircle className="h-2.5 w-2.5" />
-                            Needs Attention
+                        {customer.is_resolved && (
+                          <Badge className="flex items-center gap-0.5 h-4 px-1.5 text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 rounded-full">
+                            <CheckCheck className="h-2.5 w-2.5" />
+                            Resolved
                           </Badge>
                         )}
-                        {!customer.needs_attention && customer.is_ai_handled && (
+                        {!customer.is_resolved && customer.needs_attention && (
+                          <Badge className="flex items-center gap-0.5 h-4 px-1.5 text-[10px] font-bold bg-orange-500 text-white rounded-full shadow-sm shadow-orange-500/30">
+                            <AlertCircle className="h-2.5 w-2.5" />
+                            Escalated
+                          </Badge>
+                        )}
+                        {!customer.is_resolved && !customer.needs_attention && customer.is_ai_handled && (
                           <Badge className="flex items-center gap-0.5 h-4 px-1.5 text-[10px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300 rounded-full">
                             <Bot className="h-2.5 w-2.5" />
                             AI
@@ -605,7 +678,8 @@ function SocialInboxPage() {
                     size="icon"
                     className="lg:hidden -ml-2 h-9 w-9 text-slate-500"
                     onClick={() => {
-                      setSelectedCustomer(null)
+                      setSelectedCustomerId(null)
+                      setSelectedConversationIds([])
                       setIsSidebarOpen(true)
                     }}
                   >
@@ -639,6 +713,35 @@ function SocialInboxPage() {
                 </div>
 
                 <div className="flex items-center gap-1 sm:gap-2">
+                  {/* Escalation action buttons */}
+                  {selectedCustomer.needs_attention && !selectedCustomer.is_resolved && (
+                    <Button
+                      size="sm"
+                      onClick={handleTakeover}
+                      disabled={isTakingOver}
+                      className="h-8 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-3 shadow-sm shadow-orange-500/20 hidden sm:flex items-center gap-1.5"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      Take Over
+                    </Button>
+                  )}
+                  {!selectedCustomer.is_resolved && !selectedCustomer.is_ai_handled && selectedCustomer.needs_attention && (
+                    <Button
+                      size="sm"
+                      onClick={handleResolve}
+                      disabled={isResolving}
+                      className="h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold px-3 shadow-sm shadow-emerald-500/20 hidden sm:flex items-center gap-1.5"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                      Resolve
+                    </Button>
+                  )}
+                  {selectedCustomer.is_resolved && (
+                    <span className="hidden sm:flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 rounded-full">
+                      <CheckCheck className="h-3 w-3" />
+                      Resolved
+                    </span>
+                  )}
                   <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hidden sm:flex">
                     <Video className="h-[18px] w-[18px]" />
                   </Button>
@@ -857,10 +960,25 @@ function SocialInboxPage() {
 
               {/* Input Area */}
               <div className="mt-auto bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-200/60 dark:border-slate-800 z-10 px-4 py-3 sm:px-6">
-                {selectedCustomer?.is_ai_handled && (
+                {selectedCustomer?.is_resolved && !selectedCustomer?.needs_attention && (
+                  <div className="mx-auto max-w-4xl mb-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                    <CheckCheck className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                    <span className="text-[13px] text-emerald-700 dark:text-emerald-300">This conversation has been resolved</span>
+                  </div>
+                )}
+                {!selectedCustomer?.is_resolved && selectedCustomer?.is_ai_handled && (
                   <div className="mx-auto max-w-4xl mb-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800">
                     <Bot className="h-4 w-4 text-violet-500 flex-shrink-0" />
                     <span className="text-[13px] text-violet-700 dark:text-violet-300">AI is handling this conversation</span>
+                  </div>
+                )}
+                {!selectedCustomer?.is_resolved && selectedCustomer?.needs_attention && !selectedCustomer?.is_ai_handled && (
+                  <div className="mx-auto max-w-4xl mb-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
+                    <AlertCircle className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                    <span className="text-[13px] text-orange-700 dark:text-orange-300 flex-1">Escalated — customer needs human support</span>
+                    <Button size="sm" onClick={handleTakeover} disabled={isTakingOver} className="h-6 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-semibold px-2.5 sm:hidden">
+                      Take Over
+                    </Button>
                   </div>
                 )}
                 <div className="mx-auto max-w-4xl relative flex items-end gap-2 sm:gap-3">
@@ -891,9 +1009,9 @@ function SocialInboxPage() {
                   {/* Input Box */}
                   <div className="flex-1 relative group bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all flex items-center pr-2">
                     <Textarea
-                      placeholder={selectedCustomer?.is_ai_handled ? 'AI is responding…' : `Draft a message to ${(selectedCustomer.sender_name || 'Customer').split(' ')[0]}...`}
+                      placeholder={selectedCustomer?.is_resolved && !selectedCustomer?.needs_attention ? 'Conversation resolved' : selectedCustomer?.is_ai_handled ? 'AI is responding…' : `Draft a message to ${(selectedCustomer.sender_name || 'Customer').split(' ')[0]}...`}
                       value={replyText}
-                      disabled={!!selectedCustomer?.is_ai_handled}
+                      disabled={!!selectedCustomer?.is_ai_handled || (!!selectedCustomer?.is_resolved && !selectedCustomer?.needs_attention)}
                       onChange={(e) => setReplyText(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
@@ -927,7 +1045,7 @@ function SocialInboxPage() {
                   {/* Send Button */}
                   <Button
                     onClick={handleSendMessage}
-                    disabled={!replyText.trim() || !!selectedCustomer?.is_ai_handled}
+                    disabled={!replyText.trim() || !!selectedCustomer?.is_ai_handled || (!!selectedCustomer?.is_resolved && !selectedCustomer?.needs_attention)}
                     className={cn(
                       "mb-1 sm:mb-1.5 h-10 w-10 sm:h-11 sm:w-11 rounded-full p-0 flex items-center justify-center transition-all shadow-sm shadow-blue-500/20",
                       replyText.trim()
