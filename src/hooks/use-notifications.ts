@@ -9,7 +9,7 @@ export interface Notification {
   business_id: string
   title: string
   message: string
-  type: 'info' | 'success' | 'warning' | 'error' | 'order' | 'lead' | 'inventory'
+  type: 'info' | 'success' | 'warning' | 'error' | 'order' | 'lead' | 'inventory' | 'escalation'
   priority: 'low' | 'medium' | 'high' | 'urgent'
   is_read: boolean
   action_url?: string
@@ -300,6 +300,7 @@ export function getNotificationIcon(type: Notification['type']) {
     order: 'ShoppingCart',
     lead: 'Users',
     inventory: 'Package',
+    escalation: 'Phone',
   }
   return icons[type] || 'Bell'
 }
@@ -308,6 +309,7 @@ export function getNotificationIcon(type: Notification['type']) {
  * Get notification color based on type and priority
  */
 export function getNotificationColor(notification: Notification) {
+  if (notification.type === 'escalation') return 'text-orange-600 bg-orange-50 dark:text-orange-400 dark:bg-orange-950/40'
   if (notification.priority === 'urgent') return 'text-red-600 bg-red-50'
   if (notification.priority === 'high') return 'text-blue-600 bg-blue-50'
 
@@ -319,6 +321,7 @@ export function getNotificationColor(notification: Notification) {
     order: 'text-purple-600 bg-purple-50',
     lead: 'text-blue-600 bg-blue-50',
     inventory: 'text-blue-600 bg-blue-50',
+    escalation: 'text-orange-600 bg-orange-50',
   }
   return colors[notification.type] || 'text-gray-600 bg-gray-50'
 }

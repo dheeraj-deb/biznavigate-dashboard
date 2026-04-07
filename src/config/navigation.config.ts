@@ -12,6 +12,7 @@ export const navigationConfig: NavigationConfig = {
     { href: '/orders', label: 'Orders', icon: 'ShoppingCart', businessTypes: ['products'] },
     { href: '/crm/contacts', label: 'Contacts', icon: 'Users' },
     { href: '/crm/inbox', label: 'Live Chat', icon: 'Inbox' },
+    { href: '/crm/handoff', label: 'Agent Queue', icon: 'Phone' },
     { href: '/crm/campaigns', label: 'Campaigns', icon: 'TrendingUp', businessTypes: ['events', 'products'] },
   ],
 
@@ -109,6 +110,12 @@ export const navigationConfig: NavigationConfig = {
           href: '/crm/inbox',
           icon: 'Inbox',
         },
+        {
+          name: 'Agent Queue',
+          displayName: { hospitality: 'Agent Queue', events: 'Agent Queue', products: 'Agent Queue' },
+          href: '/crm/handoff',
+          icon: 'Phone',
+        },
         { name: 'Follow-Ups', href: '/crm/follow-ups', icon: 'Clock' },
         { name: 'Contacts', href: '/crm/contacts', icon: 'Contact' },
         { name: 'Campaigns', href: '/crm/campaigns', icon: 'Mail' },
@@ -165,6 +172,7 @@ export const navigationConfig: NavigationConfig = {
         { name: 'Instagram', href: '/settings/instagram', icon: 'Instagram' },
         { name: 'Integrations', href: '/settings/integrations', icon: 'Plug' },
         { name: 'Roles & Permissions', href: '/settings/roles', icon: 'Shield' },
+        { name: 'Billing & Plan', href: '/settings/billing', icon: 'CreditCard' },
       ],
     },
   ],

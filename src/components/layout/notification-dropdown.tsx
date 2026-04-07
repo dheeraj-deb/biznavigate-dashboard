@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Bell, Check, CheckCheck, Trash2, Loader2 } from 'lucide-react'
+import { Bell, Check, CheckCheck, Trash2, Loader2, Phone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -200,7 +200,11 @@ function NotificationItem({
       <div className="flex gap-3 ml-4">
         {/* Icon */}
         <div className={`flex-shrink-0 h-8 w-8 rounded-lg flex items-center justify-center ${colorClass}`}>
-          <Bell className="h-4 w-4" />
+          {notification.type === 'escalation' ? (
+            <Phone className="h-4 w-4" />
+          ) : (
+            <Bell className="h-4 w-4" />
+          )}
         </div>
 
         {/* Content */}
