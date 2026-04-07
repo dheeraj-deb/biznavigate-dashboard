@@ -1,17 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   CheckCircle2,
   MessageSquare,
   AlertCircle,
   Info,
-  Facebook,
   Loader2,
   ArrowRight,
   Sparkles,
@@ -19,6 +16,39 @@ import {
   Zap,
   Phone,
 } from 'lucide-react'
+
+// Extend window with FB SDK type
+declare global {
+  interface Window {
+    fbAsyncInit: () => void
+    FB: {
+      init: (options: { appId: string; version: string; autoLogAppEvents?: boolean; xfbml?: boolean }) => void
+      login: (callback: (response: FBLoginResponse) => void, options: FBLoginOptions) => void
+    }
+  }
+}
+
+interface FBLoginResponse {
+  authResponse?: {
+    code: string
+    userID: string
+  }
+  status: string
+}
+
+interface FBLoginOptions {
+  config_id: string
+  response_type: string
+  override_default_response_type: boolean
+  extras: {
+    setup: Record<string, unknown>
+    featureType: string
+    sessionInfoVersion: string
+  }
+}
+
+const EMBEDDED_SIGNUP_CONFIG_ID = '2071186320122440'
+const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || ''
 
 type ConnectionStep = 'intro' | 'connecting' | 'success' | 'error'
 
@@ -28,8 +58,6 @@ interface SimpleWhatsAppConnectProps {
 }
 
 export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsAppConnectProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
   const [currentStep, setCurrentStep] = useState<ConnectionStep>('intro')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -38,69 +66,130 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
     accountId: string
   } | null>(null)
 
-  // Check for OAuth callback success/error
+  // Capture waba_id + phone_number_id from the Embedded Signup session message
+  const sessionInfoRef = useRef<{ wabaId?: string; phoneNumberId?: string }>({})
+
   useEffect(() => {
-    const success = searchParams.get('success')
-    const errorParam = searchParams.get('error')
-    const accountId = searchParams.get('accountId')
-    const phoneNumber = searchParams.get('phoneNumber')
-
-    if (success === 'true' && accountId && phoneNumber) {
-      setConnectedAccount({ accountId, phoneNumber })
-      setCurrentStep('success')
-    } else if (errorParam) {
-      const errorMessage = searchParams.get('message') || 'Failed to connect WhatsApp'
-      setError(errorMessage)
-      setCurrentStep('error')
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== 'https://www.facebook.com') return
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+        if (data?.type === 'WA_EMBEDDED_SIGNUP') {
+          sessionInfoRef.current = {
+            wabaId: data.data?.waba_id,
+            phoneNumberId: data.data?.phone_number_id,
+          }
+        }
+      } catch {
+        // ignore non-JSON messages
+      }
     }
-  }, [searchParams])
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [])
 
-  const handleConnectWithMeta = async () => {
+  // Load Facebook JS SDK
+  useEffect(() => {
+    if (document.getElementById('facebook-jssdk')) return
+
+    window.fbAsyncInit = function () {
+      window.FB.init({
+        appId: META_APP_ID, autoLogAppEvents: true,
+        xfbml: true,
+        version: 'v25.0',
+      })
+    }
+
+    const script = document.createElement('script')
+    script.id = 'facebook-jssdk'
+    script.src = 'https://connect.facebook.net/en_US/sdk.js'
+    script.async = true
+    script.defer = true
+    document.body.appendChild(script)
+  }, [])
+
+  const handleConnectWithMeta = () => {
     setIsLoading(true)
     setError(null)
 
-    try {
-      // Validate businessId
-      if (!businessId) {
-        throw new Error('Business ID not found. Please ensure you are logged in.')
-      }
-
-      // Get OAuth URL from backend
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3006'
-      const token = localStorage.getItem('biznavigate_auth_token')
-
-      if (!token) {
-        throw new Error('Not authenticated. Please log in first.')
-      }
-
-      const response = await fetch(
-        `${apiUrl}/whatsapp/oauth/url?businessId=${businessId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      )
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Failed to get OAuth URL')
-      }
-
-      const data = await response.json()
-
-      if (!data.success || !data.data?.url) {
-        throw new Error('Invalid response from server')
-      }
-
-      // Redirect to Facebook OAuth
-      setCurrentStep('connecting')
-      window.location.href = data.data.url
-    } catch (err) {
-      setIsLoading(false)
-      setError(err instanceof Error ? err.message : 'Failed to connect')
+    if (!businessId) {
+      setError('Business ID not found. Please ensure you are logged in.')
       setCurrentStep('error')
+      setIsLoading(false)
+      return
     }
+
+    if (!window.FB) {
+      setError('Facebook SDK failed to load. Please refresh the page and try again.')
+      setCurrentStep('error')
+      setIsLoading(false)
+      return
+    }
+
+    setCurrentStep('connecting')
+
+    const handleOAuthResponse = async (response: FBLoginResponse) => {
+      if (!response.authResponse?.code) {
+        setError('Authorization was cancelled or failed. Please try again.')
+        setCurrentStep('error')
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3006'
+        const token = localStorage.getItem('biznavigate_auth_token')
+
+        if (!token) {
+          throw new Error('Not authenticated. Please log in first.')
+        }
+
+        const res = await fetch(`${apiUrl}/whatsapp/oauth/embedded-callback`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            code: response.authResponse.code,
+            businessId,
+            wabaId: sessionInfoRef.current.wabaId,
+            phoneNumberId: sessionInfoRef.current.phoneNumberId,
+          }),
+        })
+
+        const data = await res.json()
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || 'Failed to connect WhatsApp account')
+        }
+
+        setConnectedAccount({
+          accountId: data.data.accountId,
+          phoneNumber: data.data.phoneNumber,
+        })
+        setCurrentStep('success')
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to connect')
+        setCurrentStep('error')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    window.FB.login(
+      (response: FBLoginResponse) => { handleOAuthResponse(response) },
+      {
+        config_id: EMBEDDED_SIGNUP_CONFIG_ID,
+        response_type: 'code',
+        override_default_response_type: true,
+        extras: {
+          setup: {},
+          featureType: '',
+          sessionInfoVersion: '3',
+        },
+      },
+    )
   }
 
   const handleRetry = () => {
@@ -136,9 +225,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                   <Zap className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Instant Setup</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Connect in under 60 seconds
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Connect in under 60 seconds</p>
               </div>
 
               <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border-2 border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-shadow">
@@ -146,9 +233,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                   <Sparkles className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Auto-Configure</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  We handle all the technical stuff
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">We handle all the technical stuff</p>
               </div>
 
               <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border-2 border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-shadow">
@@ -156,9 +241,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                   <Shield className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                 </div>
                 <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">100% Secure</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Bank-level encryption
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Bank-level encryption</p>
               </div>
             </div>
 
@@ -168,46 +251,32 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                 How it works:
               </h4>
               <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white text-sm font-bold flex-shrink-0">
-                    1
+                {[
+                  'Click "Connect with Meta" below',
+                  'A Meta popup opens — authorize BizNavigate and select your WhatsApp Business Account',
+                  'Done! Start messaging customers instantly',
+                ].map((step, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white text-sm font-bold flex-shrink-0">
+                      {i + 1}
+                    </div>
+                    <p className="text-blue-900 dark:text-blue-100 font-medium">{step}</p>
                   </div>
-                  <p className="text-blue-900 dark:text-blue-100 font-medium">
-                    Click "Connect with Meta" below
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white text-sm font-bold flex-shrink-0">
-                    2
-                  </div>
-                  <p className="text-blue-900 dark:text-blue-100 font-medium">
-                    Authorize BizNavigo on Facebook
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white text-sm font-bold flex-shrink-0">
-                    3
-                  </div>
-                  <p className="text-blue-900 dark:text-blue-100 font-medium">
-                    Done! Start messaging customers instantly
-                  </p>
-                </div>
+                ))}
               </div>
             </div>
 
             <Alert className="border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 mb-6">
               <CheckCircle2 className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-900 dark:text-green-100">
-                <strong>Don't have WhatsApp Business yet?</strong> No problem! We'll help you set it up during this process.
+                <strong>Don't have WhatsApp Business yet?</strong> No problem! You can create one directly in the popup.
               </AlertDescription>
             </Alert>
 
             {error && (
               <Alert className="border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 mb-6">
                 <AlertCircle className="h-4 w-4 text-red-600" />
-                <AlertDescription className="text-red-900 dark:text-red-100">
-                  {error}
-                </AlertDescription>
+                <AlertDescription className="text-red-900 dark:text-red-100">{error}</AlertDescription>
               </Alert>
             )}
 
@@ -225,14 +294,14 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                   </>
                 ) : (
                   <>
-                    <Facebook className="mr-2 h-5 w-5" />
+                    <MessageSquare className="mr-2 h-5 w-5" />
                     Connect with Meta
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </>
                 )}
               </Button>
               <p className="text-xs text-gray-500 dark:text-gray-500 mt-3">
-                You'll be redirected to Meta to authorize the connection
+                A Meta popup will open — no page redirect required
               </p>
             </div>
           </CardContent>
@@ -245,10 +314,10 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
             <div className="text-center">
               <Loader2 className="h-16 w-16 animate-spin text-blue-600 mx-auto mb-6" />
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">
-                Redirecting to Meta...
+                Waiting for Meta authorization...
               </h2>
               <p className="text-gray-600 dark:text-gray-400">
-                Please complete the authorization on Facebook
+                Complete the steps in the popup window that just opened
               </p>
             </div>
           </CardContent>
@@ -262,14 +331,11 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
               <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-red-100 dark:bg-red-950 mb-4">
                 <AlertCircle className="h-10 w-10 text-red-600 dark:text-red-400" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">
-                Connection Failed
-              </h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">Connection Failed</h2>
               <p className="text-gray-600 dark:text-gray-400 max-w-xl mx-auto mb-4">
                 {error || 'Something went wrong while connecting to WhatsApp'}
               </p>
 
-              {/* Show specific help for phone number error */}
               {error?.includes('No phone numbers found') && (
                 <div className="bg-blue-50 dark:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-6 mb-6 text-left max-w-2xl mx-auto">
                   <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
@@ -279,7 +345,17 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                   <ol className="space-y-2 text-sm text-blue-900 dark:text-blue-100">
                     <li className="flex items-start gap-2">
                       <span className="font-bold mt-0.5">1.</span>
-                      <span>Go to <a href="https://business.facebook.com/wa/manage/phone-numbers/" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-700">WhatsApp Manager</a></span>
+                      <span>
+                        Go to{' '}
+                        <a
+                          href="https://business.facebook.com/wa/manage/phone-numbers/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline hover:text-blue-700"
+                        >
+                          WhatsApp Manager
+                        </a>
+                      </span>
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="font-bold mt-0.5">2.</span>
@@ -287,10 +363,6 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                     </li>
                     <li className="flex items-start gap-2">
                       <span className="font-bold mt-0.5">3.</span>
-                      <span>Wait for approval (usually instant for test numbers)</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="font-bold mt-0.5">4.</span>
                       <span>Come back and click "Try Again" below</span>
                     </li>
                   </ol>
@@ -298,21 +370,17 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
               )}
 
               <div className="flex items-center justify-center gap-3">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={handleRetry}
-                >
+                <Button size="lg" variant="outline" onClick={handleRetry}>
                   <ArrowRight className="mr-2 h-5 w-5 rotate-180" />
                   Try Again
                 </Button>
                 {error?.includes('No phone numbers found') && (
-                  <Button
-                    size="lg"
-                    variant="default"
-                    asChild
-                  >
-                    <a href="https://business.facebook.com/wa/manage/phone-numbers/" target="_blank" rel="noopener noreferrer">
+                  <Button size="lg" asChild>
+                    <a
+                      href="https://business.facebook.com/wa/manage/phone-numbers/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       Open WhatsApp Manager
                     </a>
                   </Button>
@@ -330,9 +398,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
               <div className="inline-flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-green-600 mb-4 shadow-xl animate-pulse">
                 <CheckCircle2 className="h-12 w-12 text-white" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">
-                You're All Set! 🎉
-              </h2>
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">You're All Set!</h2>
               <p className="text-lg text-gray-600 dark:text-gray-400 max-w-xl mx-auto">
                 Your WhatsApp Business is now connected and ready to automate customer conversations.
               </p>
@@ -344,9 +410,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                   <Phone className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
                 <p className="font-bold text-gray-900 dark:text-gray-100 mb-1">Number Active</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {connectedAccount.phoneNumber}
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{connectedAccount.phoneNumber}</p>
               </div>
 
               <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-green-200 dark:border-green-800 text-center">
@@ -354,9 +418,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                   <Sparkles className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <p className="font-bold text-gray-900 dark:text-gray-100 mb-1">AI Enabled</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Auto-replies active
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Auto-replies active</p>
               </div>
 
               <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-green-200 dark:border-green-800 text-center">
@@ -364,9 +426,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                   <MessageSquare className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                 </div>
                 <p className="font-bold text-gray-900 dark:text-gray-100 mb-1">Ready to Go</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Start messaging now
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Start messaging now</p>
               </div>
             </div>
 
@@ -376,33 +436,28 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                 What happens now?
               </h4>
               <div className="space-y-3">
-                <div className="flex items-start gap-3 bg-white dark:bg-gray-900 p-4 rounded-lg">
-                  <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">Customers can message you</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Anyone who messages your WhatsApp number will get instant AI-powered responses
-                    </p>
+                {[
+                  {
+                    title: 'Customers can message you',
+                    desc: 'Anyone who messages your WhatsApp number will get instant AI-powered responses',
+                  },
+                  {
+                    title: 'Leads are captured automatically',
+                    desc: 'Customer details are saved to your dashboard for follow-up',
+                  },
+                  {
+                    title: 'You stay in control',
+                    desc: 'View all conversations, take over chats, and customize responses anytime',
+                  },
+                ].map((item) => (
+                  <div key={item.title} className="flex items-start gap-3 bg-white dark:bg-gray-900 p-4 rounded-lg">
+                    <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-gray-100">{item.title}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{item.desc}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-start gap-3 bg-white dark:bg-gray-900 p-4 rounded-lg">
-                  <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">Leads are captured automatically</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Customer details are saved to your dashboard for follow-up
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 bg-white dark:bg-gray-900 p-4 rounded-lg">
-                  <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">You stay in control</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      View all conversations, take over chats, and customize responses anytime
-                    </p>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 

@@ -88,7 +88,7 @@ function RoomCard({
   const handleDeactivate = async () => {
     if (!confirm(`Deactivate "${room.name}"?`)) return
     setDeactivating(true)
-    try { await onDeactivate(room.id) } finally { setDeactivating(false) }
+    try { await onDeactivate(room.id ?? room.service_id) } finally { setDeactivating(false) }
   }
 
   return (

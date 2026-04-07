@@ -104,8 +104,8 @@ export default function OrdersPage() {
   const updatePaymentMutation = useUpdateOrderPayment()
   const deleteOrderMutation = useDeleteOrder()
 
-  const ordersData = ordersResponse?.data || []
-  const totalPages = Math.ceil((ordersResponse?.total || 0) / 20)
+  const ordersData: any[] = Array.isArray(ordersResponse?.data) ? ordersResponse.data : []
+  const totalPages = Math.ceil(((ordersResponse as any)?.total || 0) / 20)
 
   console.log('Orders Data:', ordersResponse)
   console.log('Order Stats:', orderStats)

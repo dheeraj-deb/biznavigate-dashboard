@@ -367,7 +367,7 @@ export default function InstagramAnalyticsPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {mediaData?.data?.slice(0, 6).map((media) => (
-                    <Card key={media.id} className="overflow-hidden">
+                    <Card key={media.media_id} className="overflow-hidden">
                       <div className="aspect-square relative bg-muted">
                         {media.media_url && (
                           <img

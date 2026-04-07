@@ -53,7 +53,7 @@ export default function WhatsAppCatalogPage() {
   const deleteProduct = useDeleteProduct()
   const toggleCatalog = useToggleProductInCatalog()
 
-  const products = productsResponse?.data || []
+  const products: any[] = Array.isArray(productsResponse?.data) ? productsResponse.data : []
 
   // Filter to show only catalog products and apply search/status filters
   const filteredProducts = products.filter((product: any) => {

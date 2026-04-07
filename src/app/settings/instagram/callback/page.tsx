@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
@@ -9,7 +9,15 @@ import { Loader2, CheckCircle, XCircle } from 'lucide-react';
  * This page is loaded after Facebook OAuth redirect (via backend)
  * It completes the Instagram account connection and notifies the parent window
  */
-export default function InstagramCallbackPage() {
+export default function InstagramCallbackPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen">Processing...</div>}>
+      <InstagramCallbackPage />
+    </Suspense>
+  );
+}
+
+function InstagramCallbackPage() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [message, setMessage] = useState('Connecting Instagram Account...');

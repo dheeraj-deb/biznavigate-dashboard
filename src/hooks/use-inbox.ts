@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/auth-store';
 import { toast } from 'sonner';
 
 // Define our types based on the API docs
-export type SenderType = 'lead' | 'business';
+export type SenderType = 'lead' | 'business' | 'system';
 export type MessageType = 'text' | 'image' | 'audio' | 'video' | 'document' | 'interactive' | 'order';
 export type DeliveryStatus = 'received' | 'sent' | 'delivered' | 'read' | 'failed';
 export type ConversationStatus = 'active' | 'waiting' | 'ended';
@@ -20,8 +20,12 @@ export interface ConversationListItem {
     status: ConversationStatus;
     message_text: string;
     updated_at: string;
-    unreadCount?: number; // UI state tracking
-    contactAvatar?: string; // UI state tracking
+    unreadCount?: number;
+    contactAvatar?: string;
+    is_ai_handled?: boolean;
+    needs_attention?: boolean;
+    human_takeover_at?: string;
+    human_takeover_reason?: string;
 }
 
 export interface ConversationDetail {
@@ -38,11 +42,27 @@ export interface ConversationDetail {
 export interface MessageData {
     conversation_id: string;
     sender_type: SenderType;
+    sender_name?: string;
     message_type: MessageType;
     message_text: string;
     platform_message_id?: string;
     delivery_status?: DeliveryStatus;
+    workflow_node_id?: string;
     timestamp: string;
+    metadata?: {
+        template?: {
+            name: string;
+            language: string;
+            header?: { type: string; text?: string };
+            body: string;
+            footer?: string;
+            buttons?: { type: string; text: string }[];
+        };
+        is_ai?: boolean;
+        is_escalation?: boolean;
+        reason?: string;
+        [key: string]: unknown;
+    };
 }
 
 export interface InboxPagination {
@@ -67,6 +87,8 @@ export interface GroupedCustomer {
     latest_message: string;
     updated_at: string;
     unreadCount: number;
+    is_ai_handled?: boolean;
+    needs_attention?: boolean;
 }
 
 export interface AggregatedCustomerDetail {
@@ -107,23 +129,52 @@ export function useInboxWebSocket() {
         socketRef.current = socket;
 
         socket.on('connect', () => {
-            console.log('Inbox WebSocket connected');
+            console.log('[Socket] connected, socket.id:', socket.id);
+            console.log('[Socket] emitting join for businessId:', businessId);
             socket.emit('join', businessId);
+        });
+
+        socket.on('connect_error', (err) => {
+            console.error('[Socket] connect_error:', err.message, err);
+        });
+
+        socket.on('disconnect', (reason) => {
+            console.warn('[Socket] disconnected:', reason);
         });
 
         // Helper: append a message to the customer_conversations infinite query cache
         // The page reads from ['customer_conversations', ...] NOT ['conversation', id]
         const appendToCustomerConversations = (conversationId: string, message: MessageData, tempId?: string) => {
+            const allKeys = queryClient.getQueriesData({ queryKey: ['customer_conversations'] });
+            console.log('[Socket] appendToCustomerConversations — active cache keys:', allKeys.map(([k]) => k));
+
             queryClient.setQueriesData(
                 { queryKey: ['customer_conversations'], exact: false },
                 (old: any) => {
-                    if (!old?.pages) return old;
+                    if (!old?.pages) {
+                        console.log('[Socket] cache entry has no pages, skipping');
+                        return old;
+                    }
                     const pages = old.pages as any[];
-                    // Only update if this customer has the conversation open
+                    // Check if this conversation is currently open
                     const hasConv = pages.some((p: any) =>
                         p?.messages?.some((m: MessageData) => m.conversation_id === conversationId)
                     );
-                    if (!hasConv) return old;
+                    console.log('[Socket] hasConv for', conversationId, ':', hasConv,
+                        '| existing conv IDs:', pages.flatMap((p: any) => (p?.messages || []).map((m: MessageData) => m.conversation_id)).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i)
+                    );
+                    if (!hasConv) {
+                        // Conversation is open but has no messages yet (e.g. empty first load)
+                        // Append to last page anyway so first incoming message still shows
+                        const newPages = pages.map((p: any, i: number) => {
+                            if (i !== pages.length - 1) return p;
+                            const msgs: MessageData[] = p?.messages || [];
+                            const isDupe = msgs.some((m: MessageData) => m.platform_message_id && m.platform_message_id === message.platform_message_id);
+                            if (isDupe) return p;
+                            return { ...p, messages: [...msgs, message] };
+                        });
+                        return { ...old, pages: newPages };
+                    }
 
                     const newPages = pages.map((p: any, i: number) => {
                         if (i !== pages.length - 1) return p;
@@ -141,7 +192,10 @@ export function useInboxWebSocket() {
                         const isDupe = msgs.some(
                             (m: MessageData) => m.platform_message_id && m.platform_message_id === message.platform_message_id
                         );
-                        if (isDupe) return p;
+                        if (isDupe) {
+                            console.log('[Socket] duplicate message skipped:', message.platform_message_id);
+                            return p;
+                        }
                         return { ...p, messages: [...msgs, message] };
                     });
                     return { ...old, pages: newPages };
@@ -150,6 +204,7 @@ export function useInboxWebSocket() {
         };
 
         socket.on('new_message', ({ conversationId, message }: { conversationId: string, message: MessageData }) => {
+            console.log('[Socket] new_message', { conversationId, message });
             // Update the chat panel (customer_conversations is what the page reads)
             appendToCustomerConversations(conversationId, message);
 
@@ -158,8 +213,35 @@ export function useInboxWebSocket() {
         });
 
         socket.on('message_sent', ({ conversationId, message }: { conversationId: string, message: MessageData }) => {
+            console.log('[Socket] message_sent', { conversationId, message });
+
             // Replace optimistic temp message or append the confirmed sent message
             appendToCustomerConversations(conversationId, message);
+        });
+
+        socket.on('escalation', ({ conversationId, reason, phone, escalated_at }: { conversationId: string; reason: string; phone: string; escalated_at: string }) => {
+            console.log('[Socket] escalation', { conversationId, reason, phone, escalated_at });
+
+            // Update the conversation list — mark needs_attention, clear is_ai_handled
+            queryClient.setQueriesData(
+                { queryKey: ['conversations'], exact: false },
+                (old: any) => {
+                    if (!old?.data) return old;
+                    return {
+                        ...old,
+                        data: old.data.map((c: ConversationListItem) =>
+                            c.conversation_id === conversationId
+                                ? { ...c, is_ai_handled: false, needs_attention: true, human_takeover_at: escalated_at, human_takeover_reason: reason }
+                                : c
+                        ),
+                    };
+                }
+            );
+
+            toast(`${phone} needs a human agent`, {
+                description: reason,
+                duration: 8000,
+            });
         });
 
         socket.on('status_update', ({ platformMessageId, status }: { conversationId: string, platformMessageId: string, status: DeliveryStatus }) => {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -32,7 +32,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Plus, Search, MessageSquare, Phone, Video, MoreVertical, Paperclip, Send, CheckCheck, Info, RefreshCw, X, Link as LinkIcon, Image as ImageIcon, FileText, Smile, Star, Trash2, UserPlus, Tag, Filter, Instagram, Sparkles, Archive, AlertCircle, Clock } from 'lucide-react'
+import { Plus, Search, MessageSquare, Phone, Video, MoreVertical, Paperclip, Send, Check, CheckCheck, Info, RefreshCw, X, Link as LinkIcon, Image as ImageIcon, FileText, Smile, Star, Trash2, UserPlus, Tag, Filter, Instagram, Sparkles, Archive, AlertCircle, Clock, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, formatDistanceToNow } from 'date-fns'
 import { useConversations, useCustomerConversations, useSendMessage, useUpdateConversationStatus, useInboxWebSocket, ConversationListItem, MessageData, Channel as Platform, ConversationStatus as MessageStatus, GroupedCustomer, AggregatedCustomerDetail } from '@/hooks/use-inbox'
@@ -88,7 +88,86 @@ const getAiSuggestions = (lastMessage: string | undefined | null, platform: UIPl
   ]
 }
 
-export default function SocialInboxPage() {
+interface TemplateButton { type: string; text: string }
+interface TemplateHeader { type: string; text?: string }
+interface TemplateMeta {
+  name: string
+  language: string
+  header?: TemplateHeader
+  body: string
+  footer?: string
+  buttons?: TemplateButton[]
+}
+
+function TemplateBubble({ template, timestamp, deliveryStatus }: {
+  template: TemplateMeta
+  timestamp: string
+  deliveryStatus?: string
+}) {
+  return (
+    <div className="flex flex-col rounded-2xl overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-sm shadow-blue-500/10 min-w-[220px] max-w-full">
+      {/* Header */}
+      {template.header?.type === 'TEXT' && template.header.text && (
+        <div className="px-4 pt-3 pb-1 font-semibold text-[14px] leading-snug border-b border-white/10">
+          {template.header.text}
+        </div>
+      )}
+
+      {/* Body */}
+      <div className="px-4 pt-2.5 pb-1 text-[14.5px] leading-relaxed whitespace-pre-wrap">
+        {template.body}
+      </div>
+
+      {/* Footer */}
+      {template.footer && (
+        <div className="px-4 pb-2 text-[11px] text-blue-100/60">
+          {template.footer}
+        </div>
+      )}
+
+      {/* Timestamp + tick */}
+      <div className="px-4 pb-2 flex items-center justify-end gap-1.5 select-none text-blue-100/80">
+        <span className="text-[10px] font-medium tracking-wide">
+          {formatDate(new Date(timestamp), 'HH:mm')}
+        </span>
+        <MessageTickIcon status={deliveryStatus} />
+      </div>
+
+      {/* Buttons */}
+      {template.buttons && template.buttons.length > 0 && (
+        <div className="border-t border-white/10">
+          {template.buttons.map((btn, i) => (
+            <div
+              key={i}
+              className="px-4 py-2 text-center text-[13px] font-medium text-blue-100 border-b border-white/10 last:border-0 cursor-default select-none"
+            >
+              {btn.text}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MessageTickIcon({ status }: { status?: string }) {
+  if (!status) return null
+  if (status === 'failed') return <X className="h-3.5 w-3.5 text-red-400" />
+  if (status === 'sent') return <Check className="h-3.5 w-3.5 opacity-70" />
+  if (status === 'delivered') return <CheckCheck className="h-3.5 w-3.5 opacity-70" />
+  if (status === 'read') return <CheckCheck className="h-3.5 w-3.5 text-blue-200" />
+  return null
+}
+
+export default function SocialInboxPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+      <SocialInboxPage />
+    </Suspense>
+  )
+}
+
+function SocialInboxPage() {
   const searchParams = useSearchParams()
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -271,6 +350,10 @@ export default function SocialInboxPage() {
         existing.updated_at = msg.updated_at
       }
       existing.unreadCount += (msg.unreadCount || 0)
+      // Propagate escalation/AI state — any conversation escalated makes the group escalated
+      if (msg.needs_attention) existing.needs_attention = true
+      if (msg.is_ai_handled === false) existing.is_ai_handled = false
+      else if (existing.is_ai_handled === undefined && msg.is_ai_handled) existing.is_ai_handled = true
     } else {
       acc.push({
         customer_id: msg.customer_id,
@@ -280,7 +363,9 @@ export default function SocialInboxPage() {
         conversation_ids: [msg.conversation_id],
         latest_message: msg.message_text,
         updated_at: msg.updated_at,
-        unreadCount: msg.unreadCount || 0
+        unreadCount: msg.unreadCount || 0,
+        is_ai_handled: msg.is_ai_handled,
+        needs_attention: msg.needs_attention,
       })
     }
     return acc
@@ -465,6 +550,18 @@ export default function SocialInboxPage() {
                       </div>
 
                       <div className="ml-auto flex items-center gap-1 flex-shrink-0">
+                        {customer.needs_attention && (
+                          <Badge className="flex items-center gap-0.5 h-4 px-1.5 text-[10px] font-bold bg-red-500 text-white rounded-full shadow-sm shadow-red-500/30">
+                            <AlertCircle className="h-2.5 w-2.5" />
+                            Needs Attention
+                          </Badge>
+                        )}
+                        {!customer.needs_attention && customer.is_ai_handled && (
+                          <Badge className="flex items-center gap-0.5 h-4 px-1.5 text-[10px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300 rounded-full">
+                            <Bot className="h-2.5 w-2.5" />
+                            AI
+                          </Badge>
+                        )}
                         {customer.unreadCount > 0 && (
                           <Badge className="ml-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-blue-500 px-1 text-[10px] font-bold text-white shadow-sm shadow-blue-500/20">
                             {customer.unreadCount}
@@ -593,6 +690,20 @@ export default function SocialInboxPage() {
                     </div>
                   ) : (
                     activeMessages.map((msg: any, index: number, arr: any[]) => {
+                      // System messages render as a centered divider
+                      if (msg.sender_type === 'system') {
+                        return (
+                          <div key={msg.platform_message_id || msg.timestamp} className="flex items-center gap-3 py-1 select-none">
+                            <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+                            <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 whitespace-nowrap">
+                              <AlertCircle className="h-3 w-3 text-red-400 flex-shrink-0" />
+                              {msg.message_text}
+                            </span>
+                            <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+                          </div>
+                        )
+                      }
+
                       const isIncoming = msg.sender_type === 'lead';
                       const isNextIncoming = arr[index + 1]?.sender_type === 'lead';
                       const isPrevIncoming = arr[index - 1]?.sender_type === 'lead';
@@ -633,7 +744,15 @@ export default function SocialInboxPage() {
                               isNextSameSender ? 'mb-1' : 'mb-6' // tighter spacing for same sender
                             )}
                           >
-                            <div className="flex max-w-[85%] sm:max-w-[70%] items-end gap-2 group/msg">
+                            <div className="flex max-w-[85%] sm:max-w-[70%] flex-col gap-0.5">
+                              {/* AI sender label */}
+                              {!isIncoming && msg.metadata?.is_ai && (
+                                <div className="flex items-center gap-1 justify-end mb-0.5">
+                                  <Bot className="h-3 w-3 text-violet-400" />
+                                  <span className="text-[10px] font-medium text-violet-400 dark:text-violet-500">AI Agent</span>
+                                </div>
+                              )}
+                            <div className="flex items-end gap-2 group/msg">
                               {/* Avatar for Incoming Messages */}
                               {isIncoming && !isNextSameSender && (
                                 <Avatar className="h-6 w-6 border border-slate-100 dark:border-slate-800 mb-1 flex-shrink-0">
@@ -666,36 +785,30 @@ export default function SocialInboxPage() {
                                     )
                                 )}
                               >
-                                <p className="whitespace-pre-wrap word-break-word font-inter">{msg.message_text}</p>
+                                {msg.message_type === 'template' && msg.metadata?.template ? (
+                                  <TemplateBubble
+                                    template={msg.metadata.template}
+                                    timestamp={msg.timestamp}
+                                    deliveryStatus={msg.delivery_status}
+                                  />
+                                ) : (
+                                  <>
+                                    <p className="whitespace-pre-wrap word-break-word font-inter">{msg.message_text}</p>
 
-                                {/* Metadata inside bubble */}
-                                <div className={cn(
-                                  "mt-1 flex flex-wrap items-center justify-end gap-1.5 select-none",
-                                  isIncoming ? "text-slate-400" : "text-blue-100/80"
-                                )}>
-                                  <span className="text-[10px] font-medium tracking-wide">
-                                    {formatDate(new Date(msg.timestamp), 'HH:mm')}
-                                  </span>
-                                  {/* Metadata inside bubble */}
-                                  <div className={cn(
-                                    "mt-1 flex flex-wrap items-center justify-end gap-1.5 select-none",
-                                    isIncoming ? "text-slate-400" : "text-blue-100/80"
-                                  )}>
-                                    <span className="text-[10px] font-medium tracking-wide">
-                                      {formatDate(new Date(msg.timestamp), 'HH:mm')}
-                                    </span>
-                                    {!isIncoming && msg.delivery_status && (
-                                      <CheckCheck
-                                        className={cn(
-                                          'h-3.5 w-3.5',
-                                          msg.delivery_status === 'read' ? 'text-blue-200' : 'opacity-70'
-                                        )}
-                                      />
-                                    )}
-                                  </div>
-                                </div>
-
+                                    {/* Metadata inside bubble */}
+                                    <div className={cn(
+                                      "mt-1 flex items-center justify-end gap-1.5 select-none",
+                                      isIncoming ? "text-slate-400" : "text-blue-100/80"
+                                    )}>
+                                      <span className="text-[10px] font-medium tracking-wide">
+                                        {formatDate(new Date(msg.timestamp), 'HH:mm')}
+                                      </span>
+                                      {!isIncoming && <MessageTickIcon status={msg.delivery_status} />}
+                                    </div>
+                                  </>
+                                )}
                               </div>
+                            </div>
                             </div>
                           </div>
                         </div>
@@ -744,6 +857,12 @@ export default function SocialInboxPage() {
 
               {/* Input Area */}
               <div className="mt-auto bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-200/60 dark:border-slate-800 z-10 px-4 py-3 sm:px-6">
+                {selectedCustomer?.is_ai_handled && (
+                  <div className="mx-auto max-w-4xl mb-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800">
+                    <Bot className="h-4 w-4 text-violet-500 flex-shrink-0" />
+                    <span className="text-[13px] text-violet-700 dark:text-violet-300">AI is handling this conversation</span>
+                  </div>
+                )}
                 <div className="mx-auto max-w-4xl relative flex items-end gap-2 sm:gap-3">
 
                   {/* Attachment Menus */}
@@ -772,8 +891,9 @@ export default function SocialInboxPage() {
                   {/* Input Box */}
                   <div className="flex-1 relative group bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all flex items-center pr-2">
                     <Textarea
-                      placeholder={`Draft a message to ${(selectedCustomer.sender_name || 'Customer').split(' ')[0]}...`}
+                      placeholder={selectedCustomer?.is_ai_handled ? 'AI is responding…' : `Draft a message to ${(selectedCustomer.sender_name || 'Customer').split(' ')[0]}...`}
                       value={replyText}
+                      disabled={!!selectedCustomer?.is_ai_handled}
                       onChange={(e) => setReplyText(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
@@ -781,7 +901,7 @@ export default function SocialInboxPage() {
                           handleSendMessage()
                         }
                       }}
-                      className="min-h-[44px] max-h-[120px] w-full resize-none bg-transparent border-0 focus-visible:ring-0 px-4 py-3 text-[14.5px] scrollbar-hide"
+                      className="min-h-[44px] max-h-[120px] w-full resize-none bg-transparent border-0 focus-visible:ring-0 px-4 py-3 text-[14.5px] scrollbar-hide disabled:opacity-50 disabled:cursor-not-allowed"
                       rows={1}
                     />
 
@@ -807,7 +927,7 @@ export default function SocialInboxPage() {
                   {/* Send Button */}
                   <Button
                     onClick={handleSendMessage}
-                    disabled={!replyText.trim()}
+                    disabled={!replyText.trim() || !!selectedCustomer?.is_ai_handled}
                     className={cn(
                       "mb-1 sm:mb-1.5 h-10 w-10 sm:h-11 sm:w-11 rounded-full p-0 flex items-center justify-center transition-all shadow-sm shadow-blue-500/20",
                       replyText.trim()

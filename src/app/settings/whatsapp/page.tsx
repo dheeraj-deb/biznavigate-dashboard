@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, Suspense } from 'react'
 import { useWhatsAppAccounts, useDisconnectWhatsAppAccount } from '@/hooks/use-whatsapp-account'
-import { useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,28 +30,10 @@ import {
   RefreshCw,
   Trash2,
   Phone,
-  Zap,
   Settings,
-  Shield,
 } from 'lucide-react'
-import { WhatsAppOnboardingWizard } from '@/components/whatsapp/whatsapp-onboarding-wizard'
 import { SimpleWhatsAppConnect } from '@/components/whatsapp/simple-whatsapp-connect'
 import { useAuthStore } from '@/store/auth-store'
-
-// Mock data for connected WhatsApp Business account
-const mockWhatsAppAccount = {
-  account_id: '1',
-  phone_number: '+919876543210',
-  display_name: 'BizNavigo Store',
-  quality_rating: 'GREEN',
-  messaging_limit_tier: 'TIER_1K',
-  is_verified: true,
-  is_active: true,
-  webhook_verified: true,
-  last_message_at: new Date('2024-12-22T10:30:00'),
-  created_at: new Date('2024-01-15'),
-  api_key_id: 'waba_xxxxxxxxxxxxxxxxxx',
-}
 
 // Mock settings
 const mockSettings = {
@@ -74,18 +55,22 @@ const mockSettings = {
   payment_reminders_enabled: true,
 }
 
-export default function WhatsAppSettingsPage() {
+export default function WhatsAppSettingsPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+      <WhatsAppSettingsPage />
+    </Suspense>
+  )
+}
+
+function WhatsAppSettingsPage() {
   const { user } = useAuthStore()
-  const searchParams = useSearchParams()
   const [showOnboarding, setShowOnboarding] = useState(false)
-  const [useSimpleConnect, setUseSimpleConnect] = useState(true) // Toggle between simple and advanced
   const [settings, setSettings] = useState(mockSettings)
   const [activeTab, setActiveTab] = useState('overview')
 
-  // Get businessId from authenticated user
   const businessId = user?.business_id || ''
 
-  // Fetch WhatsApp accounts via hook
   const {
     data: whatsappData,
     isLoading,
@@ -96,23 +81,6 @@ export default function WhatsAppSettingsPage() {
   const isConnected = whatsappData?.isConnected ?? false
 
   const disconnectMutation = useDisconnectWhatsAppAccount(businessId)
-
-  // Check for OAuth callback success and show onboarding if needed
-  useEffect(() => {
-    // Wait for initial loading to complete before checking OAuth callback
-    if (isLoading) return
-
-    const success = searchParams.get('success')
-    const accountId = searchParams.get('accountId')
-
-    if (success === 'true' && accountId) {
-      // OAuth was successful, show the onboarding success screen
-      // Only show if not already connected
-      if (!isConnected && !account) {
-        setShowOnboarding(true)
-      }
-    }
-  }, [searchParams, isConnected, account, isLoading])
 
   const handleCopyWebhookUrl = () => {
     if (!account) return
@@ -131,18 +99,7 @@ export default function WhatsAppSettingsPage() {
 
   const handleOnboardingComplete = async () => {
     setShowOnboarding(false)
-
-    // Clear URL params
-    if (typeof window !== 'undefined') {
-      window.history.replaceState({}, '', '/settings/whatsapp')
-    }
-
-    // Refetch accounts to show newly connected account
     await refetchAccounts()
-  }
-
-  const handleOnboardingCancel = () => {
-    setShowOnboarding(false)
   }
 
   const qualityRatingConfig = {
@@ -204,81 +161,11 @@ export default function WhatsAppSettingsPage() {
               </div>
             </CardContent>
           </Card>
-        ) : showOnboarding ? (
-          /* Connection Flow - Simple or Advanced */
-          useSimpleConnect ? (
-            <SimpleWhatsAppConnect
-              onComplete={handleOnboardingComplete}
-              businessId={businessId}
-            />
-          ) : (
-            <WhatsAppOnboardingWizard
-              onComplete={handleOnboardingComplete}
-              onCancel={handleOnboardingCancel}
-            />
-          )
-        ) : !isConnected ? (
-          /* Connection Card - Not Connected */
-          <Card className="border-blue-200 dark:border-blue-800 bg-gradient-to-br from-white to-blue-50 dark:from-gray-950 dark:to-blue-950/20 shadow-lg">
-            <CardContent className="pt-8 pb-8">
-              <div className="text-center mb-8">
-                <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-green-600 mb-4 shadow-lg">
-                  <MessageSquare className="h-10 w-10 text-white" />
-                </div>
-                <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">
-                  Connect WhatsApp Business
-                </h2>
-                <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-                  Automate customer conversations and capture leads 24/7 with WhatsApp Business API
-                </p>
-              </div>
-
-              {/* Benefits */}
-              <div className="grid gap-4 md:grid-cols-3 mb-8">
-                <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border-2 border-blue-100 dark:border-blue-900 shadow-sm">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-950 mb-3">
-                    <MessageSquare className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Auto-Reply 24/7</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Respond instantly to every customer</p>
-                </div>
-                <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border-2 border-blue-100 dark:border-blue-900 shadow-sm">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 dark:bg-green-950 mb-3">
-                    <Zap className="h-6 w-6 text-green-600 dark:text-green-400" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Smart Lead Capture</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Save customer details automatically</p>
-                </div>
-                <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border-2 border-blue-100 dark:border-blue-900 shadow-sm">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-950 mb-3">
-                    <Shield className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Verified Business</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Build trust with green badge</p>
-                </div>
-              </div>
-
-              <div className="text-center space-y-4">
-                <Button
-                  size="lg"
-                  className="bg-green-600 hover:bg-green-700 text-white px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all"
-                  onClick={handleStartOnboarding}
-                >
-                  <MessageSquare className="mr-2 h-6 w-6" />
-                  Connect in 2 Clicks
-                </Button>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Takes less than 60 seconds • No technical knowledge required
-                </p>
-                <button
-                  onClick={() => setUseSimpleConnect(false)}
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  Need manual setup? Click here for advanced options
-                </button>
-              </div>
-            </CardContent>
-          </Card>
+        ) : showOnboarding || !isConnected ? (
+          <SimpleWhatsAppConnect
+            onComplete={handleOnboardingComplete}
+            businessId={businessId}
+          />
         ) : account && isConnected ? (
           /* Connected State - Tabs */
           <Tabs value={activeTab} onValueChange={setActiveTab}>

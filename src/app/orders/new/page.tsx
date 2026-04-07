@@ -78,7 +78,7 @@ export default function CreateOrderPage() {
   const total = subtotal + taxAmount + formData.shippingCost - formData.discount
 
   // Filter products based on search
-  const filteredProducts = productsData?.data?.filter(product =>
+  const filteredProducts = (Array.isArray(productsData?.data) ? productsData.data : []).filter((product: any) =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.sku?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || []
