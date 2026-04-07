@@ -8,6 +8,8 @@ import { useDashboardStats } from '@/hooks/use-dashboard'
 import { dashboardConfig } from '@/config/dashboard.config'
 import type { DashboardStatConfig, DashboardWidgetConfig } from '@/config/navigation.types'
 
+import { LeadIntelligenceSection } from './lead-intelligence'
+
 // Widget registry — maps component string names to actual components
 import { RecentBookingsWidget } from './recent-bookings'
 import { CheckInStatusWidget } from './check-in-status'
@@ -111,6 +113,9 @@ export function DashboardRenderer() {
           Welcome back! Here&apos;s what&apos;s happening with your business today.
         </p>
       </div>
+
+      {/* Lead Intelligence — today's snapshot, needs attention, channel performance */}
+      <LeadIntelligenceSection />
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
