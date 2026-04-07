@@ -172,6 +172,7 @@ export const navigationConfig: NavigationConfig = {
         { name: 'Instagram', href: '/settings/instagram', icon: 'Instagram' },
         { name: 'Integrations', href: '/settings/integrations', icon: 'Plug' },
         { name: 'Roles & Permissions', href: '/settings/roles', icon: 'Shield' },
+        { name: 'Billing & Plan', href: '/settings/billing', icon: 'CreditCard' },
       ],
     },
   ],

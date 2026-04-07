@@ -1,19 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -29,8 +26,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
   Plus,
@@ -40,823 +37,527 @@ import {
   CheckCircle2,
   AlertCircle,
   Phone,
-  Mail,
   MessageSquare,
-  Video,
   Users,
   Filter,
-  ChevronRight,
   MoreVertical,
-  Edit,
   Trash2,
   ExternalLink,
+  Loader2,
+  Search,
 } from 'lucide-react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { formatDate, formatDateTime } from '@/lib/utils'
+import { apiClient } from '@/lib/api-client'
+import toast from 'react-hot-toast'
 
-// Mock data for follow-ups
-const mockFollowUps = [
-  {
-    followup_id: '1',
-    lead: {
-      lead_id: '1',
-      first_name: 'John',
-      last_name: 'Doe',
-      phone: '9876543210',
-      email: 'john@example.com',
-      lead_quality: 'hot',
-    },
-    followup_type: 'call',
-    followup_description: 'Schedule product demo call to discuss features and pricing',
-    scheduled_at: new Date('2024-12-22T10:00:00'),
-    assigned_to_user: {
-      name: 'Sarah Johnson',
-    },
-    status: 'pending',
-    created_at: new Date('2024-12-20'),
-  },
-  {
-    followup_id: '2',
-    lead: {
-      lead_id: '2',
-      first_name: 'Jane',
-      last_name: 'Smith',
-      phone: '9876543211',
-      email: 'jane@example.com',
-      lead_quality: 'warm',
-    },
-    followup_type: 'email',
-    followup_description: 'Send course enrollment details and payment instructions',
-    scheduled_at: new Date('2024-12-22T14:30:00'),
-    assigned_to_user: {
-      name: 'Michael Chen',
-    },
-    status: 'pending',
-    created_at: new Date('2024-12-21'),
-  },
-  {
-    followup_id: '3',
-    lead: {
-      lead_id: '3',
-      first_name: 'Bob',
-      last_name: 'Johnson',
-      phone: '9876543212',
-      email: 'bob@example.com',
-      lead_quality: 'hot',
-    },
-    followup_type: 'meeting',
-    followup_description: 'In-person meeting at office to finalize contract',
-    scheduled_at: new Date('2024-12-23T11:00:00'),
-    assigned_to_user: {
-      name: 'Sarah Johnson',
-    },
-    status: 'pending',
-    created_at: new Date('2024-12-20'),
-  },
-  {
-    followup_id: '4',
-    lead: {
-      lead_id: '4',
-      first_name: 'Alice',
-      last_name: 'Williams',
-      phone: '9876543213',
-      email: 'alice@example.com',
-      lead_quality: 'warm',
-    },
-    followup_type: 'whatsapp',
-    followup_description: 'Follow up on product inquiry via WhatsApp',
-    scheduled_at: new Date('2024-12-20T09:00:00'),
-    assigned_to_user: {
-      name: 'Michael Chen',
-    },
-    status: 'completed',
-    completed_at: new Date('2024-12-20T09:15:00'),
-    completion_notes: 'Sent product catalog and pricing. Lead is interested and will get back by EOD.',
-    created_at: new Date('2024-12-19'),
-  },
-  {
-    followup_id: '5',
-    lead: {
-      lead_id: '5',
-      first_name: 'Charlie',
-      last_name: 'Brown',
-      phone: '9876543214',
-      email: 'charlie@example.com',
-      lead_quality: 'cold',
-    },
-    followup_type: 'call',
-    followup_description: 'Reminder call for pending payment',
-    scheduled_at: new Date('2024-12-19T15:00:00'),
-    assigned_to_user: {
-      name: 'Sarah Johnson',
-    },
-    status: 'overdue',
-    created_at: new Date('2024-12-18'),
-  },
-]
+// ── Types ────────────────────────────────────────────────────────────────────
 
-// Follow-up type configuration
-const followupTypeConfig = {
-  call: { label: 'Call', icon: Phone, color: 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400' },
-  email: { label: 'Email', icon: Mail, color: 'bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400' },
-  whatsapp: { label: 'WhatsApp', icon: MessageSquare, color: 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' },
-  meeting: { label: 'Meeting', icon: Users, color: 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400' },
-  video_call: { label: 'Video Call', icon: Video, color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400' },
+interface FollowUpLead {
+  id: string
+  name: string
+  phone: string
+  source: string
+  inquiry: string
+  status: string
+  category: string
+  staff_notes?: string
+  assigned_to?: string
+  follow_up_date: string   // ISO date string — only shown if set
+  conversation_id?: string
 }
 
-// Status configuration
-const statusConfig = {
-  pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-400', icon: Clock },
-  completed: { label: 'Completed', color: 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400', icon: CheckCircle2 },
-  overdue: { label: 'Overdue', color: 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400', icon: AlertCircle },
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Helper to get initials from name
-const getInitials = (firstName?: string, lastName?: string) => {
-  const first = firstName?.charAt(0)?.toUpperCase() || ''
-  const last = lastName?.charAt(0)?.toUpperCase() || ''
-  return first + last || '?'
-}
-
-// Helper to get quality badge color
-const getQualityColor = (quality?: string) => {
-  switch (quality) {
-    case 'hot':
-      return 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400'
-    case 'warm':
-      return 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'
-    case 'cold':
-      return 'bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'
-    default:
-      return 'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-400'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeFollowUpLead(raw: any): FollowUpLead {
+  return {
+    id: raw.lead_id ?? raw.id ?? '',
+    name: raw.customer_name ?? raw.name ?? 'Unknown',
+    phone: raw.phone ?? raw.customer_phone ?? '',
+    source: raw.source ?? 'whatsapp',
+    inquiry: raw.inquiry ?? raw.product ?? raw.message ?? '',
+    status: raw.status ?? 'new',
+    category: raw.category ?? raw.priority ?? 'warm',
+    staff_notes: raw.staff_notes ?? raw.notes ?? undefined,
+    assigned_to: raw.assigned_to ?? raw.assignedTo ?? undefined,
+    follow_up_date: raw.follow_up_date ?? raw.followUpDate ?? '',
+    conversation_id: raw.conversation_id ?? raw.conversationId ?? undefined,
   }
 }
 
-// Helper to check if a date is today
-const isToday = (date: Date) => {
-  const today = new Date()
-  return date.getDate() === today.getDate() &&
-    date.getMonth() === today.getMonth() &&
-    date.getFullYear() === today.getFullYear()
+function isToday(dateStr: string): boolean {
+  const d = new Date(dateStr)
+  const t = new Date()
+  return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate()
 }
 
-// Helper to check if a date is overdue
-const isOverdue = (date: Date) => {
-  return date < new Date() && !isToday(date)
+function isOverdue(dateStr: string): boolean {
+  return new Date(dateStr) < new Date() && !isToday(dateStr)
 }
 
-type FollowUp = typeof mockFollowUps[0]
+function formatFollowUpDate(dateStr: string): string {
+  if (isToday(dateStr)) return 'Today'
+  if (isOverdue(dateStr)) {
+    const d = new Date(dateStr)
+    return `Overdue — ${d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
+  }
+  const d = new Date(dateStr)
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow'
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function getFollowUpStatus(dateStr: string): 'overdue' | 'today' | 'upcoming' {
+  if (isOverdue(dateStr)) return 'overdue'
+  if (isToday(dateStr)) return 'today'
+  return 'upcoming'
+}
+
+function getCategoryStyle(cat: string) {
+  if (cat === 'hot') return 'bg-red-100 text-red-700'
+  if (cat === 'warm') return 'bg-amber-100 text-amber-700'
+  return 'bg-slate-100 text-slate-600'
+}
+
+function getInitials(name: string) {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?'
+}
+
+type TabKey = 'all' | 'today' | 'overdue' | 'upcoming'
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function FollowUpsPage() {
   const router = useRouter()
-  const [selectedTab, setSelectedTab] = useState('all')
-  const [followUps, setFollowUps] = useState(mockFollowUps)
-  const [selectedFollowUps, setSelectedFollowUps] = useState<string[]>([])
+  const [leads, setLeads] = useState<FollowUpLead[]>([])
+  const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<TabKey>('all')
+  const [search, setSearch] = useState('')
 
-  // Dialog states
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [showCompleteDialog, setShowCompleteDialog] = useState(false)
-  const [showEditDialog, setShowEditDialog] = useState(false)
-  const [currentFollowUp, setCurrentFollowUp] = useState<FollowUp | null>(null)
-
-  // Form states
-  const [newFollowUp, setNewFollowUp] = useState({
-    leadName: '',
-    leadEmail: '',
-    leadPhone: '',
-    followupType: 'call',
-    description: '',
-    scheduledDate: '',
-    scheduledTime: '',
-    assignedTo: 'Sarah Johnson',
+  // Create dialog
+  const [showCreate, setShowCreate] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    phone: '',
+    follow_up_date: '',
+    notes: '',
+    assigned_to: '',
   })
+
+  // Complete dialog
+  const [completeTarget, setCompleteTarget] = useState<FollowUpLead | null>(null)
   const [completionNotes, setCompletionNotes] = useState('')
+  const [completing, setCompleting] = useState(false)
 
-  // Calculate stats
+  // ── Fetch leads with follow_up_date ──
+  useEffect(() => {
+    apiClient.get('/crm/leads')
+      .then((res) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const d = res.data as any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const raw: any[] = Array.isArray(d) ? d : (d?.data ?? d?.leads ?? [])
+        const withFollowUp = raw
+          .map(normalizeFollowUpLead)
+          .filter((l) => !!l.follow_up_date)
+        setLeads(withFollowUp)
+      })
+      .catch(() => toast.error('Failed to load follow-ups'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  // ── Counts ──
+  const counts = {
+    all: leads.length,
+    today: leads.filter((l) => isToday(l.follow_up_date)).length,
+    overdue: leads.filter((l) => isOverdue(l.follow_up_date)).length,
+    upcoming: leads.filter((l) => getFollowUpStatus(l.follow_up_date) === 'upcoming').length,
+  }
+
+  // ── Filtered list ──
+  const filtered = leads.filter((l) => {
+    const q = search.toLowerCase()
+    const matchSearch = !q || l.name.toLowerCase().includes(q) || l.phone.includes(q) || l.inquiry.toLowerCase().includes(q)
+    const matchTab =
+      tab === 'all' ? true :
+      tab === 'today' ? isToday(l.follow_up_date) :
+      tab === 'overdue' ? isOverdue(l.follow_up_date) :
+      getFollowUpStatus(l.follow_up_date) === 'upcoming'
+    return matchSearch && matchTab
+  }).sort((a, b) => new Date(a.follow_up_date).getTime() - new Date(b.follow_up_date).getTime())
+
+  // ── Actions ──
+  const handleMarkComplete = async () => {
+    if (!completeTarget) return
+    setCompleting(true)
+    try {
+      await apiClient.patch(`/crm/leads/${completeTarget.id}`, {
+        follow_up_date: null,
+        staff_notes: completionNotes
+          ? `${completeTarget.staff_notes ? completeTarget.staff_notes + '\n' : ''}Completed: ${completionNotes}`
+          : completeTarget.staff_notes,
+      })
+      setLeads((prev) => prev.filter((l) => l.id !== completeTarget.id))
+      toast.success('Follow-up marked as done')
+      setCompleteTarget(null)
+      setCompletionNotes('')
+    } catch {
+      toast.error('Failed to mark as complete')
+    } finally {
+      setCompleting(false)
+    }
+  }
+
+  const handleRemoveFollowUp = async (lead: FollowUpLead) => {
+    try {
+      await apiClient.patch(`/crm/leads/${lead.id}`, { follow_up_date: null })
+      setLeads((prev) => prev.filter((l) => l.id !== lead.id))
+      toast.success('Follow-up removed')
+    } catch {
+      toast.error('Failed to remove follow-up')
+    }
+  }
+
+  const handleCreate = async () => {
+    if (!createForm.name.trim() || !createForm.phone.trim() || !createForm.follow_up_date) return
+    setCreating(true)
+    try {
+      const res = await apiClient.post('/crm/leads', {
+        customer_name: createForm.name,
+        phone: createForm.phone,
+        follow_up_date: createForm.follow_up_date,
+        staff_notes: createForm.notes || undefined,
+        assigned_to: createForm.assigned_to || undefined,
+        source: 'manual',
+        status: 'new',
+      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw = (res.data as any)?.data ?? res.data
+      if (raw) {
+        const newLead = normalizeFollowUpLead(raw)
+        if (newLead.follow_up_date) setLeads((prev) => [newLead, ...prev])
+      }
+      toast.success('Follow-up scheduled')
+      setShowCreate(false)
+      setCreateForm({ name: '', phone: '', follow_up_date: '', notes: '', assigned_to: '' })
+    } catch {
+      toast.error('Failed to schedule follow-up')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleViewInInbox = (lead: FollowUpLead) => {
+    if (lead.conversation_id) {
+      router.push(`/crm/inbox?conversation=${lead.conversation_id}`)
+    } else {
+      router.push(`/crm/inbox?phone=${encodeURIComponent(lead.phone)}`)
+    }
+  }
+
+  // ── Stats for header cards ──
   const stats = {
-    total: followUps.length,
-    pending: followUps.filter(f => f.status === 'pending').length,
-    today: followUps.filter(f => f.status === 'pending' && isToday(new Date(f.scheduled_at))).length,
-    overdue: followUps.filter(f => f.status === 'overdue' || (f.status === 'pending' && isOverdue(new Date(f.scheduled_at)))).length,
-    completed: followUps.filter(f => f.status === 'completed').length,
-  }
-
-  // Filter follow-ups by tab
-  const filteredFollowUps = (() => {
-    switch (selectedTab) {
-      case 'today':
-        return followUps.filter(f => f.status === 'pending' && isToday(new Date(f.scheduled_at)))
-      case 'overdue':
-        return followUps.filter(f => f.status === 'overdue' || (f.status === 'pending' && isOverdue(new Date(f.scheduled_at))))
-      case 'completed':
-        return followUps.filter(f => f.status === 'completed')
-      default:
-        return followUps
-    }
-  })()
-
-  // Sort by scheduled_at
-  const sortedFollowUps = [...filteredFollowUps].sort((a, b) =>
-    new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
-  )
-
-  // Handle checkbox toggle
-  const handleToggleFollowUp = (followupId: string) => {
-    setSelectedFollowUps(prev =>
-      prev.includes(followupId)
-        ? prev.filter(id => id !== followupId)
-        : [...prev, followupId]
-    )
-  }
-
-  // Create new follow-up
-  const handleCreateFollowUp = () => {
-    if (!newFollowUp.leadName || !newFollowUp.scheduledDate || !newFollowUp.scheduledTime) {
-      return
-    }
-
-    const [firstName, ...lastNameParts] = newFollowUp.leadName.split(' ')
-    const lastName = lastNameParts.join(' ')
-
-    const newId = (followUps.length + 1).toString()
-    const scheduledDateTime = new Date(`${newFollowUp.scheduledDate}T${newFollowUp.scheduledTime}`)
-
-    const followUp: FollowUp = {
-      followup_id: newId,
-      lead: {
-        lead_id: newId,
-        first_name: firstName,
-        last_name: lastName,
-        phone: newFollowUp.leadPhone,
-        email: newFollowUp.leadEmail,
-        lead_quality: 'warm',
-      },
-      followup_type: newFollowUp.followupType,
-      followup_description: newFollowUp.description,
-      scheduled_at: scheduledDateTime,
-      assigned_to_user: {
-        name: newFollowUp.assignedTo,
-      },
-      status: 'pending',
-      created_at: new Date(),
-    }
-
-    setFollowUps(prev => [followUp, ...prev])
-    setShowCreateDialog(false)
-    setNewFollowUp({
-      leadName: '',
-      leadEmail: '',
-      leadPhone: '',
-      followupType: 'call',
-      description: '',
-      scheduledDate: '',
-      scheduledTime: '',
-      assignedTo: 'Sarah Johnson',
-    })
-  }
-
-  // Mark as complete
-  const handleMarkAsComplete = (followupId?: string) => {
-    const idsToComplete = followupId ? [followupId] : selectedFollowUps
-
-    setFollowUps(prev =>
-      prev.map(f =>
-        idsToComplete.includes(f.followup_id)
-          ? {
-              ...f,
-              status: 'completed',
-              completed_at: new Date(),
-              completion_notes: completionNotes || 'Completed successfully',
-            }
-          : f
-      )
-    )
-
-    setSelectedFollowUps([])
-    setCompletionNotes('')
-    setShowCompleteDialog(false)
-    setCurrentFollowUp(null)
-  }
-
-  // Delete follow-up
-  const handleDeleteFollowUp = (followupId: string) => {
-    setFollowUps(prev => prev.filter(f => f.followup_id !== followupId))
-  }
-
-  // Quick actions
-  const handleCall = (phone: string) => {
-    window.location.href = `tel:${phone}`
-  }
-
-  const handleEmail = (email: string) => {
-    window.location.href = `mailto:${email}`
-  }
-
-  const handleWhatsApp = (phone: string) => {
-    const formattedPhone = phone.replace(/\s+/g, '')
-    window.open(`https://wa.me/${formattedPhone}`, '_blank')
-  }
-
-  const handleViewInInbox = (leadName: string, platform: string) => {
-    router.push(`/crm/inbox?contact=${encodeURIComponent(leadName)}&platform=${platform}`)
+    total: leads.length,
+    today: counts.today,
+    overdue: counts.overdue,
+    upcoming: counts.upcoming,
   }
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
+      <div className="space-y-5 pb-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Follow-Ups</h1>
-            <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">Manage scheduled follow-up tasks</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Follow-Ups</h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-0.5 text-sm">Leads you scheduled to follow up with</p>
           </div>
           <Button
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md"
-            onClick={() => setShowCreateDialog(true)}
+            className="bg-[#0066FF] hover:bg-[#0052CC] gap-2"
+            onClick={() => setShowCreate(true)}
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="h-4 w-4" />
             Schedule Follow-Up
           </Button>
         </div>
 
-        {/* Statistics Overview */}
-        <div className="grid gap-6 md:grid-cols-4">
-          <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-semibold text-gray-600 dark:text-gray-400">Total Follow-Ups</CardTitle>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-950">
-                <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: 'Total', value: stats.total, icon: Calendar, color: 'text-gray-600', bg: 'bg-gray-100 dark:bg-gray-800' },
+            { label: 'Due Today', value: stats.today, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30' },
+            { label: 'Overdue', value: stats.overdue, icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-100 dark:bg-red-900/30' },
+            { label: 'Upcoming', value: stats.upcoming, icon: Users, color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/30' },
+          ].map(({ label, value, icon: Icon, color, bg }) => (
+            <Card key={label} className="p-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 ${bg} rounded-xl`}><Icon className={`h-5 w-5 ${color}`} /></div>
+                <div>
+                  <div className={`text-2xl font-bold ${value > 0 && label === 'Overdue' ? 'text-red-600' : 'text-gray-900 dark:text-white'}`}>{value}</div>
+                  <div className="text-xs text-gray-500">{label}</div>
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">{stats.total}</div>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{stats.pending} pending</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-semibold text-gray-600 dark:text-gray-400">Due Today</CardTitle>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-yellow-100 dark:bg-yellow-950">
-                <Clock className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{stats.today}</div>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Requires attention</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-semibold text-gray-600 dark:text-gray-400">Overdue</CardTitle>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 dark:bg-red-950">
-                <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-red-600 dark:text-red-400">{stats.overdue}</div>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Action needed</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-semibold text-gray-600 dark:text-gray-400">Completed</CardTitle>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-100 dark:bg-green-950">
-                <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.completed}</div>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Successfully done</p>
-            </CardContent>
-          </Card>
+            </Card>
+          ))}
         </div>
 
-        {/* Follow-Ups List */}
-        <Card className="border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-sm">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-2xl font-bold text-gray-900 dark:text-gray-100">Scheduled Follow-Ups</CardTitle>
-                <CardDescription className="mt-1 text-gray-600 dark:text-gray-400">
-                  Track and complete your follow-up tasks
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-3">
-                {selectedFollowUps.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-green-300 dark:border-green-700 text-green-700 dark:text-green-400"
-                    onClick={() => setShowCompleteDialog(true)}
-                  >
-                    Mark {selectedFollowUps.length} as Complete
-                  </Button>
-                )}
-                <Button variant="outline" size="sm" className="border-gray-300 dark:border-gray-700">
-                  <Filter className="mr-2 h-4 w-4" />
-                  Filters
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-              <TabsList className="mb-6">
-                <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
-                <TabsTrigger value="today">Today ({stats.today})</TabsTrigger>
-                <TabsTrigger value="overdue">Overdue ({stats.overdue})</TabsTrigger>
-                <TabsTrigger value="completed">Completed ({stats.completed})</TabsTrigger>
-              </TabsList>
+        {/* Tabs + search */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+            {([
+              { key: 'all', label: 'All' },
+              { key: 'today', label: 'Today' },
+              { key: 'overdue', label: 'Overdue' },
+              { key: 'upcoming', label: 'Upcoming' },
+            ] as const).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  tab === key
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                {label}
+                <span className="ml-1.5 opacity-60">({counts[key]})</span>
+              </button>
+            ))}
+          </div>
+          <div className="relative flex-1 max-w-sm ml-auto">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search name, phone, inquiry..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-9 text-sm"
+            />
+          </div>
+        </div>
 
-              <TabsContent value={selectedTab} className="space-y-3">
-                {sortedFollowUps.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <Calendar className="h-16 w-16 text-gray-300 dark:text-gray-700 mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                      No follow-ups found
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
-                      Schedule your first follow-up task to get started
-                    </p>
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Schedule Follow-Up
-                    </Button>
-                  </div>
-                ) : (
-                  sortedFollowUps.map((followup) => {
-                    const TypeIcon = followupTypeConfig[followup.followup_type as keyof typeof followupTypeConfig]?.icon || Phone
-                    const StatusIcon = statusConfig[followup.status as keyof typeof statusConfig]?.icon || Clock
-                    const isSelected = selectedFollowUps.includes(followup.followup_id)
-                    const scheduledDate = new Date(followup.scheduled_at)
-                    const isFollowupOverdue = isOverdue(scheduledDate)
+        {/* List */}
+        {loading ? (
+          <Card className="p-12 text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#0066FF]" />
+            <p className="text-gray-400 mt-3">Loading follow-ups...</p>
+          </Card>
+        ) : filtered.length === 0 ? (
+          <Card className="p-12 text-center">
+            <Calendar className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+            <p className="font-semibold text-gray-600 dark:text-gray-300">No follow-ups found</p>
+            <p className="text-sm text-gray-400 mt-1">
+              {leads.length === 0
+                ? 'Schedule a follow-up from a lead\'s detail page or click "Schedule Follow-Up"'
+                : 'No results for the current filter'}
+            </p>
+          </Card>
+        ) : (
+          <div className="space-y-2.5">
+            {filtered.map((lead) => {
+              const fuStatus = getFollowUpStatus(lead.follow_up_date)
+              return (
+                <Card
+                  key={lead.id}
+                  className={`p-4 transition-all border-l-4 ${
+                    fuStatus === 'overdue'
+                      ? 'border-l-red-500'
+                      : fuStatus === 'today'
+                      ? 'border-l-amber-500'
+                      : 'border-l-blue-400'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Avatar */}
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#0066FF] to-indigo-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                      {getInitials(lead.name)}
+                    </div>
 
-                    return (
-                      <Card
-                        key={followup.followup_id}
-                        className={`border-gray-200 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700 transition-all cursor-pointer ${
-                          isSelected ? 'border-blue-400 dark:border-blue-600 bg-blue-50/50 dark:bg-blue-950/20' : ''
-                        }`}
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <h3 className="font-bold text-gray-900 dark:text-white text-sm">{lead.name}</h3>
+                        <Badge variant="outline" className={getCategoryStyle(lead.category)}>
+                          {lead.category === 'hot' ? '🔥' : lead.category === 'warm' ? '🌤️' : '❄️'} {lead.category}
+                        </Badge>
+                        {fuStatus === 'overdue' && (
+                          <Badge className="bg-red-100 text-red-700 border border-red-300">
+                            <AlertCircle className="h-3 w-3 mr-1" />Overdue
+                          </Badge>
+                        )}
+                        {fuStatus === 'today' && (
+                          <Badge className="bg-amber-100 text-amber-700 border border-amber-300">
+                            <Clock className="h-3 w-3 mr-1" />Today
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                        <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</span>
+                        {lead.inquiry && <span>• {lead.inquiry}</span>}
+                        {lead.assigned_to && <span className="flex items-center gap-1"><User className="h-3 w-3" />{lead.assigned_to}</span>}
+                      </div>
+
+                      {lead.staff_notes && (
+                        <p className="text-xs text-gray-400 italic mt-1 truncate">&quot;{lead.staff_notes}&quot;</p>
+                      )}
+
+                      <div className={`mt-2 flex items-center gap-1.5 text-xs font-semibold ${
+                        fuStatus === 'overdue' ? 'text-red-600' : fuStatus === 'today' ? 'text-amber-600' : 'text-blue-600'
+                      }`}>
+                        <Calendar className="h-3.5 w-3.5" />
+                        {formatFollowUpDate(lead.follow_up_date)}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        className="bg-[#25D366] hover:bg-[#1dbd5a] text-white h-7 text-xs gap-1"
+                        onClick={() => window.open(`https://wa.me/${lead.phone.replace(/\D/g, '')}`, '_blank')}
                       >
-                        <CardContent className="p-5">
-                          <div className="flex items-start gap-4">
-                            {/* Checkbox */}
-                            <div className="flex items-center pt-1">
-                              <Checkbox
-                                checked={isSelected}
-                                onCheckedChange={() => handleToggleFollowUp(followup.followup_id)}
-                              />
-                            </div>
-
-                            {/* Lead Avatar */}
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-sm font-bold text-white shadow-md flex-shrink-0">
-                              {getInitials(followup.lead.first_name, followup.lead.last_name)}
-                            </div>
-
-                            {/* Main Content */}
-                            <div className="flex-1 min-w-0">
-                              {/* Lead Name and Quality */}
-                              <div className="flex items-start justify-between gap-3 mb-2">
-                                <div>
-                                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                                    {followup.lead.first_name} {followup.lead.last_name}
-                                  </h3>
-                                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    {followup.lead.email}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                  {followup.lead.lead_quality && (
-                                    <Badge className={getQualityColor(followup.lead.lead_quality)}>
-                                      {followup.lead.lead_quality}
-                                    </Badge>
-                                  )}
-                                  <Badge className={followupTypeConfig[followup.followup_type as keyof typeof followupTypeConfig]?.color}>
-                                    <TypeIcon className="mr-1 h-3 w-3" />
-                                    {followupTypeConfig[followup.followup_type as keyof typeof followupTypeConfig]?.label}
-                                  </Badge>
-                                </div>
-                              </div>
-
-                              {/* Follow-up Description */}
-                              <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
-                                {followup.followup_description}
-                              </p>
-
-                              {/* Schedule Info and Status */}
-                              <div className="flex items-center justify-between gap-4 flex-wrap">
-                                <div className="flex items-center gap-4 text-sm">
-                                  <div className="flex items-center gap-1.5">
-                                    <Calendar className={`h-4 w-4 ${isFollowupOverdue ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`} />
-                                    <span className={isFollowupOverdue ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-gray-600 dark:text-gray-400'}>
-                                      {formatDate(followup.scheduled_at)}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1.5">
-                                    <Clock className={`h-4 w-4 ${isFollowupOverdue ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`} />
-                                    <span className={isFollowupOverdue ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-gray-600 dark:text-gray-400'}>
-                                      {scheduledDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
-                                    <User className="h-4 w-4" />
-                                    <span>{followup.assigned_to_user.name}</span>
-                                  </div>
-                                </div>
-
-                                <Badge className={statusConfig[followup.status as keyof typeof statusConfig]?.color}>
-                                  <StatusIcon className="mr-1 h-3 w-3" />
-                                  {statusConfig[followup.status as keyof typeof statusConfig]?.label}
-                                </Badge>
-                              </div>
-
-                              {/* Completion Notes */}
-                              {followup.status === 'completed' && followup.completion_notes && (
-                                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-800">
-                                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Completion Notes:</p>
-                                  <p className="text-sm text-gray-600 dark:text-gray-400">{followup.completion_notes}</p>
-                                  {followup.completed_at && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                      Completed on {formatDateTime(followup.completed_at)}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Quick Actions */}
-                            <div className="flex flex-col items-end gap-2 pt-1">
-                              {followup.status === 'pending' && (
-                                <div className="flex gap-1">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-8 w-8 p-0"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleCall(followup.lead.phone)
-                                    }}
-                                    title="Call"
-                                  >
-                                    <Phone className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-8 w-8 p-0"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleWhatsApp(followup.lead.phone)
-                                    }}
-                                    title="WhatsApp"
-                                  >
-                                    <MessageSquare className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-8 w-8 p-0"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleEmail(followup.lead.email)
-                                    }}
-                                    title="Email"
-                                  >
-                                    <Mail className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              )}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-8 w-8 p-0"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <MoreVertical className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  {followup.status === 'pending' && (
-                                    <>
-                                      <DropdownMenuItem
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          setCurrentFollowUp(followup)
-                                          setShowCompleteDialog(true)
-                                        }}
-                                      >
-                                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                                        Mark as Complete
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                    </>
-                                  )}
-                                  <DropdownMenuItem
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleViewInInbox(
-                                        `${followup.lead.first_name} ${followup.lead.last_name}`,
-                                        followup.followup_type === 'whatsapp' ? 'whatsapp' : 'instagram'
-                                      )
-                                    }}
-                                  >
-                                    <ExternalLink className="mr-2 h-4 w-4" />
-                                    View in Inbox
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleDeleteFollowUp(followup.followup_id)
-                                    }}
-                                    className="text-red-600 dark:text-red-400"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })
-                )}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+                        <MessageSquare className="h-3.5 w-3.5" />Chat
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs gap-1"
+                        onClick={() => { setCompleteTarget(lead); setCompletionNotes('') }}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />Done
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewInInbox(lead)}>
+                            <ExternalLink className="mr-2 h-4 w-4" />View Conversation
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => handleRemoveFollowUp(lead)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />Remove Follow-Up
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </Card>
+              )
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Create Follow-Up Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-2xl">
+      {/* ── Mark Complete Dialog ──────────────────────────────── */}
+      <Dialog open={!!completeTarget} onOpenChange={() => { setCompleteTarget(null); setCompletionNotes('') }}>
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Schedule New Follow-Up</DialogTitle>
-            <DialogDescription>Create a follow-up task for a lead</DialogDescription>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              Mark as Done
+            </DialogTitle>
           </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="leadName">Lead Name *</Label>
-                <Input
-                  id="leadName"
-                  placeholder="John Doe"
-                  value={newFollowUp.leadName}
-                  onChange={(e) => setNewFollowUp(prev => ({ ...prev, leadName: e.target.value }))}
-                />
+          <div className="space-y-3 py-2">
+            {completeTarget && (
+              <div className="bg-gray-50 dark:bg-gray-900 rounded-xl px-3 py-2 text-sm">
+                <span className="font-semibold">{completeTarget.name}</span>
+                <span className="text-gray-400 ml-2">— {formatFollowUpDate(completeTarget.follow_up_date)}</span>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="leadPhone">Phone Number *</Label>
-                <Input
-                  id="leadPhone"
-                  placeholder="+91 98765 43210"
-                  value={newFollowUp.leadPhone}
-                  onChange={(e) => setNewFollowUp(prev => ({ ...prev, leadPhone: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="leadEmail">Email</Label>
-              <Input
-                id="leadEmail"
-                type="email"
-                placeholder="john@example.com"
-                value={newFollowUp.leadEmail}
-                onChange={(e) => setNewFollowUp(prev => ({ ...prev, leadEmail: e.target.value }))}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="followupType">Follow-Up Type *</Label>
-                <Select
-                  value={newFollowUp.followupType}
-                  onValueChange={(value) => setNewFollowUp(prev => ({ ...prev, followupType: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="call">📞 Call</SelectItem>
-                    <SelectItem value="email">📧 Email</SelectItem>
-                    <SelectItem value="whatsapp">💬 WhatsApp</SelectItem>
-                    <SelectItem value="meeting">🤝 Meeting</SelectItem>
-                    <SelectItem value="video_call">📹 Video Call</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="assignedTo">Assigned To</Label>
-                <Select
-                  value={newFollowUp.assignedTo}
-                  onValueChange={(value) => setNewFollowUp(prev => ({ ...prev, assignedTo: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Sarah Johnson">Sarah Johnson</SelectItem>
-                    <SelectItem value="Michael Chen">Michael Chen</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="scheduledDate">Scheduled Date *</Label>
-                <Input
-                  id="scheduledDate"
-                  type="date"
-                  value={newFollowUp.scheduledDate}
-                  onChange={(e) => setNewFollowUp(prev => ({ ...prev, scheduledDate: e.target.value }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="scheduledTime">Scheduled Time *</Label>
-                <Input
-                  id="scheduledTime"
-                  type="time"
-                  value={newFollowUp.scheduledTime}
-                  onChange={(e) => setNewFollowUp(prev => ({ ...prev, scheduledTime: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Describe the follow-up task..."
-                rows={3}
-                value={newFollowUp.description}
-                onChange={(e) => setNewFollowUp(prev => ({ ...prev, description: e.target.value }))}
+            )}
+            <div>
+              <Label className="text-xs text-gray-500 mb-1 block">Completion notes (optional)</Label>
+              <textarea
+                value={completionNotes}
+                onChange={(e) => setCompletionNotes(e.target.value)}
+                placeholder="What happened during the follow-up?"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none h-20 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
               />
             </div>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setCompleteTarget(null)}>Cancel</Button>
             <Button
-              onClick={handleCreateFollowUp}
-              disabled={!newFollowUp.leadName || !newFollowUp.scheduledDate || !newFollowUp.scheduledTime}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+              onClick={handleMarkComplete}
+              disabled={completing}
+              className="bg-green-600 hover:bg-green-700 gap-2"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Schedule Follow-Up
+              {completing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Mark Done
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Mark as Complete Dialog */}
-      <Dialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
-        <DialogContent>
+      {/* ── Schedule New Follow-Up Dialog ────────────────────── */}
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Mark as Complete</DialogTitle>
-            <DialogDescription>
-              Add notes about the completed follow-up
-            </DialogDescription>
+            <DialogTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-[#0066FF]" />
+              Schedule Follow-Up
+            </DialogTitle>
           </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="completionNotes">Completion Notes</Label>
-              <Textarea
-                id="completionNotes"
-                placeholder="Describe what happened during the follow-up..."
-                rows={4}
-                value={completionNotes}
-                onChange={(e) => setCompletionNotes(e.target.value)}
+          <div className="space-y-3 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Name *</Label>
+                <Input
+                  value={createForm.name}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="Guest name"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Phone *</Label>
+                <Input
+                  value={createForm.phone}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="+91 98765 43210"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Follow-up Date *</Label>
+              <Input
+                type="date"
+                value={createForm.follow_up_date}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={(e) => setCreateForm((p) => ({ ...p, follow_up_date: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Assigned to</Label>
+              <Input
+                value={createForm.assigned_to}
+                onChange={(e) => setCreateForm((p) => ({ ...p, assigned_to: e.target.value }))}
+                placeholder="Staff member name"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Notes</Label>
+              <textarea
+                value={createForm.notes}
+                onChange={(e) => setCreateForm((p) => ({ ...p, notes: e.target.value }))}
+                placeholder="What to discuss..."
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none h-16 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
               />
             </div>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowCompleteDialog(false)
-              setCompletionNotes('')
-              setCurrentFollowUp(null)
-            }}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button
-              onClick={() => handleMarkAsComplete(currentFollowUp?.followup_id)}
-              className="bg-green-600 hover:bg-green-700"
+              onClick={handleCreate}
+              disabled={creating || !createForm.name.trim() || !createForm.phone.trim() || !createForm.follow_up_date}
+              className="bg-[#0066FF] hover:bg-[#0052CC] gap-2"
             >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Mark as Complete
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              Schedule
             </Button>
           </DialogFooter>
         </DialogContent>
