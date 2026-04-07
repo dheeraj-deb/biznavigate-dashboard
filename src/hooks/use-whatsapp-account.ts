@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { whatsappApi, WhatsAppAccountMapped } from '@/lib/whatsapp-api';
+import { whatsappApi, WhatsAppAccount, WhatsAppAccountMapped } from '@/lib/whatsapp-api';
 import { toast } from 'react-hot-toast';
 
 // ==================== Query Keys ====================
@@ -9,48 +9,33 @@ export const whatsappKeys = {
     accounts: (businessId: string) => [...whatsappKeys.all, 'accounts', businessId] as const,
 };
 
-// ==================== Helpers ====================
-
-function mapAccount(raw: any): WhatsAppAccountMapped {
-    return {
-        account_id: raw.account_id,
-        phone_number: raw.username,
-        display_phone_number: raw.username,
-        display_name: raw.display_name || 'WhatsApp Business',
-        phone_number_id: raw.page_id,
-        whatsapp_business_account_id: raw.instagram_business_account_id,
-        quality_rating: 'GREEN',
-        messaging_limit_tier: 'TIER_1K',
-        is_verified: true,
-        is_active: raw.is_active,
-        webhook_verified: true,
-        last_message_at: raw.updated_at,
-        created_at: raw.created_at,
-        api_key_id: raw.page_id,
-    };
-}
-
 // ==================== Queries ====================
 
 /**
  * Hook to fetch WhatsApp accounts for a business.
- * Returns the first active account (mapped) and a boolean `isConnected`.
+ * Returns the first active account and a boolean `isConnected`.
+ * Polls every 5 minutes and refetches on window focus (quality_rating can change).
  */
 export function useWhatsAppAccounts(businessId: string) {
     return useQuery({
         queryKey: whatsappKeys.accounts(businessId),
         queryFn: async () => {
             const response = await whatsappApi.getAccounts(businessId);
-            const data: any[] = (response as any)?.data?.data || (response as any)?.data || [];
+            const body = (response as any)?.data;
+            // Axios wraps body in .data; API returns array directly
+            const data: WhatsAppAccountMapped[] = Array.isArray(body) ? body : [];
+            console.log('[WhatsApp] accounts raw:', data);
             return data;
         },
         enabled: !!businessId,
-        staleTime: 5 * 60 * 1000, // 5 minutes
-        select: (data: any[]) => {
-            const activeAccount = data.find((acc) => acc.is_active) || data[0];
+        staleTime: 5 * 60 * 1000,       // 5 minutes
+        refetchInterval: 5 * 60 * 1000,  // poll every 5 minutes
+        refetchOnWindowFocus: true,
+        select: (data: WhatsAppAccountMapped[]) => {
+            const activeAccount = data.find((acc) => acc.is_active) ?? data[0] ?? null;
             return {
                 raw: data,
-                account: activeAccount ? mapAccount(activeAccount) : null,
+                account: activeAccount,
                 isConnected: data.length > 0,
             };
         },
