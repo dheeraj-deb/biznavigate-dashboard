@@ -3,37 +3,25 @@ import { ApiResponse } from '@/types';
 
 // ==================== Types ====================
 
+export type QualityRating = 'GREEN' | 'YELLOW' | 'RED';
+export type MessagingLimitTier = 'TIER_NOT_SET' | 'TIER_50' | 'TIER_250' | 'TIER_1K' | 'TIER_2K' | 'TIER_10K' | 'TIER_100K';
+
 export interface WhatsAppAccount {
     account_id: string;
-    username: string;
-    display_name: string;
-    page_id: string;
-    instagram_business_account_id?: string;
-    is_active: boolean;
-    created_at: string;
-    updated_at: string;
-}
-
-export interface WhatsAppAccountMapped {
-    account_id: string;
-    phone_number: string;
-    display_phone_number: string;
-    display_name: string;
     phone_number_id: string;
-    whatsapp_business_account_id?: string;
-    quality_rating: string;
-    messaging_limit_tier: string;
-    is_verified: boolean;
+    whatsapp_business_account_id: string;
+    display_phone_number: string | null;
+    verified_name: string | null;
+    quality_rating: QualityRating | null;
+    messaging_limit: MessagingLimitTier | null;
     is_active: boolean;
-    webhook_verified: boolean;
-    last_message_at: string;
     created_at: string;
-    api_key_id: string;
 }
 
-export interface GetAccountsResponse {
-    data: WhatsAppAccount[];
-}
+// Mapped is identical to the API shape — no transformation needed
+export type WhatsAppAccountMapped = WhatsAppAccount;
+
+export type GetAccountsResponse = WhatsAppAccount[];
 
 // ==================== API ====================
 

@@ -102,19 +102,20 @@ function WhatsAppSettingsPage() {
     await refetchAccounts()
   }
 
-  const qualityRatingConfig = {
-    GREEN: { label: 'High Quality', color: 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' },
-    YELLOW: { label: 'Medium Quality', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-400' },
-    RED: { label: 'Low Quality', color: 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400' },
+  const qualityRatingConfig: Record<string, { label: string; color: string }> = {
+    GREEN:  { label: 'High',    color: 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' },
+    YELLOW: { label: 'Medium',  color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-400' },
+    RED:    { label: 'Low',     color: 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400' },
   }
 
-  const tierLimits = {
-    TIER_50: '50 unique users / 24h',
-    TIER_250: '250 unique users / 24h',
-    TIER_1K: '1,000 unique users / 24h',
-    TIER_10K: '10,000 unique users / 24h',
-    TIER_100K: '100,000 unique users / 24h',
-    TIER_UNLIMITED: 'Unlimited',
+  const tierConfig: Record<string, { label: string; description: string }> = {
+    TIER_NOT_SET: { label: 'Not Set',    description: 'Limit not yet assigned by Meta' },
+    TIER_50:      { label: '250/day',    description: '250 conversations per day' },
+    TIER_250:     { label: '1K/day',     description: '1,000 conversations per day' },
+    TIER_1K:      { label: '10K/day',    description: '10,000 conversations per day' },
+    TIER_2K:      { label: '2K/day',     description: '2,000 conversations per day' },
+    TIER_10K:     { label: '100K/day',   description: '100,000 conversations per day' },
+    TIER_100K:    { label: 'Unlimited',  description: 'Unlimited conversations per day' },
   }
 
   return (
@@ -205,8 +206,8 @@ function WhatsAppSettingsPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">Phone Number</div>
-                        <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{account.phone_number}</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{account.display_name}</div>
+                        <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{account.display_phone_number ?? '—'}</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{account.verified_name ?? '—'}</div>
                       </div>
                     </div>
 
@@ -215,39 +216,63 @@ function WhatsAppSettingsPage() {
                         <Settings className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">Account Status</div>
+                        <div className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">Message Quality</div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          {account.is_verified && (
-                            <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400">
-                              <CheckCircle2 className="mr-1 h-3 w-3" />
-                              Verified
-                            </Badge>
-                          )}
-                          <Badge className={qualityRatingConfig[account.quality_rating as keyof typeof qualityRatingConfig].color}>
-                            {qualityRatingConfig[account.quality_rating as keyof typeof qualityRatingConfig].label}
-                          </Badge>
+                          {(() => {
+                            const key = account.quality_rating ?? 'null'
+                            const cfg = qualityRatingConfig[key as keyof typeof qualityRatingConfig] ?? qualityRatingConfig['null']
+                            return (
+                              <Badge className={cfg.color}>
+                                {cfg.label}
+                              </Badge>
+                            )
+                          })()}
                         </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                          Quality rating from Meta — affects messaging limits
+                        </p>
                       </div>
                     </div>
                   </div>
 
                   {/* Messaging Limits */}
-                  <div className="border border-gray-200 dark:border-gray-800 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">Messaging Limits</h3>
-                      <Badge variant="outline">{account.messaging_limit_tier}</Badge>
+                  {(() => {
+                    const tier = account.messaging_limit
+                    const cfg = tier ? tierConfig[tier] : null
+                    return (
+                      <div className="border border-gray-200 dark:border-gray-800 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Messaging Limit</h3>
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {cfg ? cfg.label : tier ?? 'Unknown'}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {cfg ? cfg.description : tier ? `Tier: ${tier}` : 'Limit unavailable — Meta API may be unreachable'}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                          Tier auto-upgrades as volume grows with good message quality
+                        </p>
+                      </div>
+                    )
+                  })()}
+
+                  {/* RED quality warning */}
+                  {account.quality_rating === 'RED' && (
+                    <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+                      <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-red-800 dark:text-red-300">Low message quality</p>
+                        <p className="text-xs text-red-700 dark:text-red-400 mt-0.5">
+                          Meta may downgrade your messaging tier. Reduce blocked/reported messages to restore quality.
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                      Current limit: {tierLimits[account.messaging_limit_tier as keyof typeof tierLimits]}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-500">
-                      Your tier automatically upgrades as you maintain high quality conversations and phone number verification
-                    </p>
-                  </div>
+                  )}
 
                   {/* Actions */}
                   <div className="flex items-center gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => refetchAccounts()}>
                       <RefreshCw className="mr-2 h-4 w-4" />
                       Refresh Status
                     </Button>
@@ -471,7 +496,7 @@ function WhatsAppSettingsPage() {
                       <div>
                         <Label>Phone Number ID</Label>
                         <div className="flex items-center gap-2">
-                          <Input value={account.api_key_id} readOnly className="font-mono text-sm" />
+                          <Input value={account.phone_number_id} readOnly className="font-mono text-sm" />
                           <Button variant="outline" size="sm">
                             <Copy className="h-4 w-4" />
                           </Button>
