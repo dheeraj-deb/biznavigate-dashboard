@@ -419,13 +419,19 @@ export function LeadIntelligenceSection() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                        lead.status === 'won' ? 'bg-green-100 text-green-700 border-green-300'
-                        : lead.status === 'contacted' ? 'bg-amber-100 text-amber-700 border-amber-300'
-                        : lead.status === 'qualified' ? 'bg-orange-100 text-orange-700 border-orange-300'
-                        : lead.status === 'lost' ? 'bg-gray-100 text-gray-500 border-gray-300'
-                        : 'bg-blue-100 text-blue-700 border-blue-300'
+                        lead.status === 'new' ? 'bg-gray-100 text-gray-600 border-gray-300'
+                        : lead.status === 'active' ? 'bg-blue-100 text-blue-700 border-blue-300'
+                        : lead.status === 'contacted' ? 'bg-cyan-100 text-cyan-700 border-cyan-300'
+                        : lead.status === 'qualified' ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
+                        : lead.status === 'quoted' ? 'bg-orange-100 text-orange-700 border-orange-300'
+                        : lead.status === 'booked' ? 'bg-purple-100 text-purple-700 border-purple-300'
+                        : lead.status === 'won' ? 'bg-green-100 text-green-700 border-green-300'
+                        : 'bg-red-100 text-red-500 border-red-300'
                       }`}>
-                        {lead.status === 'won' ? 'Booked ✓' : lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
+                        {lead.status === 'active' ? 'In Conversation'
+                          : lead.status === 'booked' ? 'Booked'
+                          : lead.status === 'won' ? 'Won'
+                          : lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-400">{lead.time}</td>

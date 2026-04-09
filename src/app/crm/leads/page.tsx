@@ -119,7 +119,7 @@ function normalizeLead(raw: any): Lead {
   }
 }
 
-function isPendingLead(l: Lead) { return !['won', 'lost'].includes(l.status) }
+function isPendingLead(l: Lead) { return !['booked', 'won', 'lost'].includes(l.status) }
 
 function getDateParams(range: DateRange): { from: string; to: string } {
   const now = new Date()
@@ -133,22 +133,40 @@ function getDateParams(range: DateRange): { from: string; to: string } {
   return { from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(), to }
 }
 
-const STATUS_FLOW = ['new', 'contacted', 'qualified', 'won', 'lost'] as const
+const STATUS_FLOW = ['new', 'active', 'quoted', 'booked', 'won', 'lost'] as const
 
 function getStatusLabel(s: string) {
-  return s === 'new' ? 'New' : s === 'contacted' ? 'Contacted' : s === 'qualified' ? 'Qualified' : s === 'won' ? 'Booked ✓' : s === 'lost' ? 'Lost' : s
+  return s === 'new' ? 'New'
+    : s === 'active' ? 'In Conversation'
+    : s === 'contacted' ? 'Contacted'
+    : s === 'qualified' ? 'Qualified'
+    : s === 'quoted' ? 'Quoted'
+    : s === 'booked' ? 'Booked'
+    : s === 'won' ? 'Won'
+    : s === 'lost' ? 'Lost'
+    : s
 }
 
 function getStatusStyle(s: string) {
-  return s === 'new' ? 'bg-blue-100 text-blue-700 border border-blue-300'
-    : s === 'contacted' ? 'bg-amber-100 text-amber-700 border border-amber-300'
-    : s === 'qualified' ? 'bg-orange-100 text-orange-700 border border-orange-300'
+  return s === 'new' ? 'bg-gray-100 text-gray-600 border border-gray-300'
+    : s === 'active' ? 'bg-blue-100 text-blue-700 border border-blue-300'
+    : s === 'contacted' ? 'bg-cyan-100 text-cyan-700 border border-cyan-300'
+    : s === 'qualified' ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
+    : s === 'quoted' ? 'bg-orange-100 text-orange-700 border border-orange-300'
+    : s === 'booked' ? 'bg-purple-100 text-purple-700 border border-purple-300'
     : s === 'won' ? 'bg-green-100 text-green-700 border border-green-300'
-    : 'bg-gray-100 text-gray-500 border border-gray-300'
+    : 'bg-red-100 text-red-500 border border-red-300'
 }
 
 function getStatusColor(s: string) {
-  return s === 'new' ? '#3b82f6' : s === 'contacted' ? '#f59e0b' : s === 'qualified' ? '#f97316' : s === 'won' ? '#22c55e' : '#9ca3af'
+  return s === 'new' ? '#9ca3af'
+    : s === 'active' ? '#3b82f6'
+    : s === 'contacted' ? '#06b6d4'
+    : s === 'qualified' ? '#6366f1'
+    : s === 'quoted' ? '#f97316'
+    : s === 'booked' ? '#a855f7'
+    : s === 'won' ? '#22c55e'
+    : '#ef4444'
 }
 
 function getQualityStyle(q: string) {
@@ -331,12 +349,12 @@ export default function LeadsPage() {
   useEffect(() => { fetchLeads() }, [fetchLeads])
 
   // 'pending' filter is client-side only (no direct API equivalent)
-  // 'won' and 'lost' are API-filtered via statusFilter
+  // 'booked', 'won', and 'lost' are API-filtered via statusFilter
   const filtered = leads.filter((l) => quickFilter === 'pending' ? isPendingLead(l) : true)
 
   // Counts from API stats
-  const pendingCount = (stats?.by_status ?? []).filter(s => !['won', 'lost'].includes(s.status)).reduce((a, s) => a + s.count, 0)
-  const wonCount = (stats?.by_status ?? []).find(s => s.status === 'won')?.count ?? 0
+  const pendingCount = (stats?.by_status ?? []).filter(s => !['booked', 'won', 'lost'].includes(s.status)).reduce((a, s) => a + s.count, 0)
+  const bookedCount = (stats?.by_status ?? []).filter(s => ['booked', 'won'].includes(s.status)).reduce((a, s) => a + s.count, 0)
   const lostCount = (stats?.by_status ?? []).find(s => s.status === 'lost')?.count ?? 0
 
   // Selection helpers
@@ -433,15 +451,15 @@ export default function LeadsPage() {
           {([
             { key: 'all', label: 'All', count: total, cls: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', active: 'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900' },
             { key: 'pending', label: '⏳ Pending', count: pendingCount, cls: 'bg-amber-50 text-amber-700 border border-amber-200', active: 'bg-amber-500 text-white border-amber-500' },
-            { key: 'won', label: '✓ Booked', count: wonCount, cls: 'bg-green-50 text-green-700 border border-green-200', active: 'bg-green-600 text-white border-green-600' },
+            { key: 'won', label: '✓ Booked', count: bookedCount, cls: 'bg-green-50 text-green-700 border border-green-200', active: 'bg-green-600 text-white border-green-600' },
             { key: 'lost', label: 'Lost', count: lostCount, cls: 'bg-gray-50 text-gray-500 border border-gray-200', active: 'bg-gray-500 text-white border-gray-500' },
           ] as const).map(({ key, label, count, cls, active }) => (
             <button key={key} onClick={() => {
               setQuickFilter(key)
               clearSelection()
               setPage(1)
-              // won/lost → drive through API status filter; pending/all → clear status filter
-              if (key === 'won') setStatusFilter('won')
+              // booked/lost → drive through API status filter; pending/all → clear status filter
+              if (key === 'won') setStatusFilter('booked')
               else if (key === 'lost') setStatusFilter('lost')
               else setStatusFilter('all')
             }}
