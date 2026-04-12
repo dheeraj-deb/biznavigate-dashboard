@@ -276,7 +276,7 @@ export default function LeadDetailPage() {
     if (!agentName.trim()) return
     setAssigning(true)
     try {
-      await apiClient.post(`/leads/${id}/assign`, { agent_id: agentName })
+      await apiClient.patch(`/leads/${id}/assign`, { assigned_to: agentName })
       setEditAssignedTo(agentName)
       setLead((prev) => prev ? { ...prev, assigned_to: agentName } : prev)
       toast.success(`Assigned to ${agentName}`)
@@ -292,11 +292,17 @@ export default function LeadDetailPage() {
   const handleSaveNotes = async () => {
     setSaving(true)
     try {
-      await apiClient.patch(`/leads/${id}`, {
-        staff_notes: editNotes || undefined,
-        assigned_to: editAssignedTo || undefined,
-        follow_up_date: editFollowUpDate || undefined,
-      })
+      const calls: Promise<unknown>[] = []
+      if (editNotes) {
+        calls.push(apiClient.post(`/leads/${id}/notes`, { note: editNotes }))
+      }
+      if (editAssignedTo) {
+        calls.push(apiClient.patch(`/leads/${id}/assign`, { assigned_to: editAssignedTo }))
+      }
+      if (editFollowUpDate) {
+        calls.push(apiClient.post(`/leads/${id}/followups`, { scheduled_at: editFollowUpDate }))
+      }
+      await Promise.all(calls)
       setLead((prev) => prev ? { ...prev, staff_notes: editNotes, assigned_to: editAssignedTo, follow_up_date: editFollowUpDate } : prev)
       toast.success('Notes saved')
     } catch {

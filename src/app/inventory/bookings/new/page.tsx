@@ -94,7 +94,7 @@ function NewBookingForm() {
 
     setSubmitting(true)
     try {
-      await apiClient.post('/inventory/bookings', {
+      await apiClient.post('/bookings', {
         ...form,
         slots_booked: Number(form.slots_booked) || 1,
         total_price: Number(form.total_price) || 0,

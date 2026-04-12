@@ -5,12 +5,18 @@ import toast from 'react-hot-toast'
 
 // Types matching backend
 interface LeadFilters {
+  businessId?: string
+  tenantId?: string
   status?: string
+  channel?: string
   source?: string
-  quality?: string
+  intent_type?: string
+  search?: string
+  assignedTo?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
   page?: number
   limit?: number
-  search?: string
 }
 
 interface LeadStats {
@@ -53,7 +59,7 @@ export function useLeadTimeline(id: string) {
   return useQuery({
     queryKey: ['lead-timeline', id],
     queryFn: async () => {
-      const response = await apiClient.get(`/leads/${id}/timeline`)
+      const response = await apiClient.get(`/leads/${id}/events`)
       return response.data?.data || []
     },
     enabled: !!id,
@@ -100,7 +106,7 @@ export function useUpdateLead() {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const response = await apiClient.patch(`/leads/${id}`, data)
+      const response = await apiClient.patch(`/leads/${id}/context`, data)
       return response.data?.data
     },
     onSuccess: (_, variables) => {
@@ -145,7 +151,7 @@ export function useAssignLead() {
 
   return useMutation({
     mutationFn: async ({ id, assigned_to }: { id: string; assigned_to: string }) => {
-      const response = await apiClient.post(`/leads/${id}/assign`, { assigned_to })
+      const response = await apiClient.patch(`/leads/${id}/assign`, { assigned_to })
       return response.data?.data
     },
     onSuccess: (_, variables) => {
@@ -161,19 +167,20 @@ export function useAssignLead() {
   })
 }
 
-// Convert lead to customer
+// Convert lead to customer — maps to PATCH /leads/:id/status { status: 'won' }
 export function useConvertLead() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, conversion_value, notes }: { id: string; conversion_value?: number; notes?: string }) => {
-      const response = await apiClient.post(`/leads/${id}/convert`, { conversion_value, notes })
+    mutationFn: async ({ id, notes }: { id: string; conversion_value?: number; notes?: string }) => {
+      const response = await apiClient.patch(`/leads/${id}/status`, { status: 'won', notes })
       return response.data?.data
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
       queryClient.invalidateQueries({ queryKey: ['lead', variables.id] })
       queryClient.invalidateQueries({ queryKey: ['lead-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['lead-timeline', variables.id] })
       toast.success('Lead converted to customer!')
     },
     onError: (error: any) => {
@@ -203,23 +210,3 @@ export function useDeleteLead() {
   })
 }
 
-// Bulk import leads
-export function useBulkImportLeads() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (data: { leads: any[] }) => {
-      const response = await apiClient.post('/leads/bulk-import', data)
-      return response.data?.data
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['leads'] })
-      queryClient.invalidateQueries({ queryKey: ['lead-stats'] })
-      toast.success(`Imported ${data?.success || 0} leads successfully`)
-    },
-    onError: (error: any) => {
-      const message = error.response?.data?.message || error.message || 'Bulk import failed'
-      toast.error(message)
-    },
-  })
-}

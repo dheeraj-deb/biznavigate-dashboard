@@ -52,7 +52,8 @@ import toast from 'react-hot-toast'
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface FollowUpLead {
-  id: string
+  id: string           // lead_id
+  followup_id: string  // followup task id — required for PATCH /followups/:id/done
   name: string
   phone: string
   source: string
@@ -61,7 +62,7 @@ interface FollowUpLead {
   category: string
   staff_notes?: string
   assigned_to?: string
-  follow_up_date: string   // ISO date string — only shown if set
+  follow_up_date: string
   conversation_id?: string
 }
 
@@ -71,6 +72,7 @@ interface FollowUpLead {
 function normalizeFollowUpLead(raw: any): FollowUpLead {
   return {
     id: raw.lead_id ?? raw.id ?? '',
+    followup_id: raw.followup_id ?? raw.followupId ?? raw.id ?? '',
     name: raw.customer_name ?? raw.name ?? 'Unknown',
     phone: raw.phone ?? raw.customer_phone ?? '',
     source: raw.source ?? 'whatsapp',
@@ -79,7 +81,7 @@ function normalizeFollowUpLead(raw: any): FollowUpLead {
     category: raw.category ?? raw.priority ?? 'warm',
     staff_notes: raw.staff_notes ?? raw.notes ?? undefined,
     assigned_to: raw.assigned_to ?? raw.assignedTo ?? undefined,
-    follow_up_date: raw.follow_up_date ?? raw.followUpDate ?? '',
+    follow_up_date: raw.follow_up_date ?? raw.followUpDate ?? raw.scheduled_at ?? '',
     conversation_id: raw.conversation_id ?? raw.conversationId ?? undefined,
   }
 }
@@ -137,8 +139,9 @@ export default function FollowUpsPage() {
   // Create dialog
   const [showCreate, setShowCreate] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const [foundLead, setFoundLead] = useState<{ id: string; name: string } | null>(null)
   const [createForm, setCreateForm] = useState({
-    name: '',
     phone: '',
     follow_up_date: '',
     notes: '',
@@ -150,18 +153,15 @@ export default function FollowUpsPage() {
   const [completionNotes, setCompletionNotes] = useState('')
   const [completing, setCompleting] = useState(false)
 
-  // ── Fetch leads with follow_up_date ──
+  // ── Fetch follow-up queue ──
   useEffect(() => {
-    apiClient.get('/crm/leads')
+    apiClient.get('/leads/dashboard/followup-queue')
       .then((res) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const d = res.data as any
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const raw: any[] = Array.isArray(d) ? d : (d?.data ?? d?.leads ?? [])
-        const withFollowUp = raw
-          .map(normalizeFollowUpLead)
-          .filter((l) => !!l.follow_up_date)
-        setLeads(withFollowUp)
+        const raw: any[] = Array.isArray(d) ? d : (d?.data ?? d?.followups ?? d?.leads ?? [])
+        setLeads(raw.map(normalizeFollowUpLead).filter((l) => !!l.follow_up_date))
       })
       .catch(() => toast.error('Failed to load follow-ups'))
       .finally(() => setLoading(false))
@@ -192,13 +192,10 @@ export default function FollowUpsPage() {
     if (!completeTarget) return
     setCompleting(true)
     try {
-      await apiClient.patch(`/crm/leads/${completeTarget.id}`, {
-        follow_up_date: null,
-        staff_notes: completionNotes
-          ? `${completeTarget.staff_notes ? completeTarget.staff_notes + '\n' : ''}Completed: ${completionNotes}`
-          : completeTarget.staff_notes,
+      await apiClient.patch(`/leads/followups/${completeTarget.followup_id}/done`, {
+        note: completionNotes || undefined,
       })
-      setLeads((prev) => prev.filter((l) => l.id !== completeTarget.id))
+      setLeads((prev) => prev.filter((l) => l.followup_id !== completeTarget.followup_id))
       toast.success('Follow-up marked as done')
       setCompleteTarget(null)
       setCompletionNotes('')
@@ -211,36 +208,57 @@ export default function FollowUpsPage() {
 
   const handleRemoveFollowUp = async (lead: FollowUpLead) => {
     try {
-      await apiClient.patch(`/crm/leads/${lead.id}`, { follow_up_date: null })
-      setLeads((prev) => prev.filter((l) => l.id !== lead.id))
+      await apiClient.patch(`/leads/followups/${lead.followup_id}/done`)
+      setLeads((prev) => prev.filter((l) => l.followup_id !== lead.followup_id))
       toast.success('Follow-up removed')
     } catch {
       toast.error('Failed to remove follow-up')
     }
   }
 
+  const handleSearchLead = async () => {
+    if (!createForm.phone.trim()) return
+    setSearching(true)
+    setFoundLead(null)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res = await apiClient.get('/leads', { params: { search: createForm.phone, limit: 1 } }) as any
+      const items: any[] = res?.data?.data ?? res?.data ?? []
+      const first = Array.isArray(items) ? items[0] : null
+      if (first) {
+        setFoundLead({
+          id: first.lead_id ?? first.id,
+          name: [first.first_name, first.last_name].filter(Boolean).join(' ') || first.customer_name || first.name || 'Unknown',
+        })
+      } else {
+        toast.error('No lead found for that phone number')
+      }
+    } catch {
+      toast.error('Search failed')
+    } finally {
+      setSearching(false)
+    }
+  }
+
   const handleCreate = async () => {
-    if (!createForm.name.trim() || !createForm.phone.trim() || !createForm.follow_up_date) return
+    if (!foundLead || !createForm.follow_up_date) return
     setCreating(true)
     try {
-      const res = await apiClient.post('/crm/leads', {
-        customer_name: createForm.name,
-        phone: createForm.phone,
-        follow_up_date: createForm.follow_up_date,
-        staff_notes: createForm.notes || undefined,
+      const res = await apiClient.post(`/leads/${foundLead.id}/followups`, {
+        scheduled_at: createForm.follow_up_date,
+        note: createForm.notes || undefined,
         assigned_to: createForm.assigned_to || undefined,
-        source: 'manual',
-        status: 'new',
       })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const raw = (res.data as any)?.data ?? res.data
+      const raw = (res as any)?.data ?? res
       if (raw) {
-        const newLead = normalizeFollowUpLead(raw)
+        const newLead = normalizeFollowUpLead({ ...raw, lead_id: foundLead.id, customer_name: foundLead.name })
         if (newLead.follow_up_date) setLeads((prev) => [newLead, ...prev])
       }
       toast.success('Follow-up scheduled')
       setShowCreate(false)
-      setCreateForm({ name: '', phone: '', follow_up_date: '', notes: '', assigned_to: '' })
+      setFoundLead(null)
+      setCreateForm({ phone: '', follow_up_date: '', notes: '', assigned_to: '' })
     } catch {
       toast.error('Failed to schedule follow-up')
     } finally {
@@ -495,7 +513,7 @@ export default function FollowUpsPage() {
       </Dialog>
 
       {/* ── Schedule New Follow-Up Dialog ────────────────────── */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog open={showCreate} onOpenChange={(open) => { setShowCreate(open); if (!open) { setFoundLead(null); setCreateForm({ phone: '', follow_up_date: '', notes: '', assigned_to: '' }) } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -504,56 +522,68 @@ export default function FollowUpsPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Name *</Label>
-                <Input
-                  value={createForm.name}
-                  onChange={(e) => setCreateForm((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="Guest name"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Phone *</Label>
+            {/* Step 1 — find existing lead by phone */}
+            <div className="space-y-1.5">
+              <Label>Phone Number *</Label>
+              <div className="flex gap-2">
                 <Input
                   value={createForm.phone}
-                  onChange={(e) => setCreateForm((p) => ({ ...p, phone: e.target.value }))}
+                  onChange={(e) => { setCreateForm((p) => ({ ...p, phone: e.target.value })); setFoundLead(null) }}
                   placeholder="+91 98765 43210"
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearchLead()}
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSearchLead}
+                  disabled={searching || !createForm.phone.trim()}
+                  className="shrink-0"
+                >
+                  {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                </Button>
               </div>
+              {foundLead && (
+                <p className="text-xs text-green-600 font-medium">✓ Found: {foundLead.name}</p>
+              )}
             </div>
-            <div className="space-y-1.5">
-              <Label>Follow-up Date *</Label>
-              <Input
-                type="date"
-                value={createForm.follow_up_date}
-                min={new Date().toISOString().split('T')[0]}
-                onChange={(e) => setCreateForm((p) => ({ ...p, follow_up_date: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Assigned to</Label>
-              <Input
-                value={createForm.assigned_to}
-                onChange={(e) => setCreateForm((p) => ({ ...p, assigned_to: e.target.value }))}
-                placeholder="Staff member name"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Notes</Label>
-              <textarea
-                value={createForm.notes}
-                onChange={(e) => setCreateForm((p) => ({ ...p, notes: e.target.value }))}
-                placeholder="What to discuss..."
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none h-16 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
-              />
-            </div>
+
+            {/* Step 2 — only shown after lead is found */}
+            {foundLead && (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Follow-up Date *</Label>
+                  <Input
+                    type="date"
+                    value={createForm.follow_up_date}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setCreateForm((p) => ({ ...p, follow_up_date: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Assigned to</Label>
+                  <Input
+                    value={createForm.assigned_to}
+                    onChange={(e) => setCreateForm((p) => ({ ...p, assigned_to: e.target.value }))}
+                    placeholder="Staff member name"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Notes</Label>
+                  <textarea
+                    value={createForm.notes}
+                    onChange={(e) => setCreateForm((p) => ({ ...p, notes: e.target.value }))}
+                    placeholder="What to discuss..."
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none h-16 focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+                  />
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button
               onClick={handleCreate}
-              disabled={creating || !createForm.name.trim() || !createForm.phone.trim() || !createForm.follow_up_date}
+              disabled={creating || !foundLead || !createForm.follow_up_date}
               className="bg-[#0066FF] hover:bg-[#0052CC] gap-2"
             >
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}

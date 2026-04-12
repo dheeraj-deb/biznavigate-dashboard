@@ -216,7 +216,7 @@ export default function BookingsPage() {
     if (!silent) setLoading(true)
     else setRefreshing(true)
     try {
-      const res = await apiClient.get('/inventory/bookings')
+      const res = await apiClient.get('/bookings')
       const body = res.data as unknown
       const list: Booking[] = Array.isArray(body)
         ? body
