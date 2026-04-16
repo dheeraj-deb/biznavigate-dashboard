@@ -43,7 +43,7 @@ export function RecentBookingsWidget() {
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['dashboard-recent-bookings'],
     queryFn: async () => {
-      const res = await apiClient.get('/inventory/bookings', { params: { limit: 5 } })
+      const res = await apiClient.get('/bookings', { params: { limit: 5 } })
       return (res.data?.data ?? res.data ?? []) as Booking[]
     },
     retry: 1,
