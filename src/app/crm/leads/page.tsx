@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiClient } from '@/lib/api-client'
 import { useBusinessType } from '@/hooks/use-business-type'
+import { useAuthStore } from '@/store/auth-store'
 import toast from 'react-hot-toast'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -267,6 +268,8 @@ const BIZ_CONFIG = {
 export default function LeadsPage() {
   const router = useRouter()
   const { businessType } = useBusinessType()
+  const { user } = useAuthStore()
+  const businessId = user?.business_id
   const bizCfg = BIZ_CONFIG[businessType] ?? BIZ_CONFIG.hospitality
 
   // Stats
@@ -281,11 +284,11 @@ export default function LeadsPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
 
-  // Filters — default intent matches business type
+  // Filters — default 'all' so leads show regardless of intent_type
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [intentFilter, setIntentFilter] = useState<string>(bizCfg.defaultIntent)
+  const [intentFilter, setIntentFilter] = useState<string>('all')
   const [quickFilter, setQuickFilter] = useState<QuickFilter>('all')
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('table')
 
@@ -303,16 +306,14 @@ export default function LeadsPage() {
     return () => clearTimeout(timer.current)
   }, [search])
 
-  // Sync intentFilter when business type resolves from API
-  useEffect(() => {
-    setIntentFilter(bizCfg.defaultIntent)
-  }, [businessType]) // eslint-disable-line react-hooks/exhaustive-deps
-
   // Fetch stats
   useEffect(() => {
     setStatsLoading(true)
     const { from, to } = getDateParams(dateRange)
-    apiClient.get('/leads/stats/overview', { params: { from, to, intent_type: bizCfg.defaultIntent } })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const statsParams: any = { from, to }
+    if (businessId) statsParams.businessId = businessId
+    apiClient.get('/leads/stats/overview', { params: statsParams })
       .then((res) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const d = res.data as any
@@ -320,13 +321,14 @@ export default function LeadsPage() {
       })
       .catch(() => {})
       .finally(() => setStatsLoading(false))
-  }, [dateRange])
+  }, [dateRange, businessId])
 
   // Fetch leads
   const fetchLeads = useCallback(() => {
     setLoading(true)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const params: any = { page, limit: 20, sortBy: 'created_at', sortOrder: 'desc' }
+    if (businessId) params.businessId = businessId
     if (debouncedSearch) params.search = debouncedSearch
     if (statusFilter !== 'all') params.status = statusFilter
     if (intentFilter !== 'all') params.intent_type = intentFilter
@@ -344,7 +346,7 @@ export default function LeadsPage() {
       })
       .catch(() => toast.error('Failed to load leads'))
       .finally(() => setLoading(false))
-  }, [page, debouncedSearch, statusFilter, intentFilter])
+  }, [page, debouncedSearch, statusFilter, intentFilter, businessId])
 
   useEffect(() => { fetchLeads() }, [fetchLeads])
 
@@ -491,9 +493,10 @@ export default function LeadsPage() {
             <Select value={intentFilter} onValueChange={(v) => { setIntentFilter(v); setPage(1) }}>
               <SelectTrigger className="w-full md:w-[150px] h-10 text-sm"><SelectValue placeholder="Category" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value={bizCfg.defaultIntent}>
-                  {bizCfg.intentOptions[0].label}
-                </SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
+                {bizCfg.intentOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

@@ -294,7 +294,7 @@ export default function LeadDetailPage() {
     try {
       const calls: Promise<unknown>[] = []
       if (editNotes) {
-        calls.push(apiClient.post(`/leads/${id}/notes`, { note: editNotes }))
+        calls.push(apiClient.post(`/leads/${id}/notes`, { text: editNotes }))
       }
       if (editAssignedTo) {
         calls.push(apiClient.patch(`/leads/${id}/assign`, { assigned_to: editAssignedTo }))
