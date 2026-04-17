@@ -351,11 +351,25 @@ export default function InventoryServicesPage() {
     if (!bizType) return
     setServicesLoading(true)
 
+    const itemType = isHospitality ? 'accommodation' : 'activity'
     const fetchAll = apiClient
-      .get('/inventory/services', isHospitality ? {} : { params: { type: bizType } })
+      .get('/catalog', { params: { item_type: itemType, limit: 200 } })
       .then(res => {
-        const body = res.data as { data?: Service[] } | Service[]
-        return (body as { data?: Service[] }).data ?? (body as Service[]) ?? []
+        const body = (res as any).data?.data ?? (res as any).data
+        const raw: any[] = Array.isArray(body) ? body : (body?.data ?? [])
+        return raw.map((item: any): Service => ({
+          service_id: item.item_id ?? item.service_id ?? '',
+          item_id: item.item_id,
+          id: item.item_id ?? '',
+          name: item.name,
+          type: item.attributes?.type ?? item.item_type ?? itemType,
+          description: item.description,
+          base_price: typeof item.base_price === 'string' ? parseFloat(item.base_price) || 0 : (item.base_price ?? 0),
+          capacity: Number(item.attributes?.capacity ?? 0),
+          attributes: item.attributes ?? {},
+          image_urls: item.image_urls,
+          is_active: item.is_active,
+        }))
       })
 
     fetchAll
@@ -384,27 +398,46 @@ export default function InventoryServicesPage() {
   const closeForm = () => { setFormOpen(false); setEditingService(null) }
 
   const handleSubmit = async (data: ServiceFormData) => {
-    const serviceType = isHospitality ? 'hospitality' : bizType
+    const itemType = isHospitality ? 'accommodation' : 'activity'
     setSubmitting(true)
     try {
       if (editingService) {
-        const res = await apiClient.patch(`/inventory/services/${sid(editingService)}`, {
+        const res = await apiClient.patch(`/catalog/${sid(editingService)}`, {
           name: data.name, description: data.description,
-          base_price: Number(data.base_price), capacity: Number(data.capacity),
-          image_urls: data.image_urls, attributes: data.attributes,
+          base_price: Number(data.base_price),
+          image_urls: data.image_urls,
+          attributes: { ...data.attributes, capacity: Number(data.capacity) },
         })
-        const rawU = res.data as { data?: Service } | Service
-        const updated: Service = (rawU as { data?: Service }).data ?? (rawU as Service)
+        const rawU = (res as any).data?.data ?? (res as any).data
+        const updated: Service = {
+          ...(rawU as any),
+          service_id: rawU?.item_id ?? rawU?.service_id ?? sid(editingService),
+          item_id: rawU?.item_id,
+          id: rawU?.item_id ?? sid(editingService),
+          base_price: typeof rawU?.base_price === 'string' ? parseFloat(rawU.base_price) || 0 : (rawU?.base_price ?? 0),
+          capacity: Number(rawU?.attributes?.capacity ?? data.capacity),
+          type: rawU?.item_type ?? itemType,
+        }
         setServices(p => p.map(s => sid(s) === sid(updated) ? updated : s))
         toast.success('Updated!')
       } else {
-        const res = await apiClient.post('/inventory/services', {
-          name: data.name, description: data.description, type: serviceType,
-          base_price: Number(data.base_price), capacity: Number(data.capacity),
-          image_urls: data.image_urls, attributes: data.attributes,
+        const res = await apiClient.post('/catalog', {
+          item_type: itemType,
+          name: data.name, description: data.description,
+          base_price: Number(data.base_price),
+          image_urls: data.image_urls,
+          attributes: { ...data.attributes, capacity: Number(data.capacity) },
         })
-        const rawC = res.data as { data?: Service } | Service
-        const created: Service = (rawC as { data?: Service }).data ?? (rawC as Service)
+        const rawC = (res as any).data?.data ?? (res as any).data
+        const created: Service = {
+          ...(rawC as any),
+          service_id: rawC?.item_id ?? rawC?.service_id ?? '',
+          item_id: rawC?.item_id,
+          id: rawC?.item_id ?? '',
+          base_price: typeof rawC?.base_price === 'string' ? parseFloat(rawC.base_price) || 0 : (rawC?.base_price ?? 0),
+          capacity: Number(rawC?.attributes?.capacity ?? data.capacity),
+          type: rawC?.item_type ?? itemType,
+        }
         setServices(p => [created, ...p])
         toast.success('Added!')
       }
@@ -418,7 +451,7 @@ export default function InventoryServicesPage() {
 
   const handleDeactivate = async (id: string) => {
     try {
-      await apiClient.delete(`/inventory/services/${id}`)
+      await apiClient.delete(`/catalog/${id}`)
       setServices(p => p.filter(s => sid(s) !== id))
       toast.success('Deactivated')
     } catch {

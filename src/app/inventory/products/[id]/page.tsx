@@ -479,11 +479,11 @@ export default function ProductDetailsPage() {
               <CardContent className="space-y-3 text-sm">
                 <div>
                   <Label className="text-xs text-muted-foreground">Created</Label>
-                  <p className="mt-1">{formatDate(product.created_at)}</p>
+                  <p className="mt-1">{product.created_at ? formatDate(product.created_at) : '—'}</p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Last Updated</Label>
-                  <p className="mt-1">{formatDate(product.updated_at)}</p>
+                  <p className="mt-1">{product.updated_at ? formatDate(product.updated_at) : '—'}</p>
                 </div>
                 {product.ai_generated_tags && (
                   <div>

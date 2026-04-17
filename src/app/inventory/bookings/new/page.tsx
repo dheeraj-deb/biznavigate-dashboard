@@ -51,13 +51,18 @@ function NewBookingForm() {
   const prefillRoom = params.get('room')
 
   useEffect(() => {
-    apiClient.get('/inventory/services')
+    apiClient.get('/catalog', { params: { item_type: 'accommodation', limit: 100 } })
       .then((res) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const d = res.data as any
-        const list: Service[] = Array.isArray(d) ? d : (d?.data ?? d?.services ?? [])
+        const d = (res as any).data?.data ?? (res as any).data
+        const raw: any[] = Array.isArray(d) ? d : (d?.data ?? [])
+        const list: Service[] = raw.map((item: any) => ({
+          service_id: item.item_id ?? item.service_id ?? '',
+          name: item.name,
+          base_price: item.base_price,
+          type: item.item_type,
+        }))
         setServices(list)
-        // Auto-select if room preference matches a service name
         if (prefillRoom && list.length > 0) {
           const match = list.find((s) =>
             s.name.toLowerCase().includes(prefillRoom.toLowerCase())
@@ -94,11 +99,21 @@ function NewBookingForm() {
 
     setSubmitting(true)
     try {
-      await apiClient.post('/bookings', {
-        ...form,
-        slots_booked: Number(form.slots_booked) || 1,
-        total_price: Number(form.total_price) || 0,
+      await apiClient.post('/orders', {
+        order_type: 'accommodation',
+        total_amount: Number(form.total_price) || 0,
+        payment_status: form.payment_status,
+        delivery_status: form.status,
         ...(fromLead ? { lead_id: fromLead } : {}),
+        items: [{
+          item_id: form.service_id,
+          check_in: form.check_in_date,
+          check_out: form.check_out_date,
+          num_guests: Number(form.slots_booked) || 1,
+          guest_name: form.customer_name,
+          phone: form.customer_phone,
+          special_requests: form.special_requests || undefined,
+        }],
       })
       toast.success('Booking created!')
       router.push('/inventory/bookings')

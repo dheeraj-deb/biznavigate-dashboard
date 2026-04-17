@@ -394,17 +394,18 @@ export function LeadIntelligenceSection() {
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                         lead.status === 'new' ? 'bg-gray-100 text-gray-600 border-gray-300'
-                        : lead.status === 'active' ? 'bg-blue-100 text-blue-700 border-blue-300'
-                        : lead.status === 'contacted' ? 'bg-cyan-100 text-cyan-700 border-cyan-300'
-                        : lead.status === 'qualified' ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
+                        : (lead.status === 'active' || lead.status === 'contacted' || lead.status === 'qualified') ? 'bg-blue-100 text-blue-700 border-blue-300'
                         : lead.status === 'quoted' ? 'bg-orange-100 text-orange-700 border-orange-300'
                         : lead.status === 'booked' ? 'bg-purple-100 text-purple-700 border-purple-300'
                         : lead.status === 'won' ? 'bg-green-100 text-green-700 border-green-300'
                         : 'bg-red-100 text-red-500 border-red-300'
                       }`}>
-                        {lead.status === 'active' ? 'In Conversation'
+                        {lead.status === 'new' ? 'New'
+                          : (lead.status === 'active' || lead.status === 'contacted' || lead.status === 'qualified') ? 'Active'
+                          : lead.status === 'quoted' ? 'Quoted'
                           : lead.status === 'booked' ? 'Booked'
                           : lead.status === 'won' ? 'Won'
+                          : lead.status === 'lost' ? 'Lost'
                           : lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
                       </span>
                     </td>

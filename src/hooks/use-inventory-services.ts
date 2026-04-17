@@ -1,8 +1,14 @@
+/**
+ * use-inventory-services.ts — shim over use-catalog.ts
+ * /inventory/services is gone (501). Calls go to /catalog?item_type=accommodation|activity.
+ */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 import { toast } from 'sonner'
+import { parsePrice } from './use-catalog'
+import type { CatalogItem } from './use-catalog'
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ServiceAmenities {
   [category: string]: string[]
@@ -18,7 +24,6 @@ export interface ServiceAttributes {
   amenities?: ServiceAmenities
   highlights?: string[]
   meal_plan?: string
-  // extra fields (star rating, location, rooms, etc.)
   [key: string]: unknown
 }
 
@@ -61,46 +66,97 @@ export interface CreateServicePayload {
   image_urls?: string[]
 }
 
-// ── Hooks ────────────────────────────────────────────────────────────────────
+// ── Normalizer ────────────────────────────────────────────────────────────────
 
-/** GET /inventory/services?type=... */
+function toService(item: CatalogItem): InventoryService {
+  const attrs = (item.attributes ?? {}) as Record<string, unknown>
+  return {
+    id: item.item_id,
+    businessId: '',
+    name: item.name,
+    type: (attrs.type as string) ?? item.item_type,
+    description: item.description,
+    base_price: parsePrice(item.base_price),
+    capacity: Number(attrs.capacity ?? 0),
+    total_units: Number(attrs.total_units ?? 0),
+    check_in_time: attrs.check_in_time as string | undefined,
+    check_out_time: attrs.check_out_time as string | undefined,
+    cancellation_policy: attrs.cancellation_policy as string | undefined,
+    tax_percentage: attrs.tax_percentage as number | undefined,
+    extra_guest_charge: attrs.extra_guest_charge as number | undefined,
+    max_adults: attrs.max_adults as number | undefined,
+    attributes: attrs as ServiceAttributes,
+    image_urls: item.image_urls,
+    is_active: item.is_active,
+    createdAt: item.created_at ?? '',
+    updatedAt: item.updated_at ?? '',
+  }
+}
+
+// ── Hooks ─────────────────────────────────────────────────────────────────────
+
 export function useServices(type?: string) {
+  const itemType = type === 'activity' ? 'activity' : 'accommodation'
   return useQuery({
     queryKey: ['inventory-services', type ?? 'all'],
     queryFn: async () => {
-      const params = type ? { type } : undefined
-      const res = await apiClient.get('/inventory/services', { params })
-      const raw = (res as any).data
-      return (raw?.data ?? raw ?? []) as InventoryService[]
+      const res = await apiClient.get('/catalog', { params: { item_type: itemType, limit: 200 } })
+      const body = (res as any).data
+      const items: CatalogItem[] = Array.isArray(body) ? body : (body?.data ?? [])
+      return items.map(toService)
     },
     staleTime: 30 * 1000,
   })
 }
 
-/** GET /inventory/services/:id */
 export function useService(id: string) {
   return useQuery({
     queryKey: ['inventory-service', id],
     queryFn: async () => {
-      const res = await apiClient.get(`/inventory/services/${id}`)
+      const res = await apiClient.get(`/catalog/${id}`)
       const raw = (res as any).data
-      return (raw?.data ?? raw) as InventoryService
+      const item: CatalogItem = raw?.data ?? raw
+      return toService(item)
     },
     enabled: !!id,
   })
 }
 
-/** POST /inventory/services */
 export function useCreateService() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (payload: CreateServicePayload) => {
-      const res = await apiClient.post('/inventory/services', payload)
+      const { name, description, base_price, capacity, total_units, type,
+              check_in_time, check_out_time, cancellation_policy,
+              tax_percentage, extra_guest_charge, max_adults,
+              attributes, image_urls } = payload
+      const itemType = type === 'activity' ? 'activity' : 'accommodation'
+      const res = await apiClient.post('/catalog', {
+        item_type: itemType,
+        name,
+        description,
+        base_price,
+        image_urls,
+        attributes: {
+          ...attributes,
+          type,
+          capacity,
+          total_units,
+          check_in_time,
+          check_out_time,
+          cancellation_policy,
+          tax_percentage,
+          extra_guest_charge,
+          max_adults,
+        },
+      })
       const raw = (res as any).data
-      return (raw?.data ?? raw) as InventoryService
+      const item: CatalogItem = raw?.data ?? raw
+      return toService(item)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory-services'] })
+      queryClient.invalidateQueries({ queryKey: ['catalog'] })
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Failed to create service')
@@ -108,18 +164,39 @@ export function useCreateService() {
   })
 }
 
-/** PATCH /inventory/services/:id — send only changed fields; merge attributes before calling */
 export function useUpdateService() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: Partial<CreateServicePayload> }) => {
-      const res = await apiClient.patch(`/inventory/services/${id}`, payload)
+      const { name, description, base_price, capacity, total_units,
+              check_in_time, check_out_time, cancellation_policy,
+              tax_percentage, extra_guest_charge, max_adults,
+              attributes, image_urls } = payload
+      const res = await apiClient.patch(`/catalog/${id}`, {
+        ...(name !== undefined && { name }),
+        ...(description !== undefined && { description }),
+        ...(base_price !== undefined && { base_price }),
+        ...(image_urls !== undefined && { image_urls }),
+        attributes: {
+          ...attributes,
+          ...(capacity !== undefined && { capacity }),
+          ...(total_units !== undefined && { total_units }),
+          ...(check_in_time !== undefined && { check_in_time }),
+          ...(check_out_time !== undefined && { check_out_time }),
+          ...(cancellation_policy !== undefined && { cancellation_policy }),
+          ...(tax_percentage !== undefined && { tax_percentage }),
+          ...(extra_guest_charge !== undefined && { extra_guest_charge }),
+          ...(max_adults !== undefined && { max_adults }),
+        },
+      })
       const raw = (res as any).data
-      return (raw?.data ?? raw) as InventoryService
+      const item: CatalogItem = raw?.data ?? raw
+      return toService(item)
     },
     onSuccess: (_data, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['inventory-services'] })
       queryClient.invalidateQueries({ queryKey: ['inventory-service', id] })
+      queryClient.invalidateQueries({ queryKey: ['catalog'] })
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Failed to update service')
@@ -127,15 +204,15 @@ export function useUpdateService() {
   })
 }
 
-/** DELETE /inventory/services/:id */
 export function useDeleteService() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      await apiClient.delete(`/inventory/services/${id}`)
+      await apiClient.delete(`/catalog/${id}`)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory-services'] })
+      queryClient.invalidateQueries({ queryKey: ['catalog'] })
       toast.success('Service deleted')
     },
     onError: (error: any) => {

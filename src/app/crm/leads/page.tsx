@@ -138,9 +138,9 @@ const STATUS_FLOW = ['new', 'active', 'quoted', 'booked', 'won', 'lost'] as cons
 
 function getStatusLabel(s: string) {
   return s === 'new' ? 'New'
-    : s === 'active' ? 'In Conversation'
-    : s === 'contacted' ? 'Contacted'
-    : s === 'qualified' ? 'Qualified'
+    : s === 'active' ? 'Active'
+    : s === 'contacted' ? 'Active'
+    : s === 'qualified' ? 'Active'
     : s === 'quoted' ? 'Quoted'
     : s === 'booked' ? 'Booked'
     : s === 'won' ? 'Won'
@@ -150,9 +150,7 @@ function getStatusLabel(s: string) {
 
 function getStatusStyle(s: string) {
   return s === 'new' ? 'bg-gray-100 text-gray-600 border border-gray-300'
-    : s === 'active' ? 'bg-blue-100 text-blue-700 border border-blue-300'
-    : s === 'contacted' ? 'bg-cyan-100 text-cyan-700 border border-cyan-300'
-    : s === 'qualified' ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
+    : (s === 'active' || s === 'contacted' || s === 'qualified') ? 'bg-blue-100 text-blue-700 border border-blue-300'
     : s === 'quoted' ? 'bg-orange-100 text-orange-700 border border-orange-300'
     : s === 'booked' ? 'bg-purple-100 text-purple-700 border border-purple-300'
     : s === 'won' ? 'bg-green-100 text-green-700 border border-green-300'
@@ -161,9 +159,7 @@ function getStatusStyle(s: string) {
 
 function getStatusColor(s: string) {
   return s === 'new' ? '#9ca3af'
-    : s === 'active' ? '#3b82f6'
-    : s === 'contacted' ? '#06b6d4'
-    : s === 'qualified' ? '#6366f1'
+    : (s === 'active' || s === 'contacted' || s === 'qualified') ? '#3b82f6'
     : s === 'quoted' ? '#f97316'
     : s === 'booked' ? '#a855f7'
     : s === 'won' ? '#22c55e'

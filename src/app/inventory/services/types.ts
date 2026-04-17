@@ -20,6 +20,7 @@ export interface InventoryConfig {
 export interface Service {
   service_id: string
   id?: string
+  item_id?: string
   name: string
   type: string
   description?: string
@@ -34,7 +35,8 @@ export interface AvailabilitySlot {
   date: string
   available_slots: number
   total_slots: number
-  effective_price: number
+  price?: number | null
+  effective_price?: number
   is_blocked: boolean
 }
 

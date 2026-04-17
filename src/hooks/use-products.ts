@@ -1,90 +1,86 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiClient } from '@/lib/api-client'
-import { Product, PaginatedResponse } from '@/types'
-import toast from 'react-hot-toast'
+/**
+ * use-products.ts — shim over use-catalog.ts
+ * /products is gone (501). All calls go to /catalog.
+ */
+import { useQueryClient } from '@tanstack/react-query'
+import {
+  useCatalog,
+  useCatalogItem,
+  useCreateCatalogItem,
+  useUpdateCatalogItem,
+  useDeleteCatalogItem,
+  parsePrice,
+  type CatalogItem,
+} from './use-catalog'
 
-export function useProducts(page = 1, pageSize = 10, business_id?: string) {
-  return useQuery({
-    queryKey: ['products', page, pageSize, business_id],
-    queryFn: async () => {
-      const params: any = { page, limit: pageSize }
-      if (business_id) params.business_id = business_id
-
-      const response: any = await apiClient.get(`/products`, { params })
-      console.log('Products API response:', response.data)
-      return {
-        data: response.data || [],
-        total: response.pagination?.total || 0,
-        page: response.pagination?.page || page,
-        limit: response.pagination?.limit || pageSize,
+export function useProducts(page = 1, pageSize = 10, businessId?: string) {
+  const result = useCatalog({ businessId, page, limit: pageSize, item_type: 'physical_product' })
+  // Normalise CatalogItem → legacy Product shape so pages keep working
+  const data = result.data
+    ? {
+        data: result.data.data.map(item => ({
+          ...item,
+          product_id: item.item_id,
+          id: item.item_id,
+          price: parsePrice(item.base_price),
+          track_inventory: item.stock_quantity !== null,
+        })),
+        products: result.data.data.map(item => ({
+          ...item,
+          product_id: item.item_id,
+          id: item.item_id,
+          price: parsePrice(item.base_price),
+          track_inventory: item.stock_quantity !== null,
+        })),
+        total: result.data.meta.total,
+        page,
+        limit: pageSize,
       }
-    },
-    retry: 1,
-    retryDelay: 1000,
-  })
+    : undefined
+  return { ...result, data }
 }
 
 export function useProduct(id: string) {
-  return useQuery({
-    queryKey: ['product', id],
-    queryFn: async () => {
-      const response = await apiClient.get(`/products/${id}`)
-      return response.data.data || response.data
-    },
-    enabled: !!id,
-  })
+  const result = useCatalogItem(id)
+  const data = result.data
+    ? {
+        ...result.data,
+        product_id: result.data.item_id,
+        id: result.data.item_id,
+        price: parsePrice(result.data.base_price),
+        track_inventory: result.data.stock_quantity !== null,
+      }
+    : undefined
+  return { ...result, data }
 }
 
 export function useCreateProduct() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (data: Partial<Product>) => {
-      const response = await apiClient.post('/products', data)
-      return response.data.data || response.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] })
-      toast.success('Product created successfully')
-    },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to create product')
-    },
-  })
+  const inner = useCreateCatalogItem()
+  return {
+    ...inner,
+    mutate: (data: any, opts?: any) =>
+      inner.mutate({ ...data, item_type: data.item_type ?? 'physical_product', base_price: data.base_price ?? data.price }, opts),
+    mutateAsync: (data: any, opts?: any) =>
+      inner.mutateAsync({ ...data, item_type: data.item_type ?? 'physical_product', base_price: data.base_price ?? data.price }, opts),
+  }
 }
 
 export function useUpdateProduct() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<Product> }) => {
-      const response = await apiClient.put(`/products/${id}`, data)
-      return response.data.data || response.data
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['products'] })
-      queryClient.invalidateQueries({ queryKey: ['product', variables.id] })
-      toast.success('Product updated successfully')
-    },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to update product')
-    },
-  })
+  const inner = useUpdateCatalogItem()
+  return {
+    ...inner,
+    mutate: (vars: { id: string; data: Partial<CatalogItem> }, opts?: any) =>
+      inner.mutate({ itemId: vars.id, data: vars.data }, opts),
+    mutateAsync: (vars: { id: string; data: Partial<CatalogItem> }, opts?: any) =>
+      inner.mutateAsync({ itemId: vars.id, data: vars.data }, opts),
+  }
 }
 
 export function useDeleteProduct() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (id: string) => {
-      await apiClient.delete(`/products/${id}`)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] })
-      toast.success('Product deleted successfully')
-    },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to delete product')
-    },
-  })
+  const inner = useDeleteCatalogItem()
+  return {
+    ...inner,
+    mutate: (id: string, opts?: any) => inner.mutate(id, opts),
+    mutateAsync: (id: string, opts?: any) => inner.mutateAsync(id, opts),
+  }
 }

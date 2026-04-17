@@ -96,18 +96,24 @@ function normalizeLead(raw: any): LeadDetail {
   }
 }
 
-const STATUS_FLOW = ['new', 'contacted', 'qualified', 'won', 'lost'] as const
+const STATUS_FLOW = ['new', 'active', 'quoted', 'booked', 'won', 'lost'] as const
 
 function getStatusLabel(s: string, intentType?: string | null) {
-  return s === 'new' ? 'New' : s === 'contacted' ? 'Contacted' : s === 'qualified' ? 'Qualified'
+  return s === 'new' ? 'New'
+    : s === 'active' ? 'Active'
+    : s === 'contacted' ? 'Active'
+    : s === 'qualified' ? 'Active'
+    : s === 'quoted' ? 'Quoted'
+    : s === 'booked' ? 'Booked'
     : s === 'won' ? (intentType === 'product' ? 'Sold ✓' : 'Booked ✓')
     : s === 'lost' ? 'Lost' : s
 }
 
 function getStatusStyle(s: string) {
-  return s === 'new' ? 'bg-blue-100 text-blue-700 border border-blue-300'
-    : s === 'contacted' ? 'bg-amber-100 text-amber-700 border border-amber-300'
-    : s === 'qualified' ? 'bg-orange-100 text-orange-700 border border-orange-300'
+  return s === 'new' ? 'bg-gray-100 text-gray-600 border border-gray-300'
+    : (s === 'active' || s === 'contacted' || s === 'qualified') ? 'bg-blue-100 text-blue-700 border border-blue-300'
+    : s === 'quoted' ? 'bg-orange-100 text-orange-700 border border-orange-300'
+    : s === 'booked' ? 'bg-purple-100 text-purple-700 border border-purple-300'
     : s === 'won' ? 'bg-green-100 text-green-700 border border-green-300'
     : 'bg-gray-100 text-gray-500 border border-gray-300'
 }
