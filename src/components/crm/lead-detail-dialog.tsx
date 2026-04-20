@@ -102,15 +102,11 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     switch (status) {
       case 'new':
         return 'bg-gray-100 text-gray-700'
-      case 'active':
       case 'contacted':
-      case 'qualified':
         return 'bg-blue-100 text-blue-700'
-      case 'quoted':
+      case 'interested':
         return 'bg-orange-100 text-orange-700'
-      case 'booked':
-        return 'bg-purple-100 text-purple-700'
-      case 'won':
+      case 'converted':
         return 'bg-green-100 text-green-700'
       case 'lost':
         return 'bg-red-100 text-red-700'

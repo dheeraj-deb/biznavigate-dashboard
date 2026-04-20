@@ -354,11 +354,11 @@ export function useBlockAvailabilityDate() {
 
 // ── Orders (bookings) ─────────────────────────────────────────────────────────
 
-export function useCatalogOrders(businessId?: string, orderType = 'accommodation') {
+export function useCatalogOrders(businessId?: string) {
   return useQuery({
-    queryKey: ['catalog-orders', businessId, orderType],
+    queryKey: ['catalog-orders', businessId],
     queryFn: async () => {
-      const response = await apiClient.get('/orders', { params: { businessId, order_type: orderType } })
+      const response = await apiClient.get('/orders', { params: { businessId } })
       const raw = (response as any).data?.data ?? (response as any).data
       return (Array.isArray(raw) ? raw : raw?.data ?? []) as CatalogOrder[]
     },
@@ -383,13 +383,13 @@ export function useCancelOrder() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (orderId: string) => {
-      const response = await apiClient.patch(`/orders/${orderId}`, { payment_status: 'cancelled' })
+      const response = await apiClient.patch(`/orders/${orderId}/status`, { status: 'cancelled' })
       return (response as any).data?.data ?? (response as any).data
     },
     onSuccess: (_, orderId) => {
       queryClient.invalidateQueries({ queryKey: ['catalog-orders'] })
       queryClient.invalidateQueries({ queryKey: ['catalog-order', orderId] })
-      toast.success('Booking cancelled')
+      toast.success('Order cancelled')
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || error.message || 'Failed to cancel booking')

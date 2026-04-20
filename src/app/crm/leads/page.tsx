@@ -134,35 +134,30 @@ function getDateParams(range: DateRange): { from: string; to: string } {
   return { from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(), to }
 }
 
-const STATUS_FLOW = ['new', 'active', 'quoted', 'booked', 'won', 'lost'] as const
+const STATUS_FLOW = ['new', 'contacted', 'interested', 'converted', 'lost'] as const
 
 function getStatusLabel(s: string) {
   return s === 'new' ? 'New'
-    : s === 'active' ? 'Active'
-    : s === 'contacted' ? 'Active'
-    : s === 'qualified' ? 'Active'
-    : s === 'quoted' ? 'Quoted'
-    : s === 'booked' ? 'Booked'
-    : s === 'won' ? 'Won'
+    : s === 'contacted' ? 'Contacted'
+    : s === 'interested' ? 'Interested'
+    : s === 'converted' ? 'Converted'
     : s === 'lost' ? 'Lost'
     : s
 }
 
 function getStatusStyle(s: string) {
   return s === 'new' ? 'bg-gray-100 text-gray-600 border border-gray-300'
-    : (s === 'active' || s === 'contacted' || s === 'qualified') ? 'bg-blue-100 text-blue-700 border border-blue-300'
-    : s === 'quoted' ? 'bg-orange-100 text-orange-700 border border-orange-300'
-    : s === 'booked' ? 'bg-purple-100 text-purple-700 border border-purple-300'
-    : s === 'won' ? 'bg-green-100 text-green-700 border border-green-300'
+    : s === 'contacted' ? 'bg-blue-100 text-blue-700 border border-blue-300'
+    : s === 'interested' ? 'bg-orange-100 text-orange-700 border border-orange-300'
+    : s === 'converted' ? 'bg-green-100 text-green-700 border border-green-300'
     : 'bg-red-100 text-red-500 border border-red-300'
 }
 
 function getStatusColor(s: string) {
   return s === 'new' ? '#9ca3af'
-    : (s === 'active' || s === 'contacted' || s === 'qualified') ? '#3b82f6'
-    : s === 'quoted' ? '#f97316'
-    : s === 'booked' ? '#a855f7'
-    : s === 'won' ? '#22c55e'
+    : s === 'contacted' ? '#3b82f6'
+    : s === 'interested' ? '#f97316'
+    : s === 'converted' ? '#22c55e'
     : '#ef4444'
 }
 

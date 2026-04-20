@@ -218,7 +218,7 @@ export default function BookingsPage() {
     if (!silent) setLoading(true)
     else setRefreshing(true)
     try {
-      const params: Record<string, string> = { order_type: 'accommodation' }
+      const params: Record<string, string> = {}
       if (user?.business_id) params.businessId = user.business_id
       const res = await apiClient.get('/orders', { params })
       const body = (res as any).data?.data ?? (res as any).data
