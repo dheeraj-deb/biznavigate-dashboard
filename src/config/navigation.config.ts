@@ -134,6 +134,7 @@ export const navigationConfig: NavigationConfig = {
       name: 'Analytics',
       icon: 'BarChart3',
       children: [
+        { name: 'Overview', href: '/analytics', icon: 'BarChart3' },
         { name: 'AI Forecasting', href: '/analytics/forecasting', icon: 'Brain' },
         {
           name: 'Sales Reports',

@@ -35,7 +35,8 @@ export function useDashboardStats() {
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
       const response = await apiClient.get('/analytics/dashboard')
-      return response.data?.data as DashboardStats
+      const raw = (response as any).data?.data ?? (response as any).data
+      return raw as DashboardStats
     },
     retry: 1,
     retryDelay: 1000,
@@ -50,7 +51,7 @@ export function useRecentLeads(limit = 5) {
       const response = await apiClient.get('/leads', {
         params: { limit, sort: '-created_at' }
       })
-      return response.data?.data?.data || []
+      return response.data?.data || []
     },
     retry: 1,
     retryDelay: 1000,

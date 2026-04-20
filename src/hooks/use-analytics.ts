@@ -140,3 +140,40 @@ export function useLowStockAlerts() {
     retryDelay: 1000,
   })
 }
+
+// GET /analytics/dashboard — main KPI cards
+export function useDashboardStats(businessId?: string) {
+  return useQuery({
+    queryKey: ['analytics-dashboard', businessId],
+    queryFn: async () => {
+      const response = await apiClient.get('/analytics/dashboard', { params: { businessId } })
+      const raw = (response as any).data?.data ?? (response as any).data
+      return raw as {
+        totalRevenue: number
+        totalOrders: number
+        totalCustomers: number
+        conversionRate: number
+        revenueChange: number
+        ordersChange: number
+        customersChange: number
+        conversionChange: number
+      }
+    },
+    retry: 1,
+    staleTime: 60000,
+  })
+}
+
+// GET /analytics/funnel — lead funnel stages
+export function useLeadFunnel(businessId?: string) {
+  return useQuery({
+    queryKey: ['analytics-funnel', businessId],
+    queryFn: async () => {
+      const response = await apiClient.get('/analytics/funnel', { params: { businessId } })
+      const raw = (response as any).data?.data ?? (response as any).data
+      return (Array.isArray(raw) ? raw : []) as Array<{ stage: string; count: number }>
+    },
+    retry: 1,
+    staleTime: 60000,
+  })
+}
