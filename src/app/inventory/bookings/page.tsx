@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { apiClient } from '@/lib/api-client'
+import { useAuthStore } from '@/store/auth-store'
 import toast from 'react-hot-toast'
 import {
   CalendarDays, Users, IndianRupee, Search, Loader2,
@@ -206,6 +207,7 @@ const ACCENT = '#0066FF'
 const STATUS_FILTERS = ['all', 'confirmed', 'pending', 'completed', 'cancelled']
 
 export default function BookingsPage() {
+  const { user } = useAuthStore()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -216,21 +218,38 @@ export default function BookingsPage() {
     if (!silent) setLoading(true)
     else setRefreshing(true)
     try {
-      const res = await apiClient.get('/bookings')
-      const body = res.data as unknown
-      const list: Booking[] = Array.isArray(body)
-        ? body
-        : Array.isArray((body as { data?: unknown }).data)
-        ? (body as { data: Booking[] }).data
-        : []
+      const params: Record<string, string> = {}
+      if (user?.business_id) params.businessId = user.business_id
+      const res = await apiClient.get('/orders', { params })
+      const body = (res as any).data?.data ?? (res as any).data
+      const raw: any[] = Array.isArray(body) ? body : (body?.data ?? [])
+      const list: Booking[] = raw.map((o: any) => ({
+        booking_id: o.order_id ?? o.booking_id ?? '',
+        booking_reference: o.order_id,
+        service_id: o.items?.[0]?.item_id ?? '',
+        customer_name: o.items?.[0]?.guest_name ?? o.customer_name ?? 'Guest',
+        customer_phone: o.items?.[0]?.phone ?? o.customer_phone,
+        customer_email: o.customer_email,
+        check_in_date: o.items?.[0]?.check_in ?? o.check_in_date ?? '',
+        check_out_date: o.items?.[0]?.check_out ?? o.check_out_date,
+        slots_booked: o.items?.[0]?.num_guests ?? o.slots_booked ?? 1,
+        total_price: o.total_amount ?? o.total_price ?? 0,
+        status: o.delivery_status ?? o.status ?? 'pending',
+        payment_status: o.payment_status,
+        special_requests: o.items?.[0]?.special_requests ?? o.special_requests,
+        created_at: o.created_at ?? '',
+        services: { name: o.items?.[0]?.item_name ?? 'Accommodation' },
+      }))
       setBookings(list)
-    } catch {
-      toast.error('Failed to load bookings')
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to load bookings'
+      toast.error(msg)
+      console.error('[Bookings] load error:', err)
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [user?.business_id])
 
   useEffect(() => { load() }, [load])
 

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 import toast from 'react-hot-toast'
+import { useAuthStore } from '@/store/auth-store'
 
 // Types
 export interface UserProfile {
@@ -112,12 +113,16 @@ export function useUpdateUserProfile() {
  * Get business settings
  */
 export function useBusinessSettings() {
+  const { user } = useAuthStore()
+  const businessId = user?.business_id
   return useQuery({
-    queryKey: ['business-settings'],
+    queryKey: ['business-settings', businessId],
     queryFn: async () => {
-      const response = await apiClient.get('/businesses/settings')
-      return response.data?.data as BusinessSettings
+      const response = await apiClient.get(`/businesses/${businessId}`)
+      const raw = (response as any).data?.data ?? (response as any).data
+      return raw as BusinessSettings
     },
+    enabled: !!businessId,
     retry: 1,
     retryDelay: 1000,
   })
@@ -128,11 +133,14 @@ export function useBusinessSettings() {
  */
 export function useUpdateBusinessSettings() {
   const queryClient = useQueryClient()
+  const { user } = useAuthStore()
+  const businessId = user?.business_id
 
   return useMutation({
     mutationFn: async (data: UpdateBusinessSettingsDto) => {
-      const response = await apiClient.put('/businesses/settings', data)
-      return response.data?.data as BusinessSettings
+      const response = await apiClient.patch(`/businesses/${businessId}`, data)
+      const raw = (response as any).data?.data ?? (response as any).data
+      return raw as BusinessSettings
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['business-settings'] })

@@ -267,14 +267,22 @@ export default function RoomsPage() {
   const loadRooms = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await apiClient.get('/inventory/services', { params: { type: 'hospitality' } })
-      // Handle both: { data: [...] } wrapper and raw array
-      const body = res.data as unknown
-      const list: Service[] = Array.isArray(body)
-        ? body
-        : Array.isArray((body as { data?: unknown }).data)
-        ? (body as { data: Service[] }).data
-        : []
+      const res = await apiClient.get('/catalog', { params: { item_type: 'accommodation', limit: 200 } })
+      const body = (res as any).data?.data ?? (res as any).data
+      const raw: any[] = Array.isArray(body) ? body : (body?.data ?? [])
+      const list: Service[] = raw.map((item: any) => ({
+        service_id: item.item_id ?? item.service_id ?? '',
+        item_id: item.item_id,
+        id: item.item_id ?? item.id ?? '',
+        name: item.name,
+        type: item.attributes?.type ?? item.item_type ?? 'accommodation',
+        description: item.description,
+        base_price: typeof item.base_price === 'string' ? parseFloat(item.base_price) || 0 : (item.base_price ?? 0),
+        capacity: Number(item.attributes?.capacity ?? 0),
+        attributes: item.attributes ?? {},
+        image_urls: item.image_urls,
+        is_active: item.is_active,
+      }))
       setRooms(list)
     } catch {
       toast.error('Failed to load rooms')
@@ -286,8 +294,8 @@ export default function RoomsPage() {
   useEffect(() => { loadRooms() }, [loadRooms])
 
   const handleDeactivate = async (id: string) => {
-    await apiClient.delete(`/inventory/services/${id}`)
-    setRooms(p => p.filter(r => r.id !== id))
+    await apiClient.delete(`/catalog/${id}`)
+    setRooms(p => p.filter(r => (r.item_id ?? r.id ?? r.service_id) !== id))
     toast.success('Room deactivated')
   }
 

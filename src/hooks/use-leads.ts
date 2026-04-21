@@ -210,3 +210,189 @@ export function useDeleteLead() {
   })
 }
 
+// Add note to lead
+export function useAddLeadNote() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, text }: { id: string; text: string }) => {
+      const response = await apiClient.post(`/leads/${id}/notes`, { text })
+      return response.data?.data
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['lead-timeline', variables.id] })
+      toast.success('Note added')
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || error.message || 'Failed to add note'
+      toast.error(message)
+    },
+  })
+}
+
+// Update lead tags
+export function useUpdateLeadTags() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, tags }: { id: string; tags: string[] }) => {
+      const response = await apiClient.patch(`/leads/${id}/tags`, { tags })
+      return response.data?.data
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['lead', variables.id] })
+      toast.success('Tags updated')
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || error.message || 'Failed to update tags'
+      toast.error(message)
+    },
+  })
+}
+
+// Create followup for lead
+export function useCreateFollowup() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, note, scheduled_at, assigned_to }: { id: string; note?: string; scheduled_at?: string; assigned_to?: string }) => {
+      const response = await apiClient.post(`/leads/${id}/followups`, { note, scheduled_at, assigned_to })
+      return response.data?.data
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['lead', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['lead-timeline', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-followup-queue'] })
+      toast.success('Follow-up scheduled')
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || error.message || 'Failed to schedule follow-up'
+      toast.error(message)
+    },
+  })
+}
+
+// Mark followup as done
+export function useMarkFollowupDone() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (followupId: string) => {
+      const response = await apiClient.patch(`/leads/followups/${followupId}/done`)
+      return response.data?.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-followup-queue'] })
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      toast.success('Follow-up marked as done')
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || error.message || 'Failed to mark follow-up as done'
+      toast.error(message)
+    },
+  })
+}
+
+// Dashboard: Daily Overview — GET /leads/dashboard/daily-overview
+export function useDailyOverview(businessId?: string) {
+  return useQuery({
+    queryKey: ['dashboard-daily-overview', businessId],
+    queryFn: async () => {
+      const params = businessId ? { businessId } : undefined
+      const response = await apiClient.get('/leads/dashboard/daily-overview', { params })
+      // Handle both { data: {...} } and { data: { data: {...} } } shapes
+      return response.data?.data ?? response.data
+    },
+    staleTime: 60000,
+    retry: 1,
+  })
+}
+
+// Dashboard: Needs Attention — GET /leads/dashboard/needs-attention
+export function useNeedsAttention(businessId?: string) {
+  return useQuery({
+    queryKey: ['dashboard-needs-attention', businessId],
+    queryFn: async () => {
+      const params = businessId ? { businessId } : undefined
+      const response = await apiClient.get('/leads/dashboard/needs-attention', { params })
+      const raw = response.data?.data ?? response.data
+      return (Array.isArray(raw) ? raw : raw?.leads ?? raw?.data ?? []) as any[]
+    },
+    staleTime: 60000,
+    retry: 1,
+  })
+}
+
+// Dashboard: Channel Analytics — GET /leads/dashboard/channel-analytics
+export function useChannelAnalytics(businessId?: string) {
+  return useQuery({
+    queryKey: ['dashboard-channel-analytics', businessId],
+    queryFn: async () => {
+      const params = businessId ? { businessId } : undefined
+      const response = await apiClient.get('/leads/dashboard/channel-analytics', { params })
+      return response.data?.data ?? response.data
+    },
+    staleTime: 60000,
+    retry: 1,
+  })
+}
+
+// Dashboard: Demand Signals — GET /leads/dashboard/demand-signals
+export function useDemandSignals(businessId?: string) {
+  return useQuery({
+    queryKey: ['dashboard-demand-signals', businessId],
+    queryFn: async () => {
+      const params = businessId ? { businessId } : undefined
+      const response = await apiClient.get('/leads/dashboard/demand-signals', { params })
+      const raw = response.data?.data ?? response.data
+      return (Array.isArray(raw) ? raw : raw?.data ?? []) as any[]
+    },
+    staleTime: 60000,
+    retry: 1,
+  })
+}
+
+// Dashboard: Followup Queue — GET /leads/dashboard/followup-queue
+export function useFollowupQueue(businessId?: string) {
+  return useQuery({
+    queryKey: ['dashboard-followup-queue', businessId],
+    queryFn: async () => {
+      const params = businessId ? { businessId } : undefined
+      const response = await apiClient.get('/leads/dashboard/followup-queue', { params })
+      const raw = response.data?.data ?? response.data
+      return (Array.isArray(raw) ? raw : raw?.data ?? []) as any[]
+    },
+    staleTime: 30000,
+    retry: 1,
+  })
+}
+
+// Leads Inbox: Conversations — GET /leads/inbox/conversations
+export function useLeadsInboxConversations(businessId?: string) {
+  return useQuery({
+    queryKey: ['leads-inbox-conversations', businessId],
+    queryFn: async () => {
+      const params = businessId ? { businessId } : undefined
+      const response = await apiClient.get('/leads/inbox/conversations', { params })
+      const raw = response.data?.data ?? response.data
+      return (Array.isArray(raw) ? raw : raw?.data ?? []) as any[]
+    },
+    staleTime: 30000,
+    retry: 1,
+  })
+}
+
+// Leads Inbox: Messages — GET /leads/inbox/conversations/:id/messages
+export function useLeadsInboxMessages(conversationId: string) {
+  return useQuery({
+    queryKey: ['leads-inbox-messages', conversationId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/leads/inbox/conversations/${conversationId}/messages`)
+      return (response.data?.data ?? []) as any[]
+    },
+    enabled: !!conversationId,
+    staleTime: 30000,
+    retry: 1,
+  })
+}
+

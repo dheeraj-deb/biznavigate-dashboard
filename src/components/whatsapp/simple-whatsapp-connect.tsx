@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -47,7 +47,7 @@ interface FBLoginOptions {
   }
 }
 
-const EMBEDDED_SIGNUP_CONFIG_ID = '2071186320122440'
+const EMBEDDED_SIGNUP_CONFIG_ID = '1471673638000770'
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || ''
 
 type ConnectionStep = 'intro' | 'connecting' | 'success' | 'error'
@@ -66,28 +66,6 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
     accountId: string
   } | null>(null)
 
-  // Capture waba_id + phone_number_id from the Embedded Signup session message
-  const sessionInfoRef = useRef<{ wabaId?: string; phoneNumberId?: string }>({})
-
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== 'https://www.facebook.com') return
-      try {
-        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
-        if (data?.type === 'WA_EMBEDDED_SIGNUP') {
-          sessionInfoRef.current = {
-            wabaId: data.data?.waba_id,
-            phoneNumberId: data.data?.phone_number_id,
-          }
-        }
-      } catch {
-        // ignore non-JSON messages
-      }
-    }
-    window.addEventListener('message', handleMessage)
-    return () => window.removeEventListener('message', handleMessage)
-  }, [])
-
   // Load Facebook JS SDK
   useEffect(() => {
     if (document.getElementById('facebook-jssdk')) return
@@ -96,7 +74,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
       window.FB.init({
         appId: META_APP_ID, autoLogAppEvents: true,
         xfbml: true,
-        version: 'v25.0',
+        version: 'v25.0'
       })
     }
 
@@ -153,8 +131,6 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
           body: JSON.stringify({
             code: response.authResponse.code,
             businessId,
-            wabaId: sessionInfoRef.current.wabaId,
-            phoneNumberId: sessionInfoRef.current.phoneNumberId,
           }),
         })
 

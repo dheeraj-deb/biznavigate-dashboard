@@ -123,7 +123,7 @@ export function AvailabilitySection({ serviceId, accent }: { serviceId: string |
                     </span>
                     <span className="text-[#989898]"> / {s.total_slots}</span>
                   </td>
-                  <td className="px-3 py-2.5 text-right font-semibold text-[#4B4B4B]">{fmt(s.effective_price)}</td>
+                  <td className="px-3 py-2.5 text-right font-semibold text-[#4B4B4B]">{fmt(s.price ?? s.effective_price ?? 0)}</td>
                   <td className="px-3 py-2.5 text-center">
                     {s.is_blocked
                       ? <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 text-red-600 px-2 py-0.5 text-[10px] font-bold"><Lock className="h-2.5 w-2.5" />Blocked</span>

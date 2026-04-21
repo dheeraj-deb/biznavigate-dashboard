@@ -1,11 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useBusinessType } from '@/hooks/use-business-type'
+import { useAuthStore } from '@/store/auth-store'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { apiClient } from '@/lib/api-client'
+import {
+  useDailyOverview,
+  useNeedsAttention,
+  useChannelAnalytics,
+  useLeads,
+} from '@/hooks/use-leads'
 import {
   Users,
   CalendarCheck,
@@ -19,15 +24,6 @@ import {
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-interface LeadStats {
-  total_leads: number
-  converted_leads: number
-  conversion_rate: string
-  by_status: Array<{ status: string; count: number }>
-  by_source: Array<{ source: string; count: number }>
-  by_quality: Array<{ quality: string; count: number }>
-}
 
 interface Lead {
   id: string
@@ -101,84 +97,62 @@ function getWhatTheyWant(lead: Lead): string {
   return Object.values(e).filter(Boolean).slice(0, 2).join(' · ') || '—'
 }
 
-function getTodayRange() {
-  const now = new Date()
-  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-  return { from, to: now.toISOString() }
-}
-
-function getMonthRange() {
-  const now = new Date()
-  const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  return { from, to: now.toISOString() }
-}
-
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function LeadIntelligenceSection() {
   const router = useRouter()
   const { businessType } = useBusinessType()
+  const { user } = useAuthStore()
+  const businessId = user?.business_id
 
   const intentType = businessType === 'hospitality' ? 'resort' : businessType === 'events' ? 'camping' : 'product'
   const sectionTitle = businessType === 'hospitality' ? 'Resort Enquiries' : businessType === 'events' ? 'Camping Enquiries' : 'Product Enquiries'
   const enquiryLabel = businessType === 'products' ? 'Orders' : 'Bookings'
 
-  const [todayStats, setTodayStats] = useState<LeadStats | null>(null)
-  const [monthStats, setMonthStats] = useState<LeadStats | null>(null)
-  const [attentionLeads, setAttentionLeads] = useState<Lead[]>([])
-  const [recentLeads, setRecentLeads] = useState<Lead[]>([])
-  const [loading, setLoading] = useState(true)
+  // ── Data fetching via dedicated dashboard endpoints ──
+  // businessId is passed as a hint; server also infers it from the Bearer token
+  const dailyOverviewQuery = useDailyOverview(businessId)
+  const needsAttentionQuery = useNeedsAttention(businessId)
+  const channelAnalyticsQuery = useChannelAnalytics(businessId)
+  const recentLeadsQuery = useLeads({ intent_type: intentType, limit: 6, sortBy: 'created_at', sortOrder: 'desc', businessId })
 
-  useEffect(() => {
-    const { from: todayFrom, to } = getTodayRange()
-    const { from: monthFrom } = getMonthRange()
+  const loading = dailyOverviewQuery.isLoading || needsAttentionQuery.isLoading || channelAnalyticsQuery.isLoading
 
-    Promise.all([
-      // Today's stats
-      apiClient.get('/leads/stats/overview', { params: { from: todayFrom, to, intent_type: intentType } })
-        .then(r => { const d = r.data as any; setTodayStats(d?.data ?? d) })
-        .catch(() => {}),
+  // ── Daily overview stats ──
+  const dailyOverview = dailyOverviewQuery.data
+  const wonToday = dailyOverview?.won_count
+    ?? dailyOverview?.by_status?.find((s: any) => s.status === 'won')?.count
+    ?? 0
+  const pendingToday = dailyOverview?.pending_count
+    ?? (dailyOverview?.by_status ?? [])
+        .filter((s: any) => !['won', 'lost'].includes(s.status))
+        .reduce((a: number, s: any) => a + s.count, 0)
 
-      // Month stats
-      apiClient.get('/leads/stats/overview', { params: { from: monthFrom, to, intent_type: intentType } })
-        .then(r => { const d = r.data as any; setMonthStats(d?.data ?? d) })
-        .catch(() => {}),
+  // ── Needs attention leads ──
+  const attentionLeads = (needsAttentionQuery.data ?? []).map(normalizeLead)
 
-      // Needs attention: contacted leads (went silent after initial contact)
-      apiClient.get('/leads', { params: { status: 'contacted', intent_type: intentType, limit: 5, sortBy: 'created_at', sortOrder: 'asc' } })
-        .then(r => {
-          const d = r.data as any
-          const raw = d?.data ?? d?.leads ?? (Array.isArray(d) ? d : [])
-          setAttentionLeads(raw.map(normalizeLead))
-        })
-        .catch(() => {}),
-
-      // Recent leads
-      apiClient.get('/leads', { params: { intent_type: intentType, limit: 6, sortBy: 'created_at', sortOrder: 'desc' } })
-        .then(r => {
-          const d = r.data as any
-          const raw = d?.data ?? d?.leads ?? (Array.isArray(d) ? d : [])
-          setRecentLeads(raw.map(normalizeLead))
-        })
-        .catch(() => {}),
-    ]).finally(() => setLoading(false))
-  }, [intentType])
-
-  // ── Channel performance from month stats ──
-  const channelData = (monthStats?.by_source ?? []).map(s => ({
-    source: s.source,
-    count: s.count,
-    label: s.source === 'whatsapp' ? 'WhatsApp' : s.source === 'instagram' || s.source === 'instagram_dm' ? 'Instagram' : s.source,
-    icon: s.source === 'instagram' || s.source === 'instagram_dm' ? 'instagram' : 'whatsapp',
-  }))
-
+  // ── Channel analytics ──
+  const channelAnalytics = channelAnalyticsQuery.data
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawChannelList: any[] = channelAnalytics?.by_channel ?? channelAnalytics?.by_source ?? []
+  const channelData = rawChannelList.map((s: any) => {
+    const src: string = s.channel ?? s.source ?? ''
+    return {
+      source: src,
+      count: s.count ?? 0,
+      label: src === 'whatsapp' ? 'WhatsApp' : src === 'instagram' || src === 'instagram_dm' ? 'Instagram' : src,
+      icon: src === 'instagram' || src === 'instagram_dm' ? 'instagram' : 'whatsapp',
+    }
+  })
   const totalSourceLeads = channelData.reduce((a, c) => a + c.count, 0)
+  const monthTotalLeads = channelAnalytics?.total_leads ?? channelAnalytics?.total ?? 0
+  const monthConverted = channelAnalytics?.converted_leads ?? channelAnalytics?.converted ?? 0
+  const monthConversionRate = channelAnalytics?.conversion_rate ?? '0'
 
-  // ── Won breakdown by status ──
-  const wonToday = todayStats?.by_status.find(s => s.status === 'won')?.count ?? 0
-  const pendingToday = (todayStats?.by_status ?? [])
-    .filter(s => !['won', 'lost'].includes(s.status))
-    .reduce((a, s) => a + s.count, 0)
+  // ── Recent leads ──
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawRecentLeads: any[] = recentLeadsQuery.data?.data ?? (Array.isArray(recentLeadsQuery.data) ? recentLeadsQuery.data : [])
+  const recentLeads = rawRecentLeads.map(normalizeLead)
 
   if (loading) {
     return (
@@ -209,7 +183,7 @@ export function LeadIntelligenceSection() {
               <Users className="h-4 w-4 text-blue-600" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">{todayStats?.total_leads ?? 0}</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{dailyOverview?.total_leads ?? 0}</div>
               <div className="text-xs text-gray-500">Enquiries Today</div>
             </div>
           </div>
@@ -234,7 +208,7 @@ export function LeadIntelligenceSection() {
             </div>
             <div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                {parseFloat(todayStats?.conversion_rate ?? '0').toFixed(0)}%
+                {parseFloat(dailyOverview?.conversion_rate ?? '0').toFixed(0)}%
               </div>
               <div className="text-xs text-gray-500">Conversion Today</div>
             </div>
@@ -355,15 +329,15 @@ export function LeadIntelligenceSection() {
               <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">Month total</span>
-                  <span className="font-bold text-gray-900 dark:text-white">{monthStats?.total_leads ?? 0} enquiries</span>
+                  <span className="font-bold text-gray-900 dark:text-white">{monthTotalLeads} enquiries</span>
                 </div>
                 <div className="flex items-center justify-between text-sm mt-1">
                   <span className="text-gray-500">Converted</span>
-                  <span className="font-bold text-green-600">{monthStats?.converted_leads ?? 0} {enquiryLabel.toLowerCase()}</span>
+                  <span className="font-bold text-green-600">{monthConverted} {enquiryLabel.toLowerCase()}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm mt-1">
                   <span className="text-gray-500">Conversion rate</span>
-                  <span className="font-bold text-[#0066FF]">{parseFloat(monthStats?.conversion_rate ?? '0').toFixed(1)}%</span>
+                  <span className="font-bold text-[#0066FF]">{parseFloat(monthConversionRate).toFixed(1)}%</span>
                 </div>
               </div>
             </div>
@@ -420,17 +394,16 @@ export function LeadIntelligenceSection() {
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                         lead.status === 'new' ? 'bg-gray-100 text-gray-600 border-gray-300'
-                        : lead.status === 'active' ? 'bg-blue-100 text-blue-700 border-blue-300'
-                        : lead.status === 'contacted' ? 'bg-cyan-100 text-cyan-700 border-cyan-300'
-                        : lead.status === 'qualified' ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
-                        : lead.status === 'quoted' ? 'bg-orange-100 text-orange-700 border-orange-300'
-                        : lead.status === 'booked' ? 'bg-purple-100 text-purple-700 border-purple-300'
-                        : lead.status === 'won' ? 'bg-green-100 text-green-700 border-green-300'
+                        : lead.status === 'contacted' ? 'bg-blue-100 text-blue-700 border-blue-300'
+                        : lead.status === 'interested' ? 'bg-orange-100 text-orange-700 border-orange-300'
+                        : lead.status === 'converted' ? 'bg-green-100 text-green-700 border-green-300'
                         : 'bg-red-100 text-red-500 border-red-300'
                       }`}>
-                        {lead.status === 'active' ? 'In Conversation'
-                          : lead.status === 'booked' ? 'Booked'
-                          : lead.status === 'won' ? 'Won'
+                        {lead.status === 'new' ? 'New'
+                          : lead.status === 'contacted' ? 'Contacted'
+                          : lead.status === 'interested' ? 'Interested'
+                          : lead.status === 'converted' ? 'Converted'
+                          : lead.status === 'lost' ? 'Lost'
                           : lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
                       </span>
                     </td>

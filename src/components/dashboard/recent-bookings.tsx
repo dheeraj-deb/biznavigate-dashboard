@@ -43,8 +43,18 @@ export function RecentBookingsWidget() {
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ['dashboard-recent-bookings'],
     queryFn: async () => {
-      const res = await apiClient.get('/bookings', { params: { limit: 5 } })
-      return (res.data?.data ?? res.data ?? []) as Booking[]
+      const res = await apiClient.get('/orders', { params: { order_type: 'accommodation', limit: 5 } })
+      const body = (res as any).data?.data ?? (res as any).data
+      const raw: any[] = Array.isArray(body) ? body : (body?.data ?? [])
+      return raw.map((o: any): Booking => ({
+        booking_id: o.order_id ?? o.booking_id ?? '',
+        booking_reference: o.order_id,
+        customer_name: o.items?.[0]?.guest_name ?? o.customer_name ?? 'Guest',
+        total_price: o.total_amount ?? o.total_price ?? 0,
+        status: o.delivery_status ?? o.status ?? 'pending',
+        created_at: o.created_at ?? '',
+        services: { name: o.items?.[0]?.item_name ?? 'Accommodation' },
+      }))
     },
     retry: 1,
   })
@@ -79,7 +89,7 @@ export function RecentBookingsWidget() {
             {bookings.map((b) => {
               const amount = typeof b.total_price === 'string' ? parseFloat(b.total_price) || 0 : b.total_price
               return (
-                <div key={b.booking_id} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
+                <div key={b.booking_id || b.booking_reference} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors">
                   <div className="flex-1">
                     <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{b.customer_name}</p>
                     <p className="text-xs text-muted-foreground">{b.services?.name ?? 'Service'}</p>

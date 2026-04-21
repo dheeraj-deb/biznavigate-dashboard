@@ -14,15 +14,26 @@ interface CheckInData {
 export function CheckInStatusWidget() {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard-check-in-status'],
-    queryFn: async () => {
+    queryFn: async (): Promise<CheckInData> => {
       try {
-        const res = await apiClient.get('/bookings/today-summary')
-        return (res.data?.data ?? res.data) as CheckInData
+        const today = new Date().toISOString().split('T')[0]
+        const res = await apiClient.get('/orders', { params: { order_type: 'accommodation', limit: 200 } })
+        const body = (res as any).data?.data ?? (res as any).data
+        const orders: any[] = Array.isArray(body) ? body : (body?.data ?? [])
+        const arrivals = orders.filter((o: any) => o.items?.[0]?.check_in?.startsWith(today)).length
+        const departures = orders.filter((o: any) => o.items?.[0]?.check_out?.startsWith(today)).length
+        const inHouse = orders.filter((o: any) => {
+          const ci = o.items?.[0]?.check_in
+          const co = o.items?.[0]?.check_out
+          return ci && co && ci <= today && co >= today && o.delivery_status !== 'cancelled'
+        }).length
+        return { arrivals, departures, inHouse }
       } catch {
         return { arrivals: 0, departures: 0, inHouse: 0 }
       }
     },
     retry: 1,
+    staleTime: 60000,
   })
 
   const items = [

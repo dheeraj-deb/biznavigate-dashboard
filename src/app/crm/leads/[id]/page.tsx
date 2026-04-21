@@ -96,20 +96,22 @@ function normalizeLead(raw: any): LeadDetail {
   }
 }
 
-const STATUS_FLOW = ['new', 'contacted', 'qualified', 'won', 'lost'] as const
+const STATUS_FLOW = ['new', 'contacted', 'interested', 'converted', 'lost'] as const
 
 function getStatusLabel(s: string, intentType?: string | null) {
-  return s === 'new' ? 'New' : s === 'contacted' ? 'Contacted' : s === 'qualified' ? 'Qualified'
-    : s === 'won' ? (intentType === 'product' ? 'Sold ✓' : 'Booked ✓')
+  return s === 'new' ? 'New'
+    : s === 'contacted' ? 'Contacted'
+    : s === 'interested' ? 'Interested'
+    : s === 'converted' ? (intentType === 'product' ? 'Sold ✓' : 'Converted ✓')
     : s === 'lost' ? 'Lost' : s
 }
 
 function getStatusStyle(s: string) {
-  return s === 'new' ? 'bg-blue-100 text-blue-700 border border-blue-300'
-    : s === 'contacted' ? 'bg-amber-100 text-amber-700 border border-amber-300'
-    : s === 'qualified' ? 'bg-orange-100 text-orange-700 border border-orange-300'
-    : s === 'won' ? 'bg-green-100 text-green-700 border border-green-300'
-    : 'bg-gray-100 text-gray-500 border border-gray-300'
+  return s === 'new' ? 'bg-gray-100 text-gray-600 border border-gray-300'
+    : s === 'contacted' ? 'bg-blue-100 text-blue-700 border border-blue-300'
+    : s === 'interested' ? 'bg-orange-100 text-orange-700 border border-orange-300'
+    : s === 'converted' ? 'bg-green-100 text-green-700 border border-green-300'
+    : 'bg-red-100 text-red-500 border border-red-300'
 }
 
 function getQualityStyle(q: string) {
@@ -294,7 +296,7 @@ export default function LeadDetailPage() {
     try {
       const calls: Promise<unknown>[] = []
       if (editNotes) {
-        calls.push(apiClient.post(`/leads/${id}/notes`, { note: editNotes }))
+        calls.push(apiClient.post(`/leads/${id}/notes`, { text: editNotes }))
       }
       if (editAssignedTo) {
         calls.push(apiClient.patch(`/leads/${id}/assign`, { assigned_to: editAssignedTo }))

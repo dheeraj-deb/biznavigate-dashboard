@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select'
 import toast from 'react-hot-toast'
 import { ArrowLeft, Loader2, CalendarDays, Users, User, Phone, Mail, IndianRupee, BedDouble } from 'lucide-react'
+import { useAuthStore } from '@/store/auth-store'
 
 interface Service {
   service_id: string
@@ -28,6 +29,7 @@ interface Service {
 function NewBookingForm() {
   const router = useRouter()
   const params = useSearchParams()
+  const { user } = useAuthStore()
 
   const [services, setServices] = useState<Service[]>([])
   const [loadingServices, setLoadingServices] = useState(true)
@@ -51,13 +53,18 @@ function NewBookingForm() {
   const prefillRoom = params.get('room')
 
   useEffect(() => {
-    apiClient.get('/inventory/services')
+    apiClient.get('/catalog', { params: { item_type: 'accommodation', limit: 100 } })
       .then((res) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const d = res.data as any
-        const list: Service[] = Array.isArray(d) ? d : (d?.data ?? d?.services ?? [])
+        const d = (res as any).data?.data ?? (res as any).data
+        const raw: any[] = Array.isArray(d) ? d : (d?.data ?? [])
+        const list: Service[] = raw.map((item: any) => ({
+          service_id: item.item_id ?? item.service_id ?? '',
+          name: item.name,
+          base_price: item.base_price,
+          type: item.item_type,
+        }))
         setServices(list)
-        // Auto-select if room preference matches a service name
         if (prefillRoom && list.length > 0) {
           const match = list.find((s) =>
             s.name.toLowerCase().includes(prefillRoom.toLowerCase())
@@ -94,11 +101,17 @@ function NewBookingForm() {
 
     setSubmitting(true)
     try {
-      await apiClient.post('/bookings', {
-        ...form,
-        slots_booked: Number(form.slots_booked) || 1,
-        total_price: Number(form.total_price) || 0,
+      const unitPrice = Number(form.total_price) || 0
+      await apiClient.post('/orders', {
+        business_id: user?.business_id,
         ...(fromLead ? { lead_id: fromLead } : {}),
+        total_amount: unitPrice,
+        currency: 'INR',
+        items: [{
+          item_id: form.service_id,
+          quantity: Number(form.slots_booked) || 1,
+          unit_price: unitPrice,
+        }],
       })
       toast.success('Booking created!')
       router.push('/inventory/bookings')
