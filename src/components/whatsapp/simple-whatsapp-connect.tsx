@@ -49,6 +49,13 @@ interface FBLoginOptions {
   }
 }
 
+type EmbeddedSignupData = {
+  waba_id?: string
+  phone_number_id?: string
+  whatsapp_business_id?: string
+  business_id?: string
+}
+
 const EMBEDDED_SIGNUP_CONFIG_ID = process.env.NEXT_PUBLIC_EMBEDDED_SIGNUP_CONFIG_ID || ''
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || ''
 
@@ -63,14 +70,14 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
   const queryClient = useQueryClient()
   const { data, refetch } = useWhatsAppAccounts(businessId)
   const { account, isConnected, isPending } = data || { account: null, isConnected: false, isPending: false }
-  
+
   // Track provisioning state
   const { data: pipelineData } = useGupshupPipelineStatus(account?.gupshup_app_id)
-  
+
   const [currentStep, setCurrentStep] = useState<ConnectionStep>('intro')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
+
   // Use a ref for eventData to avoid stale closures in the FB login callback
   const eventDataRef = useRef<{ whatsapp_business_id: string, phone_number_id: string, waba_id: string } | null>(null)
   const listenerRef = useRef<((event: MessageEvent) => void) | null>(null)
@@ -88,9 +95,9 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
 
   // Invalidate queries when pipeline completes
   useEffect(() => {
-     if (pipelineData?.whatsapp?.creationStage === 'WHATSAPP_PROVISIONING_DONE') {
-        queryClient.invalidateQueries({ queryKey: whatsappKeys.all })
-     }
+    if (pipelineData?.whatsapp?.creationStage === 'WHATSAPP_PROVISIONING_DONE') {
+      queryClient.invalidateQueries({ queryKey: whatsappKeys.all })
+    }
   }, [pipelineData?.whatsapp?.creationStage, queryClient])
 
   // Listen for Meta Embedded Signup message events
@@ -113,7 +120,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
         // Ignore parsing errors for other messages
       }
     };
-    
+
     listenerRef.current = handleMessage;
     window.addEventListener('message', handleMessage);
 
@@ -190,11 +197,11 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
           throw new Error('Not authenticated. Please log in first.')
         }
 
-        const eventData = eventDataRef.current || {}
-        
         // Sometimes the SDK returns the setup data inside the authResponse in sessionInfoVersion 3
-        const fallbackData = (response.authResponse as any)?.setup || {}
-        
+        const fallbackData: any = (response.authResponse as any)?.setup || {}
+
+        const eventData = (eventDataRef.current || {}) as EmbeddedSignupData
+
         const payloadData = {
           waba_id: eventData.waba_id || fallbackData.waba_id || '',
           phone_number_id: eventData.phone_number_id || fallbackData.phone_number_id || '',
@@ -393,17 +400,17 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                 Your account is linked! We are now setting up your cloud infrastructure with our partner.
                 This typically takes 2-5 minutes.
               </p>
-              
+
               <div className="max-w-md mx-auto text-left bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4">
-                 <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Current Status:</p>
-                 <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                    <span className="text-sm text-blue-800 dark:text-blue-200">
-                       {pipelineData?.whatsapp?.creationStage 
-                         ? pipelineData.whatsapp.creationStage.replace(/_/g, ' ') 
-                         : 'Initializing pipeline...'}
-                    </span>
-                 </div>
+                <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Current Status:</p>
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                  <span className="text-sm text-blue-800 dark:text-blue-200">
+                    {pipelineData?.whatsapp?.creationStage
+                      ? pipelineData.whatsapp.creationStage.replace(/_/g, ' ')
+                      : 'Initializing pipeline...'}
+                  </span>
+                </div>
               </div>
             </div>
           </CardContent>
