@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -16,6 +16,8 @@ import {
   Zap,
   Phone,
 } from 'lucide-react'
+import { useWhatsAppAccounts, useGupshupPipelineStatus, whatsappKeys } from '@/hooks/use-whatsapp-account'
+import { useQueryClient } from '@tanstack/react-query'
 
 // Extend window with FB SDK type
 declare global {
@@ -47,10 +49,10 @@ interface FBLoginOptions {
   }
 }
 
-const EMBEDDED_SIGNUP_CONFIG_ID = '2071186320122440'
+const EMBEDDED_SIGNUP_CONFIG_ID = process.env.NEXT_PUBLIC_EMBEDDED_SIGNUP_CONFIG_ID || ''
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || ''
 
-type ConnectionStep = 'intro' | 'connecting' | 'success' | 'error'
+type ConnectionStep = 'intro' | 'connecting' | 'provisioning' | 'success' | 'error'
 
 interface SimpleWhatsAppConnectProps {
   onComplete?: () => void
@@ -58,13 +60,69 @@ interface SimpleWhatsAppConnectProps {
 }
 
 export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsAppConnectProps) {
+  const queryClient = useQueryClient()
+  const { data, refetch } = useWhatsAppAccounts(businessId)
+  const { account, isConnected, isPending } = data || { account: null, isConnected: false, isPending: false }
+  
+  // Track provisioning state
+  const { data: pipelineData } = useGupshupPipelineStatus(account?.gupshup_app_id)
+  
   const [currentStep, setCurrentStep] = useState<ConnectionStep>('intro')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [connectedAccount, setConnectedAccount] = useState<{
-    phoneNumber: string
-    accountId: string
-  } | null>(null)
+  
+  // Use a ref for eventData to avoid stale closures in the FB login callback
+  const eventDataRef = useRef<{ whatsapp_business_id: string, phone_number_id: string, waba_id: string } | null>(null)
+  const listenerRef = useRef<((event: MessageEvent) => void) | null>(null)
+
+  // Sync state with hooks
+  useEffect(() => {
+    if (isConnected && currentStep !== 'success') {
+      setCurrentStep('success')
+    } else if (isPending && currentStep !== 'provisioning') {
+      setCurrentStep('provisioning')
+    } else if (!isConnected && !isPending && (currentStep === 'success' || currentStep === 'provisioning')) {
+      setCurrentStep('intro')
+    }
+  }, [isConnected, isPending, currentStep])
+
+  // Invalidate queries when pipeline completes
+  useEffect(() => {
+     if (pipelineData?.whatsapp?.creationStage === 'WHATSAPP_PROVISIONING_DONE') {
+        queryClient.invalidateQueries({ queryKey: whatsappKeys.all })
+     }
+  }, [pipelineData?.whatsapp?.creationStage, queryClient])
+
+  // Listen for Meta Embedded Signup message events
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      console.log("event =====>", event.data)
+      if (!event.origin.endsWith('facebook.com')) return;
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'WA_EMBEDDED_SIGNUP' && data.event === "FINISH") {
+          const connecedData = data.data;
+          console.log('message event: ', connecedData);
+          eventDataRef.current = {
+            whatsapp_business_id: connecedData.business_id,
+            phone_number_id: connecedData.phone_number_id,
+            waba_id: connecedData.waba_id,
+          }
+        }
+      } catch {
+        // Ignore parsing errors for other messages
+      }
+    };
+    
+    listenerRef.current = handleMessage;
+    window.addEventListener('message', handleMessage);
+
+    return () => {
+      if (listenerRef.current) {
+        window.removeEventListener('message', listenerRef.current)
+      }
+    }
+  }, [])
 
   // Load Facebook JS SDK
   useEffect(() => {
@@ -72,7 +130,8 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
 
     window.fbAsyncInit = function () {
       window.FB.init({
-        appId: META_APP_ID, autoLogAppEvents: true,
+        appId: META_APP_ID,
+        autoLogAppEvents: true,
         xfbml: true,
         version: 'v25.0'
       })
@@ -89,6 +148,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
   const handleConnectWithMeta = () => {
     setIsLoading(true)
     setError(null)
+    eventDataRef.current = null // Reset
 
     if (!businessId) {
       setError('Business ID not found. Please ensure you are logged in.')
@@ -104,9 +164,17 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
       return
     }
 
+    if (!EMBEDDED_SIGNUP_CONFIG_ID) {
+      setError('Configuration error: Missing NEXT_PUBLIC_EMBEDDED_SIGNUP_CONFIG_ID. Please set it in .env.local.')
+      setCurrentStep('error')
+      setIsLoading(false)
+      return
+    }
+
     setCurrentStep('connecting')
 
     const handleOAuthResponse = async (response: FBLoginResponse) => {
+      console.log('FB Login Response:', response)
       if (!response.authResponse?.code) {
         setError('Authorization was cancelled or failed. Please try again.')
         setCurrentStep('error')
@@ -122,6 +190,20 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
           throw new Error('Not authenticated. Please log in first.')
         }
 
+        const eventData = eventDataRef.current || {}
+        
+        // Sometimes the SDK returns the setup data inside the authResponse in sessionInfoVersion 3
+        const fallbackData = (response.authResponse as any)?.setup || {}
+        
+        const payloadData = {
+          waba_id: eventData.waba_id || fallbackData.waba_id || '',
+          phone_number_id: eventData.phone_number_id || fallbackData.phone_number_id || '',
+          whatsapp_business_id: eventData.whatsapp_business_id || fallbackData.whatsapp_business_id || fallbackData.business_id || '',
+        }
+
+        console.log('Event Data from message ref: ==>', eventData)
+        console.log('Data to send to backend: ==>', payloadData)
+
         const res = await fetch(`${apiUrl}/whatsapp/oauth/embedded-callback`, {
           method: 'POST',
           headers: {
@@ -131,6 +213,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
           body: JSON.stringify({
             code: response.authResponse.code,
             businessId,
+            ...payloadData,
           }),
         })
 
@@ -140,11 +223,9 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
           throw new Error(data.message || 'Failed to connect WhatsApp account')
         }
 
-        setConnectedAccount({
-          accountId: data.data.accountId,
-          phoneNumber: data.data.phoneNumber,
-        })
-        setCurrentStep('success')
+        // Re-fetch the accounts to get the new pending account
+        await refetch()
+        setCurrentStep('provisioning')
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to connect')
         setCurrentStep('error')
@@ -300,6 +381,35 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
         </Card>
       )}
 
+      {currentStep === 'provisioning' && (
+        <Card className="border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-950 shadow-xl">
+          <CardContent className="pt-12 pb-12">
+            <div className="text-center">
+              <Loader2 className="h-16 w-16 animate-spin text-blue-600 mx-auto mb-6" />
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+                Provisioning your WhatsApp Account...
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Your account is linked! We are now setting up your cloud infrastructure with our partner.
+                This typically takes 2-5 minutes.
+              </p>
+              
+              <div className="max-w-md mx-auto text-left bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4">
+                 <p className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Current Status:</p>
+                 <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                    <span className="text-sm text-blue-800 dark:text-blue-200">
+                       {pipelineData?.whatsapp?.creationStage 
+                         ? pipelineData.whatsapp.creationStage.replace(/_/g, ' ') 
+                         : 'Initializing pipeline...'}
+                    </span>
+                 </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {currentStep === 'error' && (
         <Card className="border-red-200 dark:border-red-800 bg-white dark:bg-gray-950 shadow-xl">
           <CardContent className="pt-10 pb-10">
@@ -367,7 +477,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
         </Card>
       )}
 
-      {currentStep === 'success' && connectedAccount && (
+      {currentStep === 'success' && account && (
         <Card className="border-green-200 dark:border-green-800 bg-gradient-to-br from-white to-green-50 dark:from-gray-950 dark:to-green-950/20 shadow-xl">
           <CardContent className="pt-10 pb-10">
             <div className="text-center mb-8">
@@ -386,7 +496,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                   <Phone className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
                 <p className="font-bold text-gray-900 dark:text-gray-100 mb-1">Number Active</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{connectedAccount.phoneNumber}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{account.display_phone_number || 'Connected'}</p>
               </div>
 
               <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-green-200 dark:border-green-800 text-center">

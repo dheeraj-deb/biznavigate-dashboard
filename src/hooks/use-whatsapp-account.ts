@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 export const whatsappKeys = {
     all: ['whatsapp'] as const,
     accounts: (businessId: string) => [...whatsappKeys.all, 'accounts', businessId] as const,
+    pipeline: (gupshupAppId: string) => [...whatsappKeys.all, 'pipeline', gupshupAppId] as const,
 };
 
 // ==================== Queries ====================
@@ -14,7 +15,9 @@ export const whatsappKeys = {
 /**
  * Hook to fetch WhatsApp accounts for a business.
  * Returns the first active account and a boolean `isConnected`.
- * Polls every 5 minutes and refetches on window focus (quality_rating can change).
+ *
+ * `isConnected` — true only when at least one account is LIVE (not pending provisioning).
+ * `isPending`   — true when an account exists but Gupshup is still provisioning it.
  */
 export function useWhatsAppAccounts(businessId: string) {
     return useQuery({
@@ -31,12 +34,45 @@ export function useWhatsAppAccounts(businessId: string) {
         refetchInterval: 5 * 60 * 1000,  // poll every 5 minutes
         refetchOnWindowFocus: true,
         select: (data: WhatsAppAccountMapped[]) => {
-            const activeAccount = data.find((acc) => acc.is_active) ?? data[0] ?? null;
+            // "live" = is_active AND (no TPP account OR gupshup_app_status is live)
+            const liveAccount = data.find(
+                (acc) => acc.is_active && (acc.gupshup_app_status === 'live' || acc.gupshup_app_status === null)
+            ) ?? null;
+            // "pending" = account exists but Gupshup still provisioning
+            const pendingAccount = data.find(
+                (acc) => acc.gupshup_app_status === 'pending'
+            ) ?? null;
+
             return {
                 raw: data,
-                account: activeAccount,
-                isConnected: data.length > 0,
+                account: liveAccount ?? pendingAccount ?? data[0] ?? null,
+                isConnected: liveAccount !== null,
+                isPending: pendingAccount !== null && liveAccount === null,
+                hasError: data.some((acc) => acc.gupshup_app_status === 'error'),
             };
+        },
+    });
+}
+
+/**
+ * Poll Gupshup pipeline status while an account is pending provisioning.
+ * Only runs when `gupshupAppId` is provided. Stops polling once live/error.
+ */
+export function useGupshupPipelineStatus(gupshupAppId: string | null | undefined) {
+    return useQuery({
+        queryKey: whatsappKeys.pipeline(gupshupAppId ?? ''),
+        queryFn: async () => {
+            const response = await whatsappApi.getGupshupPipelineStatus(gupshupAppId!);
+            return (response as any)?.data ?? response;
+        },
+        enabled: !!gupshupAppId,
+        // Poll every 15 seconds while pending
+        refetchInterval: (query) => {
+            const stage = query.state.data?.whatsapp?.creationStage;
+            if (stage === 'WHATSAPP_PROVISIONING_DONE' || stage === 'ERROR') {
+                return false; // stop polling
+            }
+            return 15_000;
         },
     });
 }
