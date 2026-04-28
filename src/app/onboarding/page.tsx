@@ -23,6 +23,7 @@ import {
 import { useRouter } from 'next/navigation'
 import { AppLogo } from '@/components/ui/app-logo'
 import toast from 'react-hot-toast'
+import { SimpleWhatsAppConnect } from '@/components/whatsapp/simple-whatsapp-connect'
 
 // Business type options
 const businessTypes = [
@@ -57,7 +58,7 @@ const AUDIENCE_SUGGESTIONS: Record<string, string[]> = {
 export default function OnboardingPage() {
   const router = useRouter()
   const { user, setUser } = useAuthStore()
-  const totalSteps = 3
+  const totalSteps = 4
   const [currentStep, setCurrentStep] = useState(1)
   const [citySearch, setCitySearch] = useState('')
   const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false)
@@ -184,7 +185,7 @@ export default function OnboardingPage() {
             business_id: data?.business?.business_id ?? user.business_id,
           })
         }
-        router.push('/dashboard')
+        setCurrentStep(4)
       },
     })
   }
@@ -637,6 +638,19 @@ export default function OnboardingPage() {
                 )}
               </div>
             )}
+            {/* Step 4: WhatsApp Connection */}
+            {currentStep === 4 && onboardingResult && (
+              <div className="space-y-4">
+                <div className="text-center mb-2">
+                  <h3 className="text-[19px] font-semibold tracking-tight text-[#4B4B4B] mb-1">Connect WhatsApp</h3>
+                  <p className="text-[13px] text-[#6E6E6E]">Link your WhatsApp Business account to start messaging customers</p>
+                </div>
+                <SimpleWhatsAppConnect
+                  businessId={onboardingResult.business.business_id}
+                  onComplete={() => router.push('/dashboard')}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -645,7 +659,7 @@ export default function OnboardingPage() {
           <Button
             variant="outline"
             onClick={handleBack}
-            disabled={currentStep === 1}
+            disabled={currentStep === 1 || currentStep === 4}
             className="flex items-center gap-2 border-[#E5E5E5] text-[#4B4B4B] rounded-full shadow-none px-6"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -653,7 +667,7 @@ export default function OnboardingPage() {
           </Button>
 
           <div className="flex items-center gap-2">
-            {currentStep < totalSteps ? (
+            {currentStep < 3 && (
               <Button
                 onClick={handleNext}
                 className="bg-[#0066FF] hover:bg-[#0052CC] shadow-none flex items-center gap-2 rounded-full px-6 text-white"
@@ -661,13 +675,14 @@ export default function OnboardingPage() {
                 Continue
                 <ArrowRight className="h-4 w-4" />
               </Button>
-            ) : (
+            )}
+            {currentStep === 3 && (
               onboardingResult ? (
                 <Button
-                  onClick={() => router.push('/dashboard')}
+                  onClick={() => setCurrentStep(4)}
                   className="bg-[#0066FF] hover:bg-[#0052CC] shadow-none flex items-center gap-2 rounded-full px-6 text-white"
                 >
-                  Go to Dashboard
+                  Connect WhatsApp
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               ) : (
@@ -692,6 +707,16 @@ export default function OnboardingPage() {
                   )}
                 </Button>
               )
+            )}
+            {currentStep === 4 && (
+              <Button
+                onClick={() => router.push('/dashboard')}
+                variant="outline"
+                className="border-[#E5E5E5] text-[#4B4B4B] rounded-full shadow-none px-6"
+              >
+                Skip for now
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
             )}
           </div>
         </div>
