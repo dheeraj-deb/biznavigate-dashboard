@@ -25,8 +25,15 @@ export function useWhatsAppAccounts(businessId: string) {
         queryFn: async () => {
             const response = await whatsappApi.getAccounts(businessId);
             const body = (response as any)?.data;
-            // Axios wraps body in .data; API returns array directly
-            const data: WhatsAppAccountMapped[] = Array.isArray(body) ? body : [];
+            // Axios wraps body in .data; API returns { data: [...] }
+            const raw: any[] = Array.isArray(body?.data) ? body.data : Array.isArray(body) ? body : [];
+            const data: WhatsAppAccountMapped[] = raw.map((acc) => ({
+                ...acc,
+                display_phone_number: acc.display_phone_number ?? acc.username ?? null,
+                verified_name: acc.verified_name ?? null,
+                quality_rating: acc.quality_rating ?? null,
+                messaging_limit: acc.messaging_limit ?? null,
+            }));
             return data;
         },
         enabled: !!businessId,
@@ -43,12 +50,17 @@ export function useWhatsAppAccounts(businessId: string) {
                 (acc) => acc.gupshup_app_status === 'pending'
             ) ?? null;
 
+            const stuckAccount = data.find(
+                (acc) => acc.gupshup_app_status === 'stuck'
+            ) ?? null;
+
             return {
                 raw: data,
-                account: liveAccount ?? pendingAccount ?? data[0] ?? null,
+                account: liveAccount ?? pendingAccount ?? stuckAccount ?? data[0] ?? null,
                 isConnected: liveAccount !== null,
                 isPending: pendingAccount !== null && liveAccount === null,
                 hasError: data.some((acc) => acc.gupshup_app_status === 'error'),
+                isStuck: stuckAccount !== null && liveAccount === null,
             };
         },
     });
@@ -69,8 +81,8 @@ export function useGupshupPipelineStatus(gupshupAppId: string | null | undefined
         // Poll every 15 seconds while pending
         refetchInterval: (query) => {
             const stage = query.state.data?.whatsapp?.creationStage;
-            if (stage === 'WHATSAPP_PROVISIONING_DONE' || stage === 'ERROR') {
-                return false; // stop polling
+            if (stage === 'WHATSAPP_PROVISIONING_DONE' || stage === 'ERROR' || stage === 'INITIAL') {
+                return false; // stop polling — INITIAL means stuck on Gupshup's side
             }
             return 15_000;
         },

@@ -5,8 +5,8 @@ import { ApiResponse } from '@/types';
 
 export type QualityRating = 'GREEN' | 'YELLOW' | 'RED';
 export type MessagingLimitTier = 'TIER_NOT_SET' | 'TIER_50' | 'TIER_250' | 'TIER_1K' | 'TIER_2K' | 'TIER_10K' | 'TIER_100K';
-/** TPP onboarding provisioning state. "pending" = Gupshup still provisioning; "live" = fully active; "error" = provisioning failed */
-export type GupshupAppStatus = 'pending' | 'live' | 'error';
+/** TPP onboarding provisioning state. "pending" = Gupshup still provisioning; "live" = fully active; "error" = provisioning failed; "stuck" = pipeline never started (requires Gupshup support) */
+export type GupshupAppStatus = 'pending' | 'live' | 'error' | 'stuck';
 
 export interface WhatsAppAccount {
     account_id: string;

@@ -59,7 +59,7 @@ type EmbeddedSignupData = {
 const EMBEDDED_SIGNUP_CONFIG_ID = process.env.NEXT_PUBLIC_EMBEDDED_SIGNUP_CONFIG_ID || ''
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || ''
 
-type ConnectionStep = 'intro' | 'connecting' | 'provisioning' | 'success' | 'error'
+type ConnectionStep = 'intro' | 'connecting' | 'provisioning' | 'stuck' | 'success' | 'error'
 
 interface SimpleWhatsAppConnectProps {
   onComplete?: () => void
@@ -69,7 +69,7 @@ interface SimpleWhatsAppConnectProps {
 export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsAppConnectProps) {
   const queryClient = useQueryClient()
   const { data, refetch } = useWhatsAppAccounts(businessId)
-  const { account, isConnected, isPending } = data || { account: null, isConnected: false, isPending: false }
+  const { account, isConnected, isPending, isStuck, hasError } = data || { account: null, isConnected: false, isPending: false, isStuck: false, hasError: false }
 
   // Track provisioning state
   const { data: pipelineData } = useGupshupPipelineStatus(account?.gupshup_app_id)
@@ -86,12 +86,16 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
   useEffect(() => {
     if (isConnected && currentStep !== 'success') {
       setCurrentStep('success')
+    } else if (isStuck && currentStep !== 'stuck') {
+      setCurrentStep('stuck')
+    } else if (hasError && currentStep !== 'error') {
+      setCurrentStep('error')
     } else if (isPending && currentStep !== 'provisioning') {
       setCurrentStep('provisioning')
-    } else if (!isConnected && !isPending && (currentStep === 'success' || currentStep === 'provisioning')) {
+    } else if (!isConnected && !isPending && !isStuck && !hasError && (currentStep === 'success' || currentStep === 'provisioning' || currentStep === 'stuck')) {
       setCurrentStep('intro')
     }
-  }, [isConnected, isPending, currentStep])
+  }, [isConnected, isPending, isStuck, hasError, currentStep])
 
   // Invalidate queries when pipeline completes
   useEffect(() => {
@@ -197,10 +201,8 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
           throw new Error('Not authenticated. Please log in first.')
         }
 
-        // Sometimes the SDK returns the setup data inside the authResponse in sessionInfoVersion 3
-        const fallbackData: any = (response.authResponse as any)?.setup || {}
-
         const eventData = (eventDataRef.current || {}) as EmbeddedSignupData
+        const fallbackData = ((response.authResponse as any)?.setup || {}) as EmbeddedSignupData
 
         const payloadData = {
           waba_id: eventData.waba_id || fallbackData.waba_id || '',
@@ -248,9 +250,11 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
         response_type: 'code',
         override_default_response_type: true,
         extras: {
-          setup: {},
+          setup: {
+            solutionID:'1291932222820797'
+          },
           featureType: '',
-          sessionInfoVersion: '3',
+          sessionInfoVersion: '2',
         },
       },
     )
@@ -412,6 +416,31 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                   </span>
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {currentStep === 'stuck' && (
+        <Card className="border-yellow-200 dark:border-yellow-800 bg-white dark:bg-gray-950 shadow-xl">
+          <CardContent className="pt-10 pb-10">
+            <div className="text-center">
+              <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-950 mb-4">
+                <AlertCircle className="h-10 w-10 text-yellow-600 dark:text-yellow-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">Setup Requires Attention</h2>
+              <p className="text-gray-600 dark:text-gray-400 max-w-xl mx-auto mb-6">
+                Your WhatsApp account is linked, but our messaging partner is unable to complete the setup automatically.
+                Please contact support to resolve this.
+              </p>
+              <div className="bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4 text-left max-w-md mx-auto mb-6">
+                <p className="text-sm text-yellow-900 dark:text-yellow-100">
+                  <strong>Reference:</strong> {account?.gupshup_app_id ?? 'N/A'}
+                </p>
+              </div>
+              <Button size="lg" variant="outline" onClick={handleRetry}>
+                Try Again
+              </Button>
             </div>
           </CardContent>
         </Card>

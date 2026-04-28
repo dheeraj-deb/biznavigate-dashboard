@@ -218,7 +218,7 @@ function WhatsAppSettingsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">Message Quality</div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          {(() => {
+                          {/* {(() => {
                             const key = account.quality_rating ?? 'null'
                             const cfg = qualityRatingConfig[key as keyof typeof qualityRatingConfig] ?? qualityRatingConfig['null']
                             return (
@@ -226,7 +226,7 @@ function WhatsAppSettingsPage() {
                                 {cfg.label}
                               </Badge>
                             )
-                          })()}
+                          })()} */}
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                           Quality rating from Meta — affects messaging limits
