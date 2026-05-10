@@ -74,13 +74,6 @@ export const navigationConfig: NavigationConfig = {
         },
         { name: 'Products', href: '/inventory/products', icon: 'Package', businessTypes: ['products'] },
         {
-          name: 'Add Item',
-          displayName: { hospitality: 'Add Property', events: 'Add Event', products: 'Add Product' },
-          href: '/inventory/add',
-          icon: 'Plus',
-          businessTypes: ['hospitality', 'events', 'products'],
-        },
-        {
           name: 'Categories',
           displayName: { hospitality: 'Room Categories', events: 'Event Categories', products: 'Product Categories' },
           href: '/inventory/categories',
@@ -173,7 +166,7 @@ export const navigationConfig: NavigationConfig = {
         { name: 'Instagram', href: '/settings/instagram', icon: 'Instagram' },
         { name: 'Integrations', href: '/settings/integrations', icon: 'Plug' },
         { name: 'Roles & Permissions', href: '/settings/roles', icon: 'Shield' },
-        { name: 'Billing & Plan', href: '/settings/billing', icon: 'CreditCard' },
+        { name: 'Billing & Plan', href: '/billing', icon: 'CreditCard' },
       ],
     },
   ],

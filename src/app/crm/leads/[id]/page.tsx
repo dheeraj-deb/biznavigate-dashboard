@@ -1,9 +1,10 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { apiClient } from '@/lib/api-client'
 import toast from 'react-hot-toast'
+import { useAuthStore } from '@/store/auth-store'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -16,6 +17,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
   ArrowLeft,
   Phone,
   MessageCircle,
@@ -27,11 +35,13 @@ import {
   MessageSquare,
   Loader2,
   CalendarDays,
-  Users,
   Tent,
   ShoppingBag,
   Hotel,
   UserCheck,
+  ShoppingCart,
+  RefreshCw,
+  Bot,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -53,6 +63,22 @@ interface LeadDetail {
   follow_up_date: string
   conversation_id: string | undefined
   created_at: string
+}
+
+interface ConversationMessage {
+  id: string
+  role: 'user' | 'assistant' | 'agent'
+  content: string
+  timestamp: string
+}
+
+interface CatalogItem {
+  id: string
+  item_id?: string
+  name: string
+  price: number
+  base_price?: number | string
+  item_type?: string
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -93,6 +119,19 @@ function normalizeLead(raw: any): LeadDetail {
     follow_up_date: raw.follow_up_date ?? '',
     conversation_id: raw.conversation_id ?? undefined,
     created_at: raw.created_at ?? new Date().toISOString(),
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeCatalogItem(raw: any): CatalogItem {
+  const id = raw.item_id ?? raw.id ?? raw.product_id ?? ''
+  const rawPrice = raw.base_price ?? raw.price ?? 0
+  return {
+    id,
+    item_id: id,
+    name: raw.name ?? 'Unnamed item',
+    price: typeof rawPrice === 'string' ? parseFloat(rawPrice) || 0 : rawPrice,
+    item_type: raw.item_type,
   }
 }
 
@@ -197,12 +236,310 @@ function EnquiryDetails({ lead }: { lead: LeadDetail }) {
   )
 }
 
+// ── WhatsApp Conversation Thread ──────────────────────────────────────────────
+
+function ConversationThread({ lead }: { lead: LeadDetail }) {
+  const [messages, setMessages] = useState<ConversationMessage[]>([])
+  const [loading, setLoading] = useState(true)
+  const [convId, setConvId] = useState<string | null>(lead.conversation_id ?? null)
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  const loadMessages = useCallback(async (cid: string) => {
+    try {
+      const res = await apiClient.get(`/inbox/conversations/${cid}/messages`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = (res as any).data
+      const raw: any[] = Array.isArray(d) ? d : (d?.data ?? d?.messages ?? [])
+      setMessages(raw as ConversationMessage[])
+    } catch {
+      // silently fail — fallback UI shown
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    async function init() {
+      setLoading(true)
+      try {
+        let cid = lead.conversation_id ?? null
+
+        if (!cid) {
+          // Look up conversation by lead_id
+          const res = await apiClient.get('/inbox/conversations', { params: { lead_id: lead.id } })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const d = (res as any).data
+          const list: any[] = Array.isArray(d) ? d : (d?.data ?? d?.conversations ?? [])
+          cid = list[0]?.id ?? list[0]?.conversation_id ?? null
+          if (cid) setConvId(cid)
+        }
+
+        if (cid && !cancelled) await loadMessages(cid)
+      } catch {
+        // no conversation found
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    init()
+    return () => { cancelled = true }
+  }, [lead.id, lead.conversation_id, loadMessages])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  function formatMsgTime(ts: string) {
+    try {
+      return new Date(ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+    } catch { return '' }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-48">
+        <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+      </div>
+    )
+  }
+
+  if (messages.length === 0) {
+    return (
+      <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 min-h-[240px] flex flex-col items-center justify-center gap-2 text-center">
+        <MessageSquare className="h-8 w-8 text-gray-300" />
+        <p className="text-sm text-gray-400">No conversation history found.</p>
+        {lead.phone && (
+          <button
+            onClick={() => window.open(`https://wa.me/${lead.phone.replace(/\D/g, '')}`, '_blank')}
+            className="text-xs text-[#25D366] hover:underline mt-1"
+          >
+            Start conversation on WhatsApp →
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="bg-[#e5ddd5] dark:bg-gray-900 rounded-xl overflow-hidden">
+        {/* WA-style header */}
+        <div className="bg-[#075e54] text-white px-3 py-2 flex items-center gap-2">
+          <div className="h-7 w-7 rounded-full bg-[#128c7e] flex items-center justify-center text-xs font-bold">
+            {lead.first_name?.[0]?.toUpperCase() ?? 'G'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate">{lead.name}</p>
+            <p className="text-[10px] text-green-200 truncate">{lead.phone}</p>
+          </div>
+          {convId && (
+            <button
+              onClick={() => loadMessages(convId)}
+              className="text-green-200 hover:text-white"
+              title="Refresh"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Messages */}
+        <div className="flex flex-col gap-1.5 p-3 max-h-72 overflow-y-auto">
+          {messages.map((msg) => {
+            const isUser = msg.role === 'user'
+            const isAgent = msg.role === 'agent'
+            return (
+              <div key={msg.id} className={`flex items-end gap-1.5 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+                {!isUser && (
+                  <div className={`h-6 w-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 mb-0.5 ${isAgent ? 'bg-blue-500' : 'bg-[#25D366]'}`}>
+                    {isAgent ? 'A' : <Bot className="h-3 w-3" />}
+                  </div>
+                )}
+                <div className={`max-w-[75%] rounded-xl px-3 py-2 shadow-sm ${
+                  isUser
+                    ? 'bg-[#dcf8c6] dark:bg-green-900/40 rounded-br-none'
+                    : 'bg-white dark:bg-gray-800 rounded-bl-none'
+                }`}>
+                  <p className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">{msg.content}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5 text-right">{formatMsgTime(msg.timestamp)}</p>
+                </div>
+              </div>
+            )
+          })}
+          <div ref={bottomRef} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Create Booking Modal ──────────────────────────────────────────────────────
+
+function CreateBookingModal({
+  open,
+  onClose,
+  lead,
+  businessId,
+  onSuccess,
+}: {
+  open: boolean
+  onClose: () => void
+  lead: LeadDetail
+  businessId: string
+  onSuccess: () => void
+}) {
+  const [items, setItems] = useState<CatalogItem[]>([])
+  const [loadingItems, setLoadingItems] = useState(false)
+  const [selectedId, setSelectedId] = useState('')
+  const [qty, setQty] = useState(1)
+  const [unitPrice, setUnitPrice] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setLoadingItems(true)
+    apiClient.get('/catalog', { params: { businessId, limit: 100 } })
+      .then((res) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const d = (res as any).data
+        const raw: any[] = Array.isArray(d) ? d : (d?.data ?? d?.items ?? [])
+        setItems(raw.map(normalizeCatalogItem))
+      })
+      .catch(() => toast.error('Failed to load catalog'))
+      .finally(() => setLoadingItems(false))
+  }, [open, businessId])
+
+  function handleItemChange(id: string) {
+    setSelectedId(id)
+    const item = items.find((i) => i.id === id)
+    if (item) setUnitPrice(item.price)
+  }
+
+  async function handleSubmit() {
+    if (!selectedId) { toast.error('Select an item'); return }
+    if (qty < 1) { toast.error('Quantity must be at least 1'); return }
+    if (unitPrice <= 0) { toast.error('Enter a valid price'); return }
+
+    setSubmitting(true)
+    try {
+      const total = qty * unitPrice
+      await apiClient.post('/orders', {
+        business_id: businessId,
+        lead_id: lead.id,
+        items: [{ item_id: selectedId, quantity: qty, unit_price: unitPrice }],
+        total_amount: total,
+        currency: 'INR',
+      })
+      toast.success('Booking created!')
+      onSuccess()
+      onClose()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to create booking')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const selectedItem = items.find((i) => i.id === selectedId)
+  const total = qty * unitPrice
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Create Booking — {lead.name}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* Item selector */}
+          <div>
+            <label className="text-xs text-gray-500 mb-1.5 block font-medium">Select item</label>
+            {loadingItems ? (
+              <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
+                <Loader2 className="h-4 w-4 animate-spin" />Loading catalog...
+              </div>
+            ) : (
+              <Select value={selectedId} onValueChange={handleItemChange}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="Choose a product or service..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {items.length === 0 && (
+                    <SelectItem value="__empty" disabled>No items found</SelectItem>
+                  )}
+                  {items.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name} — ₹{item.price.toLocaleString('en-IN')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* Quantity + Price */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-gray-500 mb-1.5 block font-medium">Quantity</label>
+              <Input
+                type="number"
+                min={1}
+                value={qty}
+                onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1.5 block font-medium">Unit price (₹)</label>
+              <Input
+                type="number"
+                min={0}
+                step={0.01}
+                value={unitPrice}
+                onChange={(e) => setUnitPrice(parseFloat(e.target.value) || 0)}
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Summary */}
+          {selectedItem && (
+            <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-sm space-y-1">
+              <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                <span>{selectedItem.name} × {qty}</span>
+                <span>₹{(unitPrice * qty).toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between font-semibold text-gray-900 dark:text-white border-t pt-1 mt-1">
+                <span>Total</span>
+                <span>₹{total.toLocaleString('en-IN')}</span>
+              </div>
+              <p className="text-xs text-gray-400">Lead: {lead.name} · {lead.phone}</p>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting || !selectedId}
+            className="bg-[#0066FF] hover:bg-[#0052CC] text-white"
+          >
+            {submitting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Creating...</> : 'Create Booking'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function LeadDetailPage() {
   const params = useParams()
   const router = useRouter()
   const id = params?.id as string
+  const { user } = useAuthStore()
+  const businessId = user?.business_id ?? ''
 
   const [lead, setLead] = useState<LeadDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -211,11 +548,12 @@ export default function LeadDetailPage() {
   const [editAssignedTo, setEditAssignedTo] = useState('')
   const [editFollowUpDate, setEditFollowUpDate] = useState('')
   const [saving, setSaving] = useState(false)
-  const [markingWon, setMarkingWon] = useState(false)
+  const [markingConverted, setMarkingConverted] = useState(false)
   const [markingLost, setMarkingLost] = useState(false)
   const [showAssignInput, setShowAssignInput] = useState(false)
   const [agentName, setAgentName] = useState('')
   const [assigning, setAssigning] = useState(false)
+  const [showBookingModal, setShowBookingModal] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -240,30 +578,30 @@ export default function LeadDetailPage() {
     setEditStatus(newStatus)
     setLead((prev) => prev ? { ...prev, status: newStatus } : prev)
     try {
-      await apiClient.patch(`/leads/${id}/status`, { status: newStatus })
+      await apiClient.patch(`/leads/${id}`, { status: newStatus })
     } catch {
       toast.error('Failed to update status')
     }
   }
 
-  const handleMarkWon = async () => {
-    setMarkingWon(true)
+  const handleMarkConverted = async () => {
+    setMarkingConverted(true)
     try {
-      await apiClient.patch(`/leads/${id}/status`, { status: 'won' })
-      setLead((prev) => prev ? { ...prev, status: 'won' } : prev)
-      setEditStatus('won')
-      toast.success('Lead marked as Booked ✓')
+      await apiClient.patch(`/leads/${id}`, { status: 'converted' })
+      setLead((prev) => prev ? { ...prev, status: 'converted' } : prev)
+      setEditStatus('converted')
+      toast.success(lead?.intent_type === 'product' ? 'Marked as Sold ✓' : 'Lead converted ✓')
     } catch {
       toast.error('Failed to update')
     } finally {
-      setMarkingWon(false)
+      setMarkingConverted(false)
     }
   }
 
   const handleMarkLost = async () => {
     setMarkingLost(true)
     try {
-      await apiClient.patch(`/leads/${id}/status`, { status: 'lost' })
+      await apiClient.patch(`/leads/${id}`, { status: 'lost' })
       setLead((prev) => prev ? { ...prev, status: 'lost' } : prev)
       setEditStatus('lost')
       toast.success('Lead marked as Lost')
@@ -278,7 +616,7 @@ export default function LeadDetailPage() {
     if (!agentName.trim()) return
     setAssigning(true)
     try {
-      await apiClient.patch(`/leads/${id}/assign`, { assigned_to: agentName })
+      await apiClient.patch(`/leads/${id}`, { assigned_to: agentName })
       setEditAssignedTo(agentName)
       setLead((prev) => prev ? { ...prev, assigned_to: agentName } : prev)
       toast.success(`Assigned to ${agentName}`)
@@ -296,10 +634,10 @@ export default function LeadDetailPage() {
     try {
       const calls: Promise<unknown>[] = []
       if (editNotes) {
-        calls.push(apiClient.post(`/leads/${id}/notes`, { text: editNotes }))
+        calls.push(apiClient.post(`/leads/${id}/events`, { type: 'note', description: editNotes }))
       }
       if (editAssignedTo) {
-        calls.push(apiClient.patch(`/leads/${id}/assign`, { assigned_to: editAssignedTo }))
+        calls.push(apiClient.patch(`/leads/${id}`, { assigned_to: editAssignedTo }))
       }
       if (editFollowUpDate) {
         calls.push(apiClient.post(`/leads/${id}/followups`, { scheduled_at: editFollowUpDate }))
@@ -311,14 +649,6 @@ export default function LeadDetailPage() {
       toast.error('Failed to save notes')
     } finally {
       setSaving(false)
-    }
-  }
-
-  const handleViewConversation = () => {
-    if (lead?.conversation_id) {
-      router.push(`/crm/inbox?conversation=${lead.conversation_id}`)
-    } else {
-      router.push(`/crm/inbox?phone=${encodeURIComponent(lead?.phone ?? '')}`)
     }
   }
 
@@ -373,6 +703,14 @@ export default function LeadDetailPage() {
               <Clock className="h-3.5 w-3.5 inline mr-1" />{timeAgo(lead.created_at)} via {lead.source}
             </p>
           </div>
+          {/* Create Booking CTA in header */}
+          <Button
+            className="bg-[#0066FF] hover:bg-[#0052CC] text-white gap-2 flex-shrink-0"
+            onClick={() => setShowBookingModal(true)}
+          >
+            <ShoppingCart className="h-4 w-4" />
+            Create Booking
+          </Button>
         </div>
 
         {/* Two column layout */}
@@ -460,66 +798,23 @@ export default function LeadDetailPage() {
             </Card>
           </div>
 
-          {/* RIGHT — Conversation */}
+          {/* RIGHT — WhatsApp Conversation + Quick Actions */}
           <div className="lg:col-span-2 space-y-4">
+
+            {/* Inline WhatsApp Thread */}
             <Card className="p-5">
               <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">
                 💬 WhatsApp Conversation
               </div>
-
-              {/* Conversation preview */}
-              <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 min-h-[280px] flex flex-col gap-3">
-                {/* Bot greeting */}
-                <div className="flex items-start gap-2">
-                  <div className="h-7 w-7 rounded-full bg-[#25D366] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">B</div>
-                  <div className="bg-white dark:bg-gray-800 rounded-xl rounded-tl-none px-3 py-2 text-sm shadow-sm max-w-[80%]">
-                    <p>Hi! Welcome to {lead.intent_type === 'resort' ? 'our resort' : lead.intent_type === 'camping' ? 'our camping site' : 'our store'}. How can I help you?</p>
-                    <p className="text-[10px] text-gray-400 mt-1 text-right">Bot</p>
-                  </div>
-                </div>
-
-                {/* Guest enquiry message — built from extracted_entities */}
-                <div className="flex items-start gap-2 flex-row-reverse">
-                  <div className="h-7 w-7 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                    {lead.first_name?.[0]?.toUpperCase() ?? 'G'}
-                  </div>
-                  <div className="bg-[#dcf8c6] dark:bg-green-900/30 rounded-xl rounded-tr-none px-3 py-2 text-sm shadow-sm max-w-[80%]">
-                    {(() => {
-                      const e = lead.extracted_entities as Record<string, string | number | null | undefined>
-                      if (lead.intent_type === 'resort' || lead.intent_type === 'camping') {
-                        const parts: string[] = []
-                        if (e.room_preference) parts.push(`I'm looking for a ${String(e.room_preference)}`)
-                        if (e.check_in) parts.push(`from ${formatDate(String(e.check_in))}`)
-                        if (e.check_out) parts.push(`to ${formatDate(String(e.check_out))}`)
-                        if (e.guest_count) parts.push(`for ${String(e.guest_count)} guests`)
-                        if (e.budget) parts.push(`budget around ₹${String(e.budget)}`)
-                        return <p>{parts.length > 0 ? parts.join(', ') + '.' : "I'd like to make an enquiry."}</p>
-                      }
-                      if (lead.intent_type === 'product') {
-                        const parts: string[] = []
-                        if (e.product_name) parts.push(`I need ${String(e.product_name)}`)
-                        if (e.quantity) parts.push(`qty ${String(e.quantity)}`)
-                        if (e.delivery_city) parts.push(`deliver to ${String(e.delivery_city)}`)
-                        if (e.budget) parts.push(`budget ₹${String(e.budget)}`)
-                        return <p>{parts.length > 0 ? parts.join(', ') + '.' : "I'd like to place an order."}</p>
-                      }
-                      return <p>{"I have an enquiry I'd like help with."}</p>
-                    })()}
-                    <p className="text-[10px] text-gray-400 mt-1 text-right">{lead.first_name || 'Guest'}</p>
-                  </div>
-                </div>
-
-                <div className="flex-1 flex items-end justify-center pb-2">
-                  <button onClick={handleViewConversation} className="text-xs text-[#0066FF] hover:underline">
-                    View full conversation in inbox →
-                  </button>
-                </div>
-              </div>
-
+              <ConversationThread lead={lead} />
               <Button
                 variant="outline"
-                className="w-full mt-3 gap-2"
-                onClick={handleViewConversation}
+                className="w-full mt-3 gap-2 text-sm"
+                onClick={() => router.push(
+                  lead.conversation_id
+                    ? `/crm/inbox?conversation=${lead.conversation_id}`
+                    : `/crm/inbox?phone=${encodeURIComponent(lead.phone ?? '')}`
+                )}
               >
                 <MessageSquare className="h-4 w-4" />Open Full Conversation
               </Button>
@@ -529,6 +824,12 @@ export default function LeadDetailPage() {
             <Card className="p-5">
               <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Quick Actions</div>
               <div className="space-y-2">
+                <Button
+                  className="w-full bg-[#0066FF] hover:bg-[#0052CC] text-white gap-2"
+                  onClick={() => setShowBookingModal(true)}
+                >
+                  <ShoppingCart className="h-4 w-4" />Create Booking
+                </Button>
                 <Button
                   className="w-full bg-[#25D366] hover:bg-[#1dbd5a] text-white gap-2"
                   onClick={() => window.open(`https://wa.me/${lead.phone.replace(/\D/g, '')}`, '_blank')}
@@ -553,11 +854,11 @@ export default function LeadDetailPage() {
             <span className="text-sm text-gray-500 font-medium">Move lead to:</span>
             <Button
               className="bg-green-600 hover:bg-green-700 text-white gap-2"
-              onClick={handleMarkWon}
-              disabled={markingWon || lead.status === 'won'}
+              onClick={handleMarkConverted}
+              disabled={markingConverted || lead.status === 'converted'}
             >
-              {markingWon ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-              {lead.intent_type === 'product' ? 'Mark as Sold' : 'Mark as Booked'}
+              {markingConverted ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              {lead.intent_type === 'product' ? 'Mark as Sold' : 'Mark as Converted'}
             </Button>
             <Button
               variant="outline"
@@ -589,13 +890,21 @@ export default function LeadDetailPage() {
                   <UserCheck className="h-4 w-4" />Assign to Agent
                 </Button>
               )}
-              <Button variant="outline" className="gap-2" onClick={handleViewConversation}>
-                <MessageSquare className="h-4 w-4" />View in Inbox
-              </Button>
             </div>
           </div>
         </Card>
       </div>
+
+      {/* Create Booking Modal */}
+      {lead && (
+        <CreateBookingModal
+          open={showBookingModal}
+          onClose={() => setShowBookingModal(false)}
+          lead={lead}
+          businessId={businessId}
+          onSuccess={() => handleMarkConverted()}
+        />
+      )}
     </DashboardLayout>
   )
 }

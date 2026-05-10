@@ -111,10 +111,10 @@ export function LeadIntelligenceSection() {
 
   // ── Data fetching via dedicated dashboard endpoints ──
   // businessId is passed as a hint; server also infers it from the Bearer token
-  const dailyOverviewQuery = useDailyOverview(businessId)
-  const needsAttentionQuery = useNeedsAttention(businessId)
-  const channelAnalyticsQuery = useChannelAnalytics(businessId)
-  const recentLeadsQuery = useLeads({ intent_type: intentType, limit: 6, sortBy: 'created_at', sortOrder: 'desc', businessId })
+  const dailyOverviewQuery = useDailyOverview()
+  const needsAttentionQuery = useNeedsAttention()
+  const channelAnalyticsQuery = useChannelAnalytics()
+  const recentLeadsQuery = useLeads({ intent_type: intentType, limit: 6 })
 
   const loading = dailyOverviewQuery.isLoading || needsAttentionQuery.isLoading || channelAnalyticsQuery.isLoading
 

@@ -120,7 +120,7 @@ function normalizeLead(raw: any): Lead {
   }
 }
 
-function isPendingLead(l: Lead) { return !['booked', 'won', 'lost'].includes(l.status) }
+function isPendingLead(l: Lead) { return !['converted', 'lost'].includes(l.status) }
 
 function getDateParams(range: DateRange): { from: string; to: string } {
   const now = new Date()
@@ -328,9 +328,10 @@ export default function LeadsPage() {
       .then((res) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const d = res.data as any
+        const payload = d?.data
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const raw: any[] = d?.data ?? d?.leads ?? (Array.isArray(d) ? d : [])
-        const meta = d?.meta ?? {}
+        const raw: any[] = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : (payload?.leads ?? (Array.isArray(d) ? d : [])))
+        const meta = Array.isArray(payload) ? {} : (payload?.meta ?? d?.meta ?? {})
         setLeads(raw.map(normalizeLead))
         setTotalPages(meta.totalPages ?? 1)
         setTotal(meta.total ?? raw.length)
@@ -346,8 +347,8 @@ export default function LeadsPage() {
   const filtered = leads.filter((l) => quickFilter === 'pending' ? isPendingLead(l) : true)
 
   // Counts from API stats
-  const pendingCount = (stats?.by_status ?? []).filter(s => !['booked', 'won', 'lost'].includes(s.status)).reduce((a, s) => a + s.count, 0)
-  const bookedCount = (stats?.by_status ?? []).filter(s => ['booked', 'won'].includes(s.status)).reduce((a, s) => a + s.count, 0)
+  const pendingCount = (stats?.by_status ?? []).filter(s => !['converted', 'lost'].includes(s.status)).reduce((a, s) => a + s.count, 0)
+  const bookedCount = (stats?.by_status ?? []).find(s => s.status === 'converted')?.count ?? 0
   const lostCount = (stats?.by_status ?? []).find(s => s.status === 'lost')?.count ?? 0
 
   // Selection helpers

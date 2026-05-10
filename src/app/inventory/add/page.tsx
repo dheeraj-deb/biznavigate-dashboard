@@ -556,21 +556,26 @@ export default function AddInventoryPage() {
 
         const serviceType = isHospitality ? accommodationType : bizType
 
-        await apiClient.post('/inventory/services', {
+        await apiClient.post('/catalog', {
           name,
           description: description || undefined,
-          type: serviceType,
+          item_type: isHospitality ? 'accommodation' : 'activity',
           base_price: basePrice,
-          capacity: serviceCapacity,
-          total_units: totalUnits,
-          check_in_time: checkInTime || undefined,
-          check_out_time: checkOutTime || undefined,
-          cancellation_policy: cancellationPolicy || undefined,
-          tax_percentage: taxPercentage ? parseFloat(taxPercentage) : undefined,
-          extra_guest_charge: extraGuestCharge ? parseFloat(extraGuestCharge) : undefined,
-          max_adults: maxAdults ? parseInt(maxAdults) : undefined,
+          stock_quantity: totalUnits,
+          is_active: isActive,
           image_urls: imageUrls,
-          attributes,
+          attributes: {
+            ...attributes,
+            type: serviceType,
+            capacity: serviceCapacity,
+            total_units: totalUnits,
+            check_in_time: checkInTime || undefined,
+            check_out_time: checkOutTime || undefined,
+            cancellation_policy: cancellationPolicy || undefined,
+            tax_percentage: taxPercentage ? parseFloat(taxPercentage) : undefined,
+            extra_guest_charge: extraGuestCharge ? parseFloat(extraGuestCharge) : undefined,
+            max_adults: maxAdults ? parseInt(maxAdults) : undefined,
+          },
         })
         toast.success('Service added to inventory! 🎉', {
           style: { borderRadius: '12px', background: '#1e293b', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px' },
@@ -581,12 +586,13 @@ export default function AddInventoryPage() {
         const payload: Record<string, unknown> = {
           name,
           description: description || null,
-          price: parseFloat(price),
+          base_price: parseFloat(price),
           brand: brand || null,
           category: category || null,
           track_inventory: trackInventory,
           stock_quantity: trackInventory && stockQty ? parseInt(stockQty) : 0,
           is_active: isActive,
+          attributes: { brand: brand || undefined, category: category || undefined, condition },
         }
         if (imageUrls.length > 0) {
           payload.primary_image_url = imageUrls[primaryIndex]

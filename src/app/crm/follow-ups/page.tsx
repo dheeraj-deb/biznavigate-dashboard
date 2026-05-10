@@ -192,7 +192,7 @@ export default function FollowUpsPage() {
     if (!completeTarget) return
     setCompleting(true)
     try {
-      await apiClient.patch(`/leads/followups/${completeTarget.followup_id}/done`, {
+      await apiClient.patch(`/leads/${completeTarget.id}/followups/${completeTarget.followup_id}/done`, {
         note: completionNotes || undefined,
       })
       setLeads((prev) => prev.filter((l) => l.followup_id !== completeTarget.followup_id))
@@ -208,7 +208,7 @@ export default function FollowUpsPage() {
 
   const handleRemoveFollowUp = async (lead: FollowUpLead) => {
     try {
-      await apiClient.patch(`/leads/followups/${lead.followup_id}/done`)
+      await apiClient.patch(`/leads/${lead.id}/followups/${lead.followup_id}/done`)
       setLeads((prev) => prev.filter((l) => l.followup_id !== lead.followup_id))
       toast.success('Follow-up removed')
     } catch {

@@ -219,7 +219,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
                       <p className="text-sm text-muted-foreground">Created Date</p>
                       <p className="text-sm font-medium flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
-                        {formatDate(lead.created_at)}
+                        {lead.created_at ? formatDate(lead.created_at) : '—'}
                       </p>
                     </div>
                   </div>

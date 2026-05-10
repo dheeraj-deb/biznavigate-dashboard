@@ -3,18 +3,13 @@ import { apiClient } from '@/lib/api-client'
 import { Lead } from '@/types'
 import toast from 'react-hot-toast'
 
-// Types matching backend
 interface LeadFilters {
-  businessId?: string
-  tenantId?: string
   status?: string
   channel?: string
   source?: string
   intent_type?: string
   search?: string
-  assignedTo?: string
-  sortBy?: string
-  sortOrder?: 'asc' | 'desc'
+  assigned_to?: string
   page?: number
   limit?: number
 }
@@ -29,85 +24,86 @@ interface LeadStats {
   by_quality: Array<{ quality: string; count: number }>
 }
 
-// Get all leads with filters
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function unwrap(res: any) {
+  return res.data?.data ?? res.data
+}
+
 export function useLeads(filters?: LeadFilters) {
   return useQuery({
     queryKey: ['leads', filters],
     queryFn: async () => {
       const response = await apiClient.get('/leads', { params: filters })
-      return response.data?.data || { data: [], meta: { total: 0 } }
+      return response.data || { data: [], meta: { total: 0 } }
     },
     retry: 1,
     retryDelay: 1000,
   })
 }
 
-// Get single lead by ID
 export function useLead(id: string) {
   return useQuery({
     queryKey: ['lead', id],
     queryFn: async () => {
       const response = await apiClient.get(`/leads/${id}`)
-      return response.data?.data
+      return unwrap(response) as Lead
     },
     enabled: !!id,
   })
 }
 
-// Get lead timeline
 export function useLeadTimeline(id: string) {
   return useQuery({
     queryKey: ['lead-timeline', id],
     queryFn: async () => {
       const response = await apiClient.get(`/leads/${id}/events`)
-      return response.data?.data || []
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (unwrap(response) ?? []) as any[]
     },
     enabled: !!id,
   })
 }
 
-// Get lead statistics
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useLeadStats(filters?: any) {
   return useQuery({
     queryKey: ['lead-stats', filters],
     queryFn: async () => {
-      const response = await apiClient.get('/leads/stats/overview', { params: filters })
-      return response.data?.data as LeadStats
+      const response = await apiClient.get('/leads/dashboard', { params: filters })
+      return unwrap(response) as LeadStats
     },
     retry: 1,
     retryDelay: 1000,
   })
 }
 
-// Create new lead
 export function useCreateLead() {
   const queryClient = useQueryClient()
-
   return useMutation({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mutationFn: async (data: any) => {
       const response = await apiClient.post('/leads', data)
-      return response.data?.data
+      return unwrap(response)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
       queryClient.invalidateQueries({ queryKey: ['lead-stats'] })
       toast.success('Lead created successfully')
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
-      const message = error.response?.data?.message || error.message || 'Failed to create lead'
-      toast.error(message)
+      toast.error(error.response?.data?.message || error.message || 'Failed to create lead')
     },
   })
 }
 
-// Update lead
 export function useUpdateLead() {
   const queryClient = useQueryClient()
-
   return useMutation({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const response = await apiClient.patch(`/leads/${id}/context`, data)
-      return response.data?.data
+      const response = await apiClient.patch(`/leads/${id}`, data)
+      return unwrap(response)
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
@@ -115,21 +111,20 @@ export function useUpdateLead() {
       queryClient.invalidateQueries({ queryKey: ['lead-stats'] })
       toast.success('Lead updated successfully')
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
-      const message = error.response?.data?.message || error.message || 'Failed to update lead'
-      toast.error(message)
+      toast.error(error.response?.data?.message || error.message || 'Failed to update lead')
     },
   })
 }
 
-// Update lead status
 export function useUpdateLeadStatus() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({ id, status, notes }: { id: string; status: string; notes?: string }) => {
-      const response = await apiClient.patch(`/leads/${id}/status`, { status, notes })
-      return response.data?.data
+    mutationFn: async ({ id, status }: { id: string; status: string; notes?: string }) => {
+      // Status update goes through PATCH /leads/:id
+      const response = await apiClient.patch(`/leads/${id}`, { status })
+      return unwrap(response)
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
@@ -138,21 +133,19 @@ export function useUpdateLeadStatus() {
       queryClient.invalidateQueries({ queryKey: ['lead-timeline', variables.id] })
       toast.success('Lead status updated')
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
-      const message = error.response?.data?.message || error.message || 'Failed to update status'
-      toast.error(message)
+      toast.error(error.response?.data?.message || error.message || 'Failed to update status')
     },
   })
 }
 
-// Assign lead to user
 export function useAssignLead() {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: async ({ id, assigned_to }: { id: string; assigned_to: string }) => {
-      const response = await apiClient.patch(`/leads/${id}/assign`, { assigned_to })
-      return response.data?.data
+      const response = await apiClient.patch(`/leads/${id}`, { assigned_to })
+      return unwrap(response)
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
@@ -160,40 +153,36 @@ export function useAssignLead() {
       queryClient.invalidateQueries({ queryKey: ['lead-timeline', variables.id] })
       toast.success('Lead assigned successfully')
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
-      const message = error.response?.data?.message || error.message || 'Failed to assign lead'
-      toast.error(message)
+      toast.error(error.response?.data?.message || error.message || 'Failed to assign lead')
     },
   })
 }
 
-// Convert lead to customer — maps to PATCH /leads/:id/status { status: 'won' }
 export function useConvertLead() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({ id, notes }: { id: string; conversion_value?: number; notes?: string }) => {
-      const response = await apiClient.patch(`/leads/${id}/status`, { status: 'won', notes })
-      return response.data?.data
+    mutationFn: async ({ id }: { id: string; conversion_value?: number; notes?: string }) => {
+      const response = await apiClient.patch(`/leads/${id}`, { status: 'converted' })
+      return unwrap(response)
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
       queryClient.invalidateQueries({ queryKey: ['lead', variables.id] })
       queryClient.invalidateQueries({ queryKey: ['lead-stats'] })
       queryClient.invalidateQueries({ queryKey: ['lead-timeline', variables.id] })
-      toast.success('Lead converted to customer!')
+      toast.success('Lead converted!')
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
-      const message = error.response?.data?.message || error.message || 'Failed to convert lead'
-      toast.error(message)
+      toast.error(error.response?.data?.message || error.message || 'Failed to convert lead')
     },
   })
 }
 
-// Delete lead
 export function useDeleteLead() {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: async (id: string) => {
       await apiClient.delete(`/leads/${id}`)
@@ -203,61 +192,38 @@ export function useDeleteLead() {
       queryClient.invalidateQueries({ queryKey: ['lead-stats'] })
       toast.success('Lead deleted successfully')
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
-      const message = error.response?.data?.message || error.message || 'Failed to delete lead'
-      toast.error(message)
+      toast.error(error.response?.data?.message || error.message || 'Failed to delete lead')
     },
   })
 }
 
-// Add note to lead
+// Notes are timeline events — POST /leads/:id/events { type: 'note', description }
 export function useAddLeadNote() {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: async ({ id, text }: { id: string; text: string }) => {
-      const response = await apiClient.post(`/leads/${id}/notes`, { text })
-      return response.data?.data
+      const response = await apiClient.post(`/leads/${id}/events`, { type: 'note', description: text })
+      return unwrap(response)
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['lead-timeline', variables.id] })
       toast.success('Note added')
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
-      const message = error.response?.data?.message || error.message || 'Failed to add note'
-      toast.error(message)
+      toast.error(error.response?.data?.message || error.message || 'Failed to add note')
     },
   })
 }
 
-// Update lead tags
-export function useUpdateLeadTags() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ id, tags }: { id: string; tags: string[] }) => {
-      const response = await apiClient.patch(`/leads/${id}/tags`, { tags })
-      return response.data?.data
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['lead', variables.id] })
-      toast.success('Tags updated')
-    },
-    onError: (error: any) => {
-      const message = error.response?.data?.message || error.message || 'Failed to update tags'
-      toast.error(message)
-    },
-  })
-}
-
-// Create followup for lead
 export function useCreateFollowup() {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: async ({ id, note, scheduled_at, assigned_to }: { id: string; note?: string; scheduled_at?: string; assigned_to?: string }) => {
       const response = await apiClient.post(`/leads/${id}/followups`, { note, scheduled_at, assigned_to })
-      return response.data?.data
+      return unwrap(response)
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['lead', variables.id] })
@@ -265,42 +231,40 @@ export function useCreateFollowup() {
       queryClient.invalidateQueries({ queryKey: ['dashboard-followup-queue'] })
       toast.success('Follow-up scheduled')
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
-      const message = error.response?.data?.message || error.message || 'Failed to schedule follow-up'
-      toast.error(message)
+      toast.error(error.response?.data?.message || error.message || 'Failed to schedule follow-up')
     },
   })
 }
 
-// Mark followup as done
+// PATCH /leads/:leadId/followups/:followupId/done
 export function useMarkFollowupDone() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async (followupId: string) => {
-      const response = await apiClient.patch(`/leads/followups/${followupId}/done`)
-      return response.data?.data
+    mutationFn: async ({ leadId, followupId }: { leadId: string; followupId: string }) => {
+      const response = await apiClient.patch(`/leads/${leadId}/followups/${followupId}/done`)
+      return unwrap(response)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard-followup-queue'] })
       queryClient.invalidateQueries({ queryKey: ['leads'] })
       toast.success('Follow-up marked as done')
     },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (error: any) => {
-      const message = error.response?.data?.message || error.message || 'Failed to mark follow-up as done'
-      toast.error(message)
+      toast.error(error.response?.data?.message || error.message || 'Failed to mark follow-up as done')
     },
   })
 }
 
-// Dashboard: Daily Overview — GET /leads/dashboard/daily-overview
-export function useDailyOverview(businessId?: string) {
+// ── Dashboard sub-hooks ───────────────────────────────────────────────────────
+
+export function useDailyOverview() {
   return useQuery({
-    queryKey: ['dashboard-daily-overview', businessId],
+    queryKey: ['dashboard-daily-overview'],
     queryFn: async () => {
-      const params = businessId ? { businessId } : undefined
-      const response = await apiClient.get('/leads/dashboard/daily-overview', { params })
-      // Handle both { data: {...} } and { data: { data: {...} } } shapes
+      const response = await apiClient.get('/leads/dashboard/daily-overview')
       return response.data?.data ?? response.data
     },
     staleTime: 60000,
@@ -308,14 +272,13 @@ export function useDailyOverview(businessId?: string) {
   })
 }
 
-// Dashboard: Needs Attention — GET /leads/dashboard/needs-attention
-export function useNeedsAttention(businessId?: string) {
+export function useNeedsAttention() {
   return useQuery({
-    queryKey: ['dashboard-needs-attention', businessId],
+    queryKey: ['dashboard-needs-attention'],
     queryFn: async () => {
-      const params = businessId ? { businessId } : undefined
-      const response = await apiClient.get('/leads/dashboard/needs-attention', { params })
+      const response = await apiClient.get('/leads/dashboard/needs-attention')
       const raw = response.data?.data ?? response.data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (Array.isArray(raw) ? raw : raw?.leads ?? raw?.data ?? []) as any[]
     },
     staleTime: 60000,
@@ -323,13 +286,11 @@ export function useNeedsAttention(businessId?: string) {
   })
 }
 
-// Dashboard: Channel Analytics — GET /leads/dashboard/channel-analytics
-export function useChannelAnalytics(businessId?: string) {
+export function useChannelAnalytics() {
   return useQuery({
-    queryKey: ['dashboard-channel-analytics', businessId],
+    queryKey: ['dashboard-channel-analytics'],
     queryFn: async () => {
-      const params = businessId ? { businessId } : undefined
-      const response = await apiClient.get('/leads/dashboard/channel-analytics', { params })
+      const response = await apiClient.get('/leads/dashboard/channel-analytics')
       return response.data?.data ?? response.data
     },
     staleTime: 60000,
@@ -337,14 +298,13 @@ export function useChannelAnalytics(businessId?: string) {
   })
 }
 
-// Dashboard: Demand Signals — GET /leads/dashboard/demand-signals
-export function useDemandSignals(businessId?: string) {
+export function useDemandSignals() {
   return useQuery({
-    queryKey: ['dashboard-demand-signals', businessId],
+    queryKey: ['dashboard-demand-signals'],
     queryFn: async () => {
-      const params = businessId ? { businessId } : undefined
-      const response = await apiClient.get('/leads/dashboard/demand-signals', { params })
+      const response = await apiClient.get('/leads/dashboard/demand-signals')
       const raw = response.data?.data ?? response.data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (Array.isArray(raw) ? raw : raw?.data ?? []) as any[]
     },
     staleTime: 60000,
@@ -352,14 +312,13 @@ export function useDemandSignals(businessId?: string) {
   })
 }
 
-// Dashboard: Followup Queue — GET /leads/dashboard/followup-queue
-export function useFollowupQueue(businessId?: string) {
+export function useFollowupQueue() {
   return useQuery({
-    queryKey: ['dashboard-followup-queue', businessId],
+    queryKey: ['dashboard-followup-queue'],
     queryFn: async () => {
-      const params = businessId ? { businessId } : undefined
-      const response = await apiClient.get('/leads/dashboard/followup-queue', { params })
+      const response = await apiClient.get('/leads/dashboard/followup-queue')
       const raw = response.data?.data ?? response.data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (Array.isArray(raw) ? raw : raw?.data ?? []) as any[]
     },
     staleTime: 30000,
@@ -367,14 +326,15 @@ export function useFollowupQueue(businessId?: string) {
   })
 }
 
-// Leads Inbox: Conversations — GET /leads/inbox/conversations
-export function useLeadsInboxConversations(businessId?: string) {
+// ── Inbox hooks (correct path: /inbox/conversations) ─────────────────────────
+
+export function useLeadsInboxConversations() {
   return useQuery({
-    queryKey: ['leads-inbox-conversations', businessId],
+    queryKey: ['leads-inbox-conversations'],
     queryFn: async () => {
-      const params = businessId ? { businessId } : undefined
-      const response = await apiClient.get('/leads/inbox/conversations', { params })
+      const response = await apiClient.get('/inbox/conversations')
       const raw = response.data?.data ?? response.data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (Array.isArray(raw) ? raw : raw?.data ?? []) as any[]
     },
     staleTime: 30000,
@@ -382,17 +342,16 @@ export function useLeadsInboxConversations(businessId?: string) {
   })
 }
 
-// Leads Inbox: Messages — GET /leads/inbox/conversations/:id/messages
 export function useLeadsInboxMessages(conversationId: string) {
   return useQuery({
     queryKey: ['leads-inbox-messages', conversationId],
     queryFn: async () => {
-      const response = await apiClient.get(`/leads/inbox/conversations/${conversationId}/messages`)
-      return (response.data?.data ?? []) as any[]
+      const response = await apiClient.get(`/inbox/conversations/${conversationId}/messages`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (unwrap(response) ?? []) as any[]
     },
     enabled: !!conversationId,
     staleTime: 30000,
     retry: 1,
   })
 }
-
