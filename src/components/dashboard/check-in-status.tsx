@@ -17,7 +17,7 @@ export function CheckInStatusWidget() {
     queryFn: async (): Promise<CheckInData> => {
       try {
         const today = new Date().toISOString().split('T')[0]
-        const res = await apiClient.get('/orders', { params: { order_type: 'accommodation', limit: 200 } })
+        const res = await apiClient.get('/orders', { params: { order_type: 'accommodation', limit: 100 } })
         const body = (res as any).data?.data ?? (res as any).data
         const orders: any[] = Array.isArray(body) ? body : (body?.data ?? [])
         const arrivals = orders.filter((o: any) => o.items?.[0]?.check_in?.startsWith(today)).length

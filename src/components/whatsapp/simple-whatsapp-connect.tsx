@@ -58,6 +58,15 @@ type EmbeddedSignupData = {
 
 const EMBEDDED_SIGNUP_CONFIG_ID = process.env.NEXT_PUBLIC_EMBEDDED_SIGNUP_CONFIG_ID || ''
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID || ''
+const META_SOLUTION_ID = process.env.NEXT_PUBLIC_META_SOLUTION_ID || ''
+
+const EMBEDDED_SIGNUP_SUCCESS_EVENTS = new Set([
+  'FINISH',
+  'FINISH_ONLY_WABA',
+  'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING',
+  'FINISH_GRANT_ONLY_API_ACCESS',
+  'FINISH_OBO_MIGRATION',
+])
 
 type ConnectionStep = 'intro' | 'connecting' | 'provisioning' | 'stuck' | 'success' | 'error'
 
@@ -111,7 +120,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
       if (!event.origin.endsWith('facebook.com')) return;
       try {
         const data = JSON.parse(event.data);
-        if (data.type === 'WA_EMBEDDED_SIGNUP' && data.event === "FINISH") {
+        if (data.type === 'WA_EMBEDDED_SIGNUP' && EMBEDDED_SIGNUP_SUCCESS_EVENTS.has(data.event)) {
           const connecedData = data.data;
           console.log('message event: ', connecedData);
           eventDataRef.current = {
@@ -177,6 +186,13 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
 
     if (!EMBEDDED_SIGNUP_CONFIG_ID) {
       setError('Configuration error: Missing NEXT_PUBLIC_EMBEDDED_SIGNUP_CONFIG_ID. Please set it in .env.local.')
+      setCurrentStep('error')
+      setIsLoading(false)
+      return
+    }
+
+    if (!META_SOLUTION_ID) {
+      setError('Configuration error: Missing NEXT_PUBLIC_META_SOLUTION_ID. Please set it in .env.local.')
       setCurrentStep('error')
       setIsLoading(false)
       return
@@ -251,10 +267,10 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
         override_default_response_type: true,
         extras: {
           setup: {
-            solutionID:'1291932222820797'
+            solutionID: META_SOLUTION_ID,
           },
           featureType: '',
-          sessionInfoVersion: '2',
+          sessionInfoVersion: '3',
         },
       },
     )
@@ -269,6 +285,10 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
   const handleFinish = () => {
     onComplete?.()
   }
+
+  const verificationStatus = account?.business_verification_status ?? 'UNKNOWN'
+  const isBusinessVerified = account?.onboarding_status === 'verified' || verificationStatus === 'APPROVED'
+  const verificationChecklist = account?.verification_checklist ?? []
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -338,6 +358,13 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
               <CheckCircle2 className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-900 dark:text-green-100">
                 <strong>Don't have WhatsApp Business yet?</strong> No problem! You can create one directly in the popup.
+              </AlertDescription>
+            </Alert>
+
+            <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 mb-6">
+              <Info className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-900 dark:text-blue-100">
+                <strong>Already using the WhatsApp Business app?</strong> Select that existing business and number in the Meta popup if it is eligible. Meta may keep the app connected through coexistence, or ask you to migrate the number depending on the account.
               </AlertDescription>
             </Alert>
 
@@ -581,6 +608,47 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6 mb-8">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">Business Verification</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {isBusinessVerified
+                      ? 'Meta has approved this business for full WhatsApp Business Platform usage.'
+                      : 'Your number can run in limited mode while Meta Business Verification is completed.'}
+                  </p>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isBusinessVerified
+                  ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
+                  : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300'
+                  }`}>
+                  {isBusinessVerified ? 'Verified' : 'Limited mode'}
+                </span>
+              </div>
+
+              {account.usage_limits?.message && (
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">{account.usage_limits.message}</p>
+              )}
+
+              <div className="space-y-3 mb-5">
+                {verificationChecklist.map((item) => (
+                  <div key={item.key} className="flex items-start gap-3">
+                    <CheckCircle2 className={`h-5 w-5 mt-0.5 flex-shrink-0 ${item.completed ? 'text-green-600' : 'text-gray-300 dark:text-gray-600'}`} />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {!isBusinessVerified && account.business_verification_url && (
+                <Button variant="outline" asChild>
+                  <a href={account.business_verification_url} target="_blank" rel="noopener noreferrer">
+                    Open Meta Business Verification
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </a>
+                </Button>
+              )}
             </div>
 
             <Alert className="border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 mb-6">

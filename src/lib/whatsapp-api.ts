@@ -7,6 +7,14 @@ export type QualityRating = 'GREEN' | 'YELLOW' | 'RED';
 export type MessagingLimitTier = 'TIER_NOT_SET' | 'TIER_50' | 'TIER_250' | 'TIER_1K' | 'TIER_2K' | 'TIER_10K' | 'TIER_100K';
 /** TPP onboarding provisioning state. "pending" = Gupshup still provisioning; "live" = fully active; "error" = provisioning failed; "stuck" = pipeline never started (requires Gupshup support) */
 export type GupshupAppStatus = 'pending' | 'live' | 'error' | 'stuck';
+export type WhatsAppOnboardingStatus =
+    | 'gupshup_provisioning'
+    | 'setup_requires_attention'
+    | 'setup_failed'
+    | 'live_trial'
+    | 'business_verification_submitted'
+    | 'business_verification_rejected'
+    | 'verified';
 
 export interface WhatsAppAccount {
     account_id: string;
@@ -22,6 +30,19 @@ export interface WhatsAppAccount {
     gupshup_app_id: string | null;
     /** TPP provisioning state. null = not a TPP account */
     gupshup_app_status: GupshupAppStatus | null;
+    business_verification_status?: string;
+    business_verification_url?: string;
+    onboarding_status?: WhatsAppOnboardingStatus;
+    verification_checklist?: Array<{
+        key: string;
+        label: string;
+        completed: boolean;
+    }>;
+    usage_limits?: {
+        can_reply_to_customers: boolean;
+        can_send_campaigns: boolean;
+        message: string;
+    };
 }
 
 // Mapped is identical to the API shape — no transformation needed

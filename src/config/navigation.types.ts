@@ -1,15 +1,24 @@
 // ── Business & Subscription Types ────────────────────────────────────────────
 
-export type BusinessType = 'hospitality' | 'events' | 'products'
+import type { BusinessType, SubscriptionTier } from '@/business-types/business-type.types'
 
-export type SubscriptionTier = 'free' | 'starter' | 'pro' | 'enterprise'
+export type { BusinessType, SubscriptionTier }
 
 // Normalization map: backend values → canonical BusinessType
 export const BIZ_TYPE_MAP: Record<string, BusinessType> = {
   hotel: 'hospitality',
   resort: 'hospitality',
   camping: 'hospitality',
-  retail: 'products',
+  retail: 'retail',
+  ecommerce: 'retail',
+  products: 'products',
+  clinic: 'healthcare',
+  property: 'real_estate',
+  services: 'professional_services',
+  crm: 'crm_automation',
+  automation: 'crm_automation',
+  crm_automation: 'crm_automation',
+  school: 'education',
 }
 
 // ── Navigation Types ─────────────────────────────────────────────────────────

@@ -11,7 +11,6 @@ import {
   ChevronRight,
   ChevronDown,
   Home,
-  LayoutDashboard,
   Lock,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -34,7 +33,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const { sidebarOpen, toggleSidebar, sidebarCollapsed, toggleSidebarCollapsed, setSidebarCollapsed } = useUIStore()
   const { groups, businessType } = useNavigation()
-  const homeHref = businessType === 'hospitality' ? '/dashboard' : '/'
+  const homeHref = '/dashboard'
   const [expandedSections, setExpandedSections] = useState<string[]>([])
 
   // Auto-collapse sidebar when navigating to any page
@@ -297,38 +296,6 @@ export function Sidebar() {
               <Home className="h-4.5 w-4.5 flex-shrink-0" />
               <span>Home</span>
             </Link>
-          )}
-
-          {/* Dashboard Link — hidden for hospitality since Home already goes to /dashboard */}
-          {businessType !== 'hospitality' && (
-            isCollapsed ? (
-              <Tooltip label="Dashboard">
-                <Link
-                  href="/dashboard"
-                  className={cn(
-                    'flex items-center justify-center rounded-xl p-2.5 transition-all duration-200',
-                    pathname === '/dashboard'
-                      ? 'bg-[#0066FF]/12 text-[#0066FF]'
-                      : 'text-[#4B4B4B] hover:bg-[#0066FF]/8'
-                  )}
-                >
-                  <LayoutDashboard className="h-5 w-5 flex-shrink-0" />
-                </Link>
-              </Tooltip>
-            ) : (
-              <Link
-                href="/dashboard"
-                className={cn(
-                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200',
-                  pathname === '/dashboard'
-                    ? 'bg-[#0066FF]/12 text-[#0066FF]'
-                    : 'text-[#4B4B4B] hover:bg-[#0066FF]/8 hover:text-[#0066FF]'
-                )}
-              >
-                <LayoutDashboard className="h-4.5 w-4.5 flex-shrink-0" />
-                <span>Dashboard</span>
-              </Link>
-            )
           )}
 
           {/* Separator */}

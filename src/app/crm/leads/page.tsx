@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { apiClient } from '@/lib/api-client'
 import { useBusinessType } from '@/hooks/use-business-type'
 import { useAuthStore } from '@/store/auth-store'
+import type { BusinessType } from '@/business-types/business-type.types'
+import { STATUS_FLOW, getStatusLabel, getStatusStyle, getStatusColor } from '@/lib/lead-status'
 import toast from 'react-hot-toast'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -134,32 +136,8 @@ function getDateParams(range: DateRange): { from: string; to: string } {
   return { from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(), to }
 }
 
-const STATUS_FLOW = ['new', 'contacted', 'interested', 'converted', 'lost'] as const
-
-function getStatusLabel(s: string) {
-  return s === 'new' ? 'New'
-    : s === 'contacted' ? 'Contacted'
-    : s === 'interested' ? 'Interested'
-    : s === 'converted' ? 'Converted'
-    : s === 'lost' ? 'Lost'
-    : s
-}
-
-function getStatusStyle(s: string) {
-  return s === 'new' ? 'bg-gray-100 text-gray-600 border border-gray-300'
-    : s === 'contacted' ? 'bg-blue-100 text-blue-700 border border-blue-300'
-    : s === 'interested' ? 'bg-orange-100 text-orange-700 border border-orange-300'
-    : s === 'converted' ? 'bg-green-100 text-green-700 border border-green-300'
-    : 'bg-red-100 text-red-500 border border-red-300'
-}
-
-function getStatusColor(s: string) {
-  return s === 'new' ? '#9ca3af'
-    : s === 'contacted' ? '#3b82f6'
-    : s === 'interested' ? '#f97316'
-    : s === 'converted' ? '#22c55e'
-    : '#ef4444'
-}
+// Status presentation centralised in @/lib/lead-status.
+// STATUS_FLOW + helpers are imported at the top of the file.
 
 function getQualityStyle(q: string) {
   return q === 'hot' ? 'bg-red-100 text-red-700' : q === 'warm' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
@@ -232,7 +210,15 @@ function WhatTheyWant({ lead }: { lead: Lead }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 // Business-type display config
-const BIZ_CONFIG = {
+type LeadBusinessConfig = {
+  title: string
+  subtitle: string
+  defaultIntent: string
+  intentOptions: Array<{ value: string; label: string }>
+  campaignPlaceholder: string
+}
+
+const BIZ_CONFIG: Partial<Record<BusinessType, LeadBusinessConfig>> = {
   hospitality: {
     title: 'Resort Enquiries',
     subtitle: 'WhatsApp enquiries for your resort / hotel',
@@ -254,14 +240,14 @@ const BIZ_CONFIG = {
     intentOptions: [{ value: 'product', label: '📦 Product' }],
     campaignPlaceholder: `Hi {{name}}, the product you asked about is still available. Reply to place your order! 📦`,
   },
-} as const
+}
 
 export default function LeadsPage() {
   const router = useRouter()
   const { businessType } = useBusinessType()
   const { user } = useAuthStore()
   const businessId = user?.business_id
-  const bizCfg = BIZ_CONFIG[businessType] ?? BIZ_CONFIG.hospitality
+  const bizCfg = BIZ_CONFIG[businessType] ?? BIZ_CONFIG.hospitality!
 
   // Stats
   const [stats, setStats] = useState<LeadStats | null>(null)
@@ -401,6 +387,9 @@ export default function LeadsPage() {
             </Button>
             <Button size="sm" variant={viewMode === 'table' ? 'default' : 'ghost'} onClick={() => setViewMode('table')} className="gap-1.5 text-xs">
               <Table className="h-3.5 w-3.5" />Table
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => router.push('/crm/leads/board')} className="gap-1.5 text-xs">
+              <LayoutGrid className="h-3.5 w-3.5" />Board
             </Button>
           </div>
         </div>

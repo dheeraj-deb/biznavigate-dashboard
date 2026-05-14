@@ -608,7 +608,7 @@ export default function AddInventoryPage() {
 
   // ─── Determine page meta ──────────────────────────────────────────────────
 
-  const pageConfig = {
+  const pageConfigMap = {
     hospitality: {
       title: 'Add Property Listing',
       subtitle: 'Add a new property with rooms, star rating, amenities and pricing',
@@ -674,7 +674,8 @@ export default function AddInventoryPage() {
       accent: '#0066FF',
       badge: 'Inventory',
     },
-  }[bizType]
+  }
+  const pageConfig = pageConfigMap[bizType as keyof typeof pageConfigMap] ?? pageConfigMap.other
 
   // ─── Loading ──────────────────────────────────────────────────────────────
 

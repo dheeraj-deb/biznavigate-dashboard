@@ -3,10 +3,13 @@
 import { useState } from 'react'
 import { useCompleteOnboarding, type OnboardingResult } from '@/hooks/use-onboarding'
 import { useAuthStore } from '@/store/auth-store'
+import { onboardingBusinessTypes } from '@/business-types/onboarding-business-types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { TypingText } from '@/components/ui/typing-text'
+import { resolveIcon } from '@/lib/icon-resolver'
 
 import {
   Building2,
@@ -14,23 +17,13 @@ import {
   CheckCircle2,
   ArrowRight,
   ArrowLeft,
-  Hotel,
-  Calendar,
   Plus,
   Trash2,
-  Store,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { AppLogo } from '@/components/ui/app-logo'
 import toast from 'react-hot-toast'
 import { SimpleWhatsAppConnect } from '@/components/whatsapp/simple-whatsapp-connect'
-
-// Business type options
-const businessTypes = [
-  { value: 'hospitality', label: 'Hospitality',  icon: Hotel,    description: 'Hotels, resorts, villas, camps & accommodation' },
-  { value: 'events',      label: 'Events',        icon: Calendar, description: 'Events, venues, workshops & banquet halls' },
-  { value: 'products',    label: 'Products',      icon: Store,    description: 'Retail, e-commerce & product-based businesses' },
-]
 
 // Role templates
 const roleTemplates = [
@@ -46,6 +39,12 @@ const BUSINESS_DESCRIPTION_TEMPLATES: Record<string, string> = {
   hospitality: "[BusinessName] is a premier hospitality business in [City], offering exceptional stays, world-class amenities, and memorable experiences to every guest.",
   events:      "[BusinessName] is a professional event management company in [City], turning visions into unforgettable experiences.",
   products:    "[BusinessName] is a premium retail business in [City], offering high-quality products and exceptional customer service.",
+  retail:      "[BusinessName] is a retail business in [City], helping customers discover and buy quality products with fast, helpful service.",
+  healthcare:  "[BusinessName] is a healthcare practice in [City], helping patients get timely support, appointments, and follow-ups.",
+  real_estate: "[BusinessName] is a real estate business in [City], helping buyers, renters, and property owners with trusted property guidance.",
+  professional_services: "[BusinessName] is a professional services business in [City], helping clients solve important problems with reliable expertise.",
+  crm_automation: "[BusinessName] is a CRM and automation workspace in [City], helping the team manage leads, campaigns, FAQs, workflows, and customer conversations.",
+  education:   "[BusinessName] is an education business in [City], helping students learn, enroll, and succeed through structured programs.",
   default:     "[BusinessName] is a dedicated business in [City], focused on quality, reliability, and the best possible experience for our customers."
 }
 
@@ -53,12 +52,19 @@ const AUDIENCE_SUGGESTIONS: Record<string, string[]> = {
   hospitality: ['Tourists', 'Business Travelers', 'Families', 'Couples'],
   events:      ['Corporate Clients', 'Engaged Couples', 'Families', 'Music Fans'],
   products:    ['Online Shoppers', 'Bargain Hunters', 'Local Residents', 'B2B Clients'],
+  retail:      ['Online Shoppers', 'Local Customers', 'Repeat Buyers', 'B2B Clients'],
+  healthcare:  ['Patients', 'Families', 'Returning Visitors', 'Local Residents'],
+  real_estate: ['Home Buyers', 'Property Owners', 'Investors', 'Tenants'],
+  professional_services: ['Clients', 'Business Owners', 'Local Residents', 'Teams'],
+  crm_automation: ['Leads', 'Customers', 'Support Requests', 'Sales Teams'],
+  education:   ['Students', 'Parents', 'Professionals', 'Learners'],
   default:     ['Local Residents', 'Online Shoppers', 'General Public', 'B2B Clients']
 }
+
 export default function OnboardingPage() {
   const router = useRouter()
   const { user, setUser } = useAuthStore()
-  const totalSteps = 4
+  const totalSteps = 5
   const [currentStep, setCurrentStep] = useState(1)
   const [citySearch, setCitySearch] = useState('')
   const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false)
@@ -67,7 +73,7 @@ export default function OnboardingPage() {
 
   const filteredCities = INDIAN_CITIES.filter(c => c.toLowerCase().includes(citySearch.toLowerCase()))
   const [formData, setFormData] = useState({
-    // Step 1: Business Info
+    // Step 1: Business Type
     businessName: '',
     businessType: '',
     industry: '',
@@ -80,10 +86,10 @@ export default function OnboardingPage() {
     gstNumber: '',
     panNumber: '',
 
-    // Step 2: Team Setup
+    // Step 3: Team Setup
     employees: [] as Array<{ name: string; email: string; role: string; phone: string }>,
 
-    // Step 3: AI Configuration
+    // Future AI Configuration
     businessDescription: '',
     targetAudience: '',
     aiTone: 'professional',
@@ -96,14 +102,16 @@ export default function OnboardingPage() {
     const newErrors: Record<string, string> = {}
 
     if (step === 1) {
+      if (!formData.businessType) newErrors.businessType = 'Business Type is required'
+    } else if (step === 2) {
       if (!formData.businessName.trim()) newErrors.businessName = 'Business Name is required'
       if (!formData.email.trim() || !/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Valid email is required'
       if (!formData.phone.trim()) newErrors.phone = 'Phone number is required'
-      if (!formData.businessType) newErrors.businessType = 'Business Type is required'
       if (!formData.city.trim()) newErrors.city = 'City is required'
-    } else if (step === 2) {
-      if (!formData.employees[0].name.trim()) newErrors.employeeName = 'Employee name is required'
-      if (!formData.employees[0].email.trim() || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(formData.employees[0].email)) newErrors.employeeEmail = 'Valid employee email is required'
+    } else if (step === 3 && formData.employees.length > 0) {
+      const firstEmployee = formData.employees[0]
+      if (!firstEmployee.name.trim()) newErrors.employeeName = 'Employee name is required'
+      if (!firstEmployee.email.trim() || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(firstEmployee.email)) newErrors.employeeEmail = 'Valid employee email is required'
     }
 
     setErrors(newErrors)
@@ -185,7 +193,7 @@ export default function OnboardingPage() {
             business_id: data?.business?.business_id ?? user.business_id,
           })
         }
-        setCurrentStep(4)
+        setCurrentStep(5)
       },
     })
   }
@@ -231,10 +239,13 @@ export default function OnboardingPage() {
     setFormData({ ...formData, businessDescription: finalDesc })
   }
 
+  const selectedBusinessType = onboardingBusinessTypes.find((type) => type.value === formData.businessType) ?? onboardingBusinessTypes[0]
+  const progressPercent = Math.round((currentStep / totalSteps) * 100)
+
   return (
     <div className="h-screen bg-slate-50 text-slate-900 selection:bg-blue-600/20 font-sans overflow-hidden relative flex flex-col">
       <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.02)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_0%,#000_70%,transparent_100%)] opacity-60 pointer-events-none" />
-      <div className="container relative z-10 mx-auto px-4 py-4 max-w-4xl flex flex-col h-full flex-1 min-h-0">
+      <div className="container relative z-10 mx-auto px-4 py-4 max-w-7xl flex flex-col h-full flex-1 min-h-0">
         {/* Header */}
         <div className="text-center mb-3 flex-shrink-0">
           <div className="mb-3 flex w-full justify-center animate-in fade-in slide-in-from-top-4 duration-700 ease-out">
@@ -255,30 +266,166 @@ export default function OnboardingPage() {
           </p>
         </div>
 
-        {/* Progress Bar */}
-        <div className="mb-3 flex-shrink-0">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[13px] font-bold text-[#4B4B4B]">
-              Step {currentStep} of {totalSteps}
-            </span>
-            <span className="text-[13px] text-[#6E6E6E]">
-              {Math.round((currentStep / totalSteps) * 100)}% Complete
-            </span>
-          </div>
-          <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 transition-all duration-500"
-              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-            />
-          </div>
-        </div>
+        <div className="grid flex-1 min-h-0 gap-3 lg:grid-cols-[60px_1fr]">
+          <aside className="relative z-20 hidden min-h-0 flex-col rounded-[16px] border border-[#E8EEFF] bg-white/75 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] backdrop-blur lg:flex">
+            <div className="flex flex-col items-center space-y-2">
+              {Array.from({ length: totalSteps }).map((_, index) => {
+                const stepNumber = index + 1
+                const isComplete = stepNumber < currentStep
+                const isCurrent = stepNumber === currentStep
+                return (
+                  <div key={stepNumber} className="flex items-center">
+                    <div
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition-all ${
+                        isComplete
+                          ? 'bg-[#0066FF] text-white'
+                          : isCurrent
+                            ? 'border border-[#0066FF] bg-[#F5F8FF] text-[#0066FF]'
+                            : 'border border-[#E5EAF5] bg-white text-[#989898]'
+                      }`}
+                    >
+                      {isComplete ? <CheckCircle2 className="h-4 w-4" /> : stepNumber}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
 
-        {/* Step Content */}
-        <Card className="border-slate-200/60 shadow-[0_8px_40px_-15px_rgba(0,0,0,0.05)] bg-white/80 backdrop-blur-xl mb-3 relative z-20 flex-1 min-h-0 flex flex-col">
-          <CardContent className="p-5 flex-1 overflow-y-auto custom-scrollbar min-h-0">
-            {/* Step 1: Business Information */}
+            {/* <div className="mt-auto rounded-[12px] bg-[#F5F8FF] p-3">
+              <p className="text-[20px] font-bold leading-none text-[#0066FF]">{progressPercent}%</p>
+              <p className="mt-1 text-[11px] font-semibold text-[#6E6E6E]">Complete</p>
+            </div> */}
+          </aside>
+
+          <div className="flex min-h-0 flex-col">
+            <div className="mb-3 flex items-center justify-between rounded-[12px] border border-[#E8EEFF] bg-white/75 px-3 py-2 shadow-[0_8px_24px_rgba(15,23,42,0.04)] backdrop-blur lg:hidden">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#0066FF]">
+                  Step {currentStep} of {totalSteps}
+                </p>
+              </div>
+              <div className="rounded-full bg-[#F5F8FF] px-3 py-1 text-[12px] font-bold text-[#0066FF]">
+                {progressPercent}%
+              </div>
+            </div>
+
+            {/* Step Content */}
+            <Card className="border-slate-200/60 shadow-[0_8px_40px_-15px_rgba(0,0,0,0.05)] bg-white/80 backdrop-blur-xl mb-3 relative z-20 flex-1 min-h-0 flex flex-col">
+              <CardContent className="p-5 flex-1 overflow-y-auto custom-scrollbar min-h-0">
+            {/* Step 1: Business Type Selection */}
             {currentStep === 1 && (
+              <div className="grid gap-5 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_400px]">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#0066FF]">Choose your workspace</p>
+                    <h3 className="mt-1 text-[22px] font-semibold tracking-tight text-[#4B4B4B]">
+                      What type of business are you setting up?
+                    </h3>
+                    <p className="mt-1 text-[13px] text-[#6E6E6E]">
+                      We will tailor navigation, dashboard widgets, workflows, and labels around this choice.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {onboardingBusinessTypes.map((type) => {
+                      const Icon = resolveIcon(type.icon)
+                      const active = formData.businessType === type.value
+                      return (
+                        <button
+                          key={type.value}
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, businessType: type.value })
+                            setErrors({ ...errors, businessType: '' })
+                          }}
+                          className={`group flex min-h-[104px] items-start gap-3 rounded-[12px] border p-4 text-left transition-all ${
+                            active
+                              ? 'border-[#0066FF] bg-[#0066FF]/5 shadow-[0_12px_30px_rgba(0,102,255,0.10)]'
+                              : 'border-[#E5E5E5] bg-white hover:border-[#0066FF]/60 hover:bg-[#F7FAFF]'
+                          }`}
+                        >
+                          <span
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] transition-colors ${
+                              active ? 'bg-[#0066FF] text-white' : 'bg-[#EEF3FF] text-[#0066FF]'
+                            }`}
+                          >
+                            <Icon className="h-5 w-5" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="flex items-center gap-2 text-[14px] font-bold text-[#4B4B4B]">
+                              {type.label}
+                              {active && <CheckCircle2 className="h-4 w-4 text-[#0066FF]" />}
+                            </span>
+                            <span className="mt-1 block text-[12px] leading-5 text-[#6E6E6E]">{type.description}</span>
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {errors.businessType && <p className="text-xs font-medium text-red-500">{errors.businessType}</p>}
+                </div>
+
+                <div className="flex min-h-full w-full max-w-[400px] flex-col rounded-[14px] border border-[#E5E5E5] bg-white p-4 shadow-[0_12px_32px_rgba(15,23,42,0.04)] lg:justify-self-end">
+                  <div className="mb-4 rounded-[12px] border border-[#E8EEFF] bg-[#F8FBFF] p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[#EEF3FF] text-[#0066FF]">
+                        {(() => {
+                          const Icon = resolveIcon(selectedBusinessType.icon)
+                          return <Icon className="h-5 w-5" />
+                        })()}
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#0066FF]">Recommended setup</p>
+                        <h4 className="text-[18px] font-bold text-[#4B4B4B]">{selectedBusinessType.label}</h4>
+                      </div>
+                    </div>
+                    <TypingText
+                      key={selectedBusinessType.value}
+                      text={selectedBusinessType.explanation}
+                      className="mt-4 min-h-[120px] text-[13px] leading-6 text-[#4B4B4B]"
+                    />
+                  </div>
+
+                  <div className="grid gap-4">
+                    <div>
+                      <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#6E6E6E]">Features included</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedBusinessType.features.map((feature) => (
+                          <span key={feature} className="rounded-full border border-[#E5E5E5] bg-[#F9FAFB] px-3 py-1 text-[12px] font-semibold text-[#4B4B4B]">
+                            {feature}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#6E6E6E]">Commonly used by</p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {selectedBusinessType.industries.map((industry) => (
+                          <div key={industry} className="rounded-[10px] border border-[#F0F0F0] bg-[#FCFCFC] px-3 py-2 text-[12px] font-medium text-[#4B4B4B]">
+                            {industry}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Business Information */}
+            {currentStep === 2 && (
               <div className="space-y-4">
+                <div className="mb-2 flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100">
+                    <Building2 className="h-6 w-6 text-[#0066FF]" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-[#4B4B4B]">Business Details</h3>
+                    <p className="text-[13px] text-[#6E6E6E]">Add the basic information we need to create your workspace.</p>
+                  </div>
+                </div>
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">
                     <label className="text-[13px] font-bold text-[#4B4B4B]">Business Name*</label>
@@ -329,58 +476,6 @@ export default function OnboardingPage() {
                       className="h-10 w-full bg-transparent border-[#989898] text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] transition-colors shadow-none rounded-[4px]"
                     />
                   </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-bold text-[#4B4B4B]">GSTIN <span className="text-[11px] font-normal text-[#6E6E6E]">(Optional)</span></label>
-                    <Input
-                      id="gstNumber"
-                      value={formData.gstNumber}
-                      onChange={(e) => setFormData({ ...formData, gstNumber: e.target.value.toUpperCase() })}
-                      placeholder="22AAAAA0000A1Z5"
-                      maxLength={15}
-                      className="h-10 w-full bg-transparent border-[#989898] text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] transition-colors shadow-none rounded-[4px] uppercase"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[13px] font-bold text-[#4B4B4B]">PAN <span className="text-[11px] font-normal text-[#6E6E6E]">(Optional)</span></label>
-                    <Input
-                      id="panNumber"
-                      value={formData.panNumber}
-                      onChange={(e) => setFormData({ ...formData, panNumber: e.target.value.toUpperCase() })}
-                      placeholder="ABCDE1234F"
-                      maxLength={10}
-                      className="h-10 w-full bg-transparent border-[#989898] text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] transition-colors shadow-none rounded-[4px] uppercase"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-bold text-[#4B4B4B]">Business Type*</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {businessTypes.map((t) => {
-                      const Icon = t.icon
-                      const active = formData.businessType === t.value
-                      return (
-                        <button
-                          key={t.value}
-                          type="button"
-                          onClick={() => { setFormData({ ...formData, businessType: t.value }); setErrors({ ...errors, businessType: '' }) }}
-                          className={`flex flex-col items-center gap-1.5 rounded-[8px] border px-2 py-3 text-center transition-all ${
-                            active
-                              ? 'border-[#0066FF] bg-blue-50 text-[#0066FF]'
-                              : 'border-[#E5E5E5] bg-white text-[#6E6E6E] hover:border-[#0066FF] hover:text-[#0066FF]'
-                          }`}
-                        >
-                          <Icon className="h-5 w-5" />
-                          <span className="text-[12px] font-semibold leading-tight">{t.label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {errors.businessType && <p className="mt-1 text-xs text-red-500 font-medium">{errors.businessType}</p>}
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
@@ -437,8 +532,8 @@ export default function OnboardingPage() {
               </div>
             )}
 
-            {/* Step 2: Team Setup */}
-            {currentStep === 2 && (
+            {/* Step 3: Team Setup */}
+            {currentStep === 3 && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-950">
@@ -555,8 +650,8 @@ export default function OnboardingPage() {
                 </div>
               </div>
             )}
-            {/* Step 3: Confirmation */}
-            {currentStep === 3 && (
+            {/* Step 4: Confirmation */}
+            {currentStep === 4 && (
               <div className="space-y-4">
                 {!onboardingResult ? (
                   <>
@@ -575,7 +670,7 @@ export default function OnboardingPage() {
                         </div>
                         <div className="space-y-1 text-[#6E6E6E]">
                           <div><strong>Name:</strong> {formData.businessName}</div>
-                          <div><strong>Type:</strong> {businessTypes.find(t => t.value === formData.businessType)?.label ?? formData.businessType}</div>
+                          <div><strong>Type:</strong> {onboardingBusinessTypes.find(t => t.value === formData.businessType)?.label ?? formData.businessType}</div>
                           <div><strong>City:</strong> {formData.city}</div>
                           <div><strong>Email:</strong> {formData.email}</div>
                           {formData.gstNumber && <div><strong>GST:</strong> {formData.gstNumber}</div>}
@@ -638,8 +733,8 @@ export default function OnboardingPage() {
                 )}
               </div>
             )}
-            {/* Step 4: WhatsApp Connection */}
-            {currentStep === 4 && onboardingResult && (
+            {/* Step 5: WhatsApp Connection */}
+            {currentStep === 5 && onboardingResult && (
               <div className="space-y-4">
                 <div className="text-center mb-2">
                   <h3 className="text-[19px] font-semibold tracking-tight text-[#4B4B4B] mb-1">Connect WhatsApp</h3>
@@ -659,7 +754,7 @@ export default function OnboardingPage() {
           <Button
             variant="outline"
             onClick={handleBack}
-            disabled={currentStep === 1 || currentStep === 4}
+            disabled={currentStep === 1 || currentStep === 5}
             className="flex items-center gap-2 border-[#E5E5E5] text-[#4B4B4B] rounded-full shadow-none px-6"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -667,7 +762,7 @@ export default function OnboardingPage() {
           </Button>
 
           <div className="flex items-center gap-2">
-            {currentStep < 3 && (
+            {currentStep < 4 && (
               <Button
                 onClick={handleNext}
                 className="bg-[#0066FF] hover:bg-[#0052CC] shadow-none flex items-center gap-2 rounded-full px-6 text-white"
@@ -676,10 +771,10 @@ export default function OnboardingPage() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             )}
-            {currentStep === 3 && (
+            {currentStep === 4 && (
               onboardingResult ? (
                 <Button
-                  onClick={() => setCurrentStep(4)}
+                  onClick={() => setCurrentStep(5)}
                   className="bg-[#0066FF] hover:bg-[#0052CC] shadow-none flex items-center gap-2 rounded-full px-6 text-white"
                 >
                   Connect WhatsApp
@@ -708,7 +803,7 @@ export default function OnboardingPage() {
                 </Button>
               )
             )}
-            {currentStep === 4 && (
+            {currentStep === 5 && (
               <Button
                 onClick={() => router.push('/dashboard')}
                 variant="outline"
@@ -718,6 +813,8 @@ export default function OnboardingPage() {
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             )}
+          </div>
+        </div>
           </div>
         </div>
       </div>

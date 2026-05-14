@@ -34,14 +34,11 @@ export function ActivityFeedWidget() {
   const { data: activities = [], isLoading } = useQuery({
     queryKey: ['dashboard-activity-feed'],
     queryFn: async () => {
-      try {
-        const res = await apiClient.get('/activities', { params: { limit: 8 } })
-        return (res.data?.data ?? []) as ActivityItem[]
-      } catch {
-        return []
-      }
+      const res = await apiClient.get('/activities', { params: { limit: 8 } })
+      return (res.data?.data ?? []) as ActivityItem[]
     },
     retry: 1,
+    enabled: false,
   })
 
   return (

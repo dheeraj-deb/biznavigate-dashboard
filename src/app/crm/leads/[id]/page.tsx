@@ -3,6 +3,8 @@
 import { useParams, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { apiClient } from '@/lib/api-client'
+import { STATUS_FLOW, getStatusLabel as getBaseStatusLabel, getStatusStyle } from '@/lib/lead-status'
+import { usePipelines } from '@/hooks/use-pipelines'
 import toast from 'react-hot-toast'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
@@ -96,22 +98,9 @@ function normalizeLead(raw: any): LeadDetail {
   }
 }
 
-const STATUS_FLOW = ['new', 'contacted', 'interested', 'converted', 'lost'] as const
-
 function getStatusLabel(s: string, intentType?: string | null) {
-  return s === 'new' ? 'New'
-    : s === 'contacted' ? 'Contacted'
-    : s === 'interested' ? 'Interested'
-    : s === 'converted' ? (intentType === 'product' ? 'Sold ✓' : 'Converted ✓')
-    : s === 'lost' ? 'Lost' : s
-}
-
-function getStatusStyle(s: string) {
-  return s === 'new' ? 'bg-gray-100 text-gray-600 border border-gray-300'
-    : s === 'contacted' ? 'bg-blue-100 text-blue-700 border border-blue-300'
-    : s === 'interested' ? 'bg-orange-100 text-orange-700 border border-orange-300'
-    : s === 'converted' ? 'bg-green-100 text-green-700 border border-green-300'
-    : 'bg-red-100 text-red-500 border border-red-300'
+  if (s === 'won') return intentType === 'product' ? 'Sold ✓' : 'Won ✓'
+  return getBaseStatusLabel(s)
 }
 
 function getQualityStyle(q: string) {
@@ -217,6 +206,21 @@ export default function LeadDetailPage() {
   const [agentName, setAgentName] = useState('')
   const [assigning, setAssigning] = useState(false)
 
+  // Default pipeline drives stage lookup for status changes.
+  const pipelinesQ = usePipelines()
+  const defaultPipeline = pipelinesQ.data?.find((p) => p.is_default) ?? pipelinesQ.data?.[0]
+
+  /** Move a lead via the pipeline-aware /stage endpoint when possible,
+   *  falling back to /status if no stage with that slug exists. */
+  const moveLead = async (slug: string) => {
+    const stage = defaultPipeline?.stages?.find((s) => s.slug === slug)
+    if (stage) {
+      await apiClient.patch(`/leads/${id}/stage`, { stage_id: stage.stage_id })
+    } else {
+      await apiClient.patch(`/leads/${id}/status`, { status: slug })
+    }
+  }
+
   useEffect(() => {
     if (!id) return
     setLoading(true)
@@ -240,7 +244,7 @@ export default function LeadDetailPage() {
     setEditStatus(newStatus)
     setLead((prev) => prev ? { ...prev, status: newStatus } : prev)
     try {
-      await apiClient.patch(`/leads/${id}/status`, { status: newStatus })
+      await moveLead(newStatus)
     } catch {
       toast.error('Failed to update status')
     }
@@ -249,10 +253,10 @@ export default function LeadDetailPage() {
   const handleMarkWon = async () => {
     setMarkingWon(true)
     try {
-      await apiClient.patch(`/leads/${id}/status`, { status: 'won' })
+      await moveLead('won')
       setLead((prev) => prev ? { ...prev, status: 'won' } : prev)
       setEditStatus('won')
-      toast.success('Lead marked as Booked ✓')
+      toast.success('Lead marked as Won ✓')
     } catch {
       toast.error('Failed to update')
     } finally {
@@ -263,7 +267,7 @@ export default function LeadDetailPage() {
   const handleMarkLost = async () => {
     setMarkingLost(true)
     try {
-      await apiClient.patch(`/leads/${id}/status`, { status: 'lost' })
+      await moveLead('lost')
       setLead((prev) => prev ? { ...prev, status: 'lost' } : prev)
       setEditStatus('lost')
       toast.success('Lead marked as Lost')
@@ -424,15 +428,26 @@ export default function LeadDetailPage() {
               <div className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3">Staff Notes</div>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Status</label>
+                  <label className="text-xs text-gray-500 mb-1 block">
+                    {defaultPipeline ? 'Stage' : 'Status'}
+                  </label>
                   <Select value={editStatus} onValueChange={handleStatusChange}>
                     <SelectTrigger className="h-9 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {STATUS_FLOW.map((s) => (
-                        <SelectItem key={s} value={s}>{getStatusLabel(s, lead.intent_type)}</SelectItem>
-                      ))}
+                      {defaultPipeline
+                        ? defaultPipeline.stages.map((s) => (
+                            <SelectItem key={s.stage_id} value={s.slug}>
+                              <span className="inline-flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full" style={{ background: s.color || '#94a3b8' }} />
+                                {s.name}
+                              </span>
+                            </SelectItem>
+                          ))
+                        : STATUS_FLOW.map((s) => (
+                            <SelectItem key={s} value={s}>{getStatusLabel(s, lead.intent_type)}</SelectItem>
+                          ))}
                     </SelectContent>
                   </Select>
                 </div>
