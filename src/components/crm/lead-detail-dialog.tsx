@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { getStatusStyle } from '@/lib/lead-status'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -98,22 +99,7 @@ export function LeadDetailDialog({ leadId, isOpen, onClose }: LeadDetailDialogPr
     )
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'new':
-        return 'bg-gray-100 text-gray-700'
-      case 'contacted':
-        return 'bg-blue-100 text-blue-700'
-      case 'interested':
-        return 'bg-orange-100 text-orange-700'
-      case 'converted':
-        return 'bg-green-100 text-green-700'
-      case 'lost':
-        return 'bg-red-100 text-red-700'
-      default:
-        return 'bg-gray-100 text-gray-700'
-    }
-  }
+  const getStatusColor = (status: string) => getStatusStyle(status)
 
   const getQualityColor = (quality: string) => {
     switch (quality) {

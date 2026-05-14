@@ -13,7 +13,7 @@ export const navigationConfig: NavigationConfig = {
     { href: '/crm/contacts', label: 'Contacts', icon: 'Users' },
     { href: '/crm/inbox', label: 'Live Chat', icon: 'Inbox' },
     { href: '/crm/handoff', label: 'Agent Queue', icon: 'Phone' },
-    { href: '/crm/campaigns', label: 'Campaigns', icon: 'TrendingUp', businessTypes: ['events', 'products'] },
+    { href: '/crm/campaigns', label: 'Campaigns', icon: 'TrendingUp', businessTypes: ['events', 'products', 'crm_automation'] },
   ],
 
   // ── Sidebar Groups ─────────────────────────────────────────────────────────
@@ -153,10 +153,10 @@ export const navigationConfig: NavigationConfig = {
       displayName: { hospitality: 'AI Assistant' },
       icon: 'Brain',
       children: [
-        { name: 'Campaign Optimizer', href: '/campaigns/optimizer', icon: 'Zap', businessTypes: ['events', 'products'] },
+        { name: 'Campaign Optimizer', href: '/campaigns/optimizer', icon: 'Zap', businessTypes: ['events', 'products', 'crm_automation'] },
         { name: 'Live Monitor', href: '/campaigns/live', icon: 'Activity' },
         { name: 'AI Chatbot', href: '/chatbot', icon: 'Bot' },
-        { name: 'Bot Business Data', href: '/chatbot/data', icon: 'Database', comingSoon: true },
+        { name: 'Bot Business Data', href: '/chatbot/data', icon: 'Database' },
       ],
     },
 

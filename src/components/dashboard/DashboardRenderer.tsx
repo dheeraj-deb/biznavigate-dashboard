@@ -5,7 +5,7 @@ import { TrendingUp, TrendingDown, Loader2 } from 'lucide-react'
 import { resolveIcon } from '@/lib/icon-resolver'
 import { useBusinessType } from '@/hooks/use-business-type'
 import { useDashboardStats } from '@/hooks/use-dashboard'
-import { dashboardConfig } from '@/config/dashboard.config'
+import { getBusinessTypeConfig } from '@/business-types/business-type-registry'
 import type { DashboardStatConfig, DashboardWidgetConfig } from '@/config/navigation.types'
 
 import { LeadIntelligenceSection } from './lead-intelligence'
@@ -94,7 +94,8 @@ function WidgetSlot({ config }: { config: DashboardWidgetConfig }) {
 export function DashboardRenderer() {
   const { businessType, isLoading: bizLoading } = useBusinessType()
   const { data: statsData, isLoading: statsLoading } = useDashboardStats()
-  const layout = dashboardConfig[businessType]
+  const businessConfig = getBusinessTypeConfig(businessType)
+  const layout = businessConfig.dashboard
 
   if (bizLoading) {
     return (
@@ -110,7 +111,7 @@ export function DashboardRenderer() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
         <p className="text-muted-foreground mt-1">
-          Welcome back! Here&apos;s what&apos;s happening with your business today.
+          Welcome back! Here&apos;s what&apos;s happening with your {businessConfig.label.toLowerCase()} business today.
         </p>
       </div>
 

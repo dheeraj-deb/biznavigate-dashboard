@@ -1,8 +1,9 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useBusinessType } from './use-business-type'
 import { navigationConfig } from '@/config/navigation.config'
+import { getBusinessTypeConfig } from '@/business-types/business-type-registry'
+import { useCurrentBusiness } from './use-current-business'
 import type { BusinessType, NavGroup, NavItem, QuickLink } from '@/config/navigation.types'
 
 function matchesBizType(
@@ -16,14 +17,15 @@ function matchesBizType(
  * Returns the navigation config filtered for the current user's business type.
  */
 export function useNavigation() {
-  const { businessType, isLoading } = useBusinessType()
+  const { businessType, isLoading } = useCurrentBusiness()
 
   const { quickLinks, groups } = useMemo(() => {
+    const businessConfig = getBusinessTypeConfig(businessType)
     const filteredQuickLinks: QuickLink[] = navigationConfig.quickLinks.filter((ql) =>
       matchesBizType(ql, businessType),
     )
 
-    const filteredGroups: NavGroup[] = navigationConfig.groups
+    const filteredGroups: NavGroup[] = businessConfig.navigation
       .filter((group) => matchesBizType(group, businessType))
       .map((group) => {
         if (!group.children) return group
