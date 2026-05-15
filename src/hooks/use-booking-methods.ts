@@ -3,6 +3,9 @@ import toast from 'react-hot-toast'
 import { apiClient } from '@/lib/api-client'
 
 export interface BookingMethodsConfig {
+  availability_response: {
+    mode: 'interactive' | 'flow' | 'text'
+  }
   ai_chat: {
     enabled: boolean
     collect_guest_details: boolean
@@ -32,6 +35,9 @@ export interface BookingMethodsConfig {
 }
 
 export const defaultBookingMethods: BookingMethodsConfig = {
+  availability_response: {
+    mode: 'interactive',
+  },
   ai_chat: {
     enabled: true,
     collect_guest_details: true,
@@ -66,6 +72,7 @@ function unwrap<T>(response: any): T {
 
 export function normalizeBookingMethods(input?: Partial<BookingMethodsConfig> | null): BookingMethodsConfig {
   return {
+    availability_response: { ...defaultBookingMethods.availability_response, ...(input?.availability_response ?? {}) },
     ai_chat: { ...defaultBookingMethods.ai_chat, ...(input?.ai_chat ?? {}) },
     interactive: { ...defaultBookingMethods.interactive, ...(input?.interactive ?? {}) },
     catalog: { ...defaultBookingMethods.catalog, ...(input?.catalog ?? {}) },
