@@ -5,6 +5,8 @@ import {
   Bot,
   CheckCircle2,
   Handshake,
+  AlignLeft,
+  Layers,
   ListChecks,
   Loader2,
   MessageSquare,
@@ -29,6 +31,7 @@ import {
 } from '@/hooks/use-booking-methods'
 
 type SectionKey = keyof BookingMethodsConfig
+type AvailabilityResponseMode = BookingMethodsConfig['availability_response']['mode']
 
 const methodCards = [
   {
@@ -70,6 +73,32 @@ const methodCards = [
       { key: 'on_low_confidence', label: 'Handoff when AI confidence is low' },
       { key: 'on_payment_issue', label: 'Handoff for payment issues' },
     ],
+  },
+]
+
+const responseModes: Array<{
+  value: AvailabilityResponseMode
+  title: string
+  description: string
+  icon: typeof MessageSquare
+}> = [
+  {
+    value: 'interactive',
+    title: 'Interactive List',
+    description: 'Send available rooms/services as a WhatsApp list message.',
+    icon: ListChecks,
+  },
+  {
+    value: 'flow',
+    title: 'WhatsApp Flow',
+    description: 'Open the configured WhatsApp Flow when a Send Flow node exists.',
+    icon: Layers,
+  },
+  {
+    value: 'text',
+    title: 'Plain Text',
+    description: 'Send availability as a normal WhatsApp text summary.',
+    icon: AlignLeft,
   },
 ]
 
@@ -131,7 +160,7 @@ export default function BookingMethodsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Booking Methods</h1>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Manage WhatsApp booking paths that do not depend on Flow JSON.
+              Choose how WhatsApp bookings are handled for customers.
             </p>
           </div>
           <Button onClick={save} disabled={updateBookingMethods.isPending} className="gap-2 bg-blue-600 hover:bg-blue-700">
@@ -176,11 +205,49 @@ export default function BookingMethodsPage() {
               </div>
               <div>
                 <div className="text-2xl font-bold">No Flow JSON</div>
-                <p className="text-xs text-gray-500">Website booking link is kept for later</p>
+                <p className="text-xs text-gray-500">Flow, interactive, or text can be selected</p>
               </div>
             </CardContent>
           </Card>
         </div>
+
+        <Card className="border-gray-200 dark:border-gray-800">
+          <CardHeader>
+            <CardTitle className="text-base">Availability Response Format</CardTitle>
+            <CardDescription>
+              This controls what the customer receives after the agent finds available rooms or services.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-3">
+              {responseModes.map((mode) => {
+                const Icon = mode.icon
+                const active = config.availability_response.mode === mode.value
+                return (
+                  <button
+                    key={mode.value}
+                    type="button"
+                    onClick={() => setConfig(setNestedValue(config, 'availability_response', 'mode', mode.value))}
+                    className={`rounded-lg border p-4 text-left transition-colors ${
+                      active
+                        ? 'border-blue-500 bg-blue-50 text-blue-950 dark:bg-blue-950/30 dark:text-blue-100'
+                        : 'border-gray-200 hover:border-blue-300 dark:border-gray-800 dark:hover:border-blue-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Icon className="h-5 w-5" />
+                        <span className="font-semibold">{mode.title}</span>
+                      </div>
+                      {active && <CheckCircle2 className="h-4 w-4 text-blue-600" />}
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{mode.description}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid gap-4 xl:grid-cols-2">
           {methodCards.map((method) => {
