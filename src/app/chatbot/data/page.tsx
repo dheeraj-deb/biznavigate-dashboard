@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEvent, useMemo, useRef, useState } from 'react'
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   Database,
@@ -29,8 +29,16 @@ type FaqRow = {
 }
 
 type KnowledgeDocument = {
+  id?: string
+  collection?: string
   text: string
   metadata?: Record<string, unknown>
+  createdAt?: string
+  updatedAt?: string
+}
+
+type KnowledgeDocumentsResponse = {
+  documents: KnowledgeDocument[]
 }
 
 const ACCEPTED_FILE_TYPES = ['.txt', '.md', '.csv', '.json']
@@ -43,31 +51,158 @@ function newFaqRow(): FaqRow {
   }
 }
 
-function parseBulkFaqs(value: string): FaqRow[] {
-  return value
+function createFaqRow(question: string, answer: string): FaqRow | null {
+  const cleanQuestion = question
+    .replace(/^\s*(?:[-*]\s*)?(?:\d+[\).\-\s]*)?/, '')
+    .replace(/^q(uestion)?\s*[:\-]\s*/i, '')
+    .trim()
+  const cleanAnswer = answer
+    .replace(/^a(nswer)?\s*[:\-]\s*/i, '')
+    .trim()
+
+  if (!cleanQuestion || !cleanAnswer) return null
+
+  return {
+    id: crypto.randomUUID(),
+    question: cleanQuestion,
+    answer: cleanAnswer,
+  }
+}
+
+function uniqueFaqRows(rows: Array<FaqRow | null>): FaqRow[] {
+  const seen = new Set<string>()
+  const result: FaqRow[] = []
+
+  for (const row of rows) {
+    if (!row) continue
+    const key = row.question.toLowerCase().replace(/\s+/g, ' ')
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(row)
+  }
+
+  return result
+}
+
+function parseDelimitedLine(line: string, delimiter: ',' | '\t'): string[] {
+  const values: string[] = []
+  let current = ''
+  let inQuotes = false
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    const next = line[i + 1]
+
+    if (char === '"' && next === '"') {
+      current += '"'
+      i += 1
+      continue
+    }
+
+    if (char === '"') {
+      inQuotes = !inQuotes
+      continue
+    }
+
+    if (char === delimiter && !inQuotes) {
+      values.push(current.trim())
+      current = ''
+      continue
+    }
+
+    current += char
+  }
+
+  values.push(current.trim())
+  return values
+}
+
+function parseJsonFaqs(value: string): FaqRow[] {
+  try {
+    const parsed = JSON.parse(value)
+    if (!Array.isArray(parsed)) return []
+
+    return uniqueFaqRows(parsed.map((item) => {
+      if (!item || typeof item !== 'object') return null
+      const question = String(item.question ?? item.q ?? item.prompt ?? '').trim()
+      const answer = String(item.answer ?? item.a ?? item.response ?? '').trim()
+      return createFaqRow(question, answer)
+    }))
+  } catch {
+    return []
+  }
+}
+
+function parseDelimitedFaqs(value: string): FaqRow[] {
+  const lines = value.split('\n').map((line) => line.trim()).filter(Boolean)
+  if (lines.length < 2) return []
+
+  const delimiter = lines[0].includes('\t') ? '\t' : ','
+  const header = parseDelimitedLine(lines[0], delimiter).map((item) => item.toLowerCase())
+  const questionIndex = header.findIndex((item) => ['question', 'q', 'prompt'].includes(item))
+  const answerIndex = header.findIndex((item) => ['answer', 'a', 'response'].includes(item))
+
+  if (questionIndex < 0 || answerIndex < 0) return []
+
+  return uniqueFaqRows(lines.slice(1).map((line) => {
+    const values = parseDelimitedLine(line, delimiter)
+    return createFaqRow(values[questionIndex] ?? '', values[answerIndex] ?? '')
+  }))
+}
+
+function parseMarkedFaqs(value: string): FaqRow[] {
+  const normalized = value.replace(/\r\n/g, '\n').trim()
+  const pattern = /(?:^|\n)\s*(?:[-*]\s*)?(?:\d+[\).\-\s]*)?(?:q(?:uestion)?|faq)\s*[:\-]\s*([\s\S]*?)(?:\n\s*|[ \t]+)(?:a(?:nswer)?|ans)\s*[:\-]\s*([\s\S]*?)(?=\n\s*(?:[-*]\s*)?(?:\d+[\).\-\s]*)?(?:q(?:uestion)?|faq)\s*[:\-]|$)/gi
+  const rows: FaqRow[] = []
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(normalized)) !== null) {
+    const row = createFaqRow(match[1], match[2])
+    if (row) rows.push(row)
+  }
+
+  return uniqueFaqRows(rows)
+}
+
+function parseBlockFaqs(value: string): FaqRow[] {
+  return uniqueFaqRows(value
     .split(/\n\s*\n/g)
-    .map((block) => block.trim())
-    .filter(Boolean)
     .map((block) => {
       const lines = block.split('\n').map((line) => line.trim()).filter(Boolean)
-      const questionLine = lines.find((line) => /^q(uestion)?:/i.test(line))
-      const answerLine = lines.find((line) => /^a(nswer)?:/i.test(line))
+      if (lines.length < 2) return null
 
-      if (questionLine && answerLine) {
-        return {
-          id: crypto.randomUUID(),
-          question: questionLine.replace(/^q(uestion)?:/i, '').trim(),
-          answer: answerLine.replace(/^a(nswer)?:/i, '').trim(),
-        }
+      const answerIndex = lines.findIndex((line) => /^a(nswer)?\s*[:\-]/i.test(line))
+      if (answerIndex > 0) {
+        const question = lines.slice(0, answerIndex).join(' ')
+        const answer = lines.slice(answerIndex).join('\n')
+        return createFaqRow(question, answer)
       }
 
-      return {
-        id: crypto.randomUUID(),
-        question: lines[0] ?? '',
-        answer: lines.slice(1).join('\n'),
-      }
-    })
-    .filter((item) => item.question && item.answer)
+      return createFaqRow(lines[0], lines.slice(1).join('\n'))
+    }))
+}
+
+function parseQuestionLineFaqs(value: string): FaqRow[] {
+  return uniqueFaqRows(value
+    .split('\n')
+    .map((line) => {
+      const match = line.trim().match(/^(.*?)\?\s*(?:-|--|:|–|—)\s*(.+)$/)
+      if (!match) return null
+      return createFaqRow(`${match[1]}?`, match[2])
+    }))
+}
+
+function parseBulkFaqs(value: string): FaqRow[] {
+  const normalized = value.trim()
+  if (!normalized) return []
+
+  return uniqueFaqRows([
+    ...parseJsonFaqs(normalized),
+    ...parseDelimitedFaqs(normalized),
+    ...parseMarkedFaqs(normalized),
+    ...parseBlockFaqs(normalized),
+    ...parseQuestionLineFaqs(normalized),
+  ])
 }
 
 function formatFaqDocument(row: FaqRow): KnowledgeDocument {
@@ -81,11 +216,34 @@ function formatFaqDocument(row: FaqRow): KnowledgeDocument {
   }
 }
 
+function parseFaqDocument(doc: KnowledgeDocument): FaqRow | null {
+  if (doc.metadata?.type !== 'faq') return null
+
+  const question = typeof doc.metadata.question === 'string'
+    ? doc.metadata.question
+    : (doc.text.match(/^Question:\s*(.+)$/im)?.[1] ?? '').trim()
+
+  const answer = doc.text
+    .replace(/^Question:\s*.+$/im, '')
+    .replace(/^Answer:\s*/im, '')
+    .trim()
+
+  if (!question || !answer) return null
+
+  return {
+    id: doc.id ?? crypto.randomUUID(),
+    question,
+    answer,
+  }
+}
+
 export default function ChatbotKnowledgePage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [faqs, setFaqs] = useState<FaqRow[]>([newFaqRow()])
+  const [businessInfo, setBusinessInfo] = useState('')
   const [bulkText, setBulkText] = useState('')
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
 
@@ -94,7 +252,36 @@ export default function ChatbotKnowledgePage() {
     [faqs],
   )
 
-  const totalDocuments = validFaqs.length + documents.length
+  const totalDocuments = validFaqs.length + documents.length + (businessInfo.trim() ? 1 : 0)
+
+  const loadKnowledge = async () => {
+    setIsLoading(true)
+    try {
+      const response = await apiClient.get<KnowledgeDocumentsResponse>('/rag/documents', {
+        params: { collection: 'docs' },
+      })
+      const savedDocuments = response.data?.documents ?? []
+      const savedFaqs = savedDocuments.map(parseFaqDocument).filter(Boolean) as FaqRow[]
+      const savedBusinessInfo = savedDocuments
+        .filter((doc) => doc.metadata?.type === 'business_profile')
+        .map((doc) => doc.text.trim())
+        .filter(Boolean)
+        .join('\n\n')
+      const savedFiles = savedDocuments.filter((doc) => !['faq', 'business_profile'].includes(String(doc.metadata?.type)))
+
+      setFaqs(savedFaqs.length ? [...savedFaqs, newFaqRow()] : [newFaqRow()])
+      setBusinessInfo(savedBusinessInfo)
+      setDocuments(savedFiles)
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to load existing knowledge')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadKnowledge()
+  }, [])
 
   const updateFaq = (id: string, patch: Partial<FaqRow>) => {
     setFaqs((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)))
@@ -152,6 +339,16 @@ export default function ChatbotKnowledgePage() {
 
   const saveKnowledge = async () => {
     const payloadDocuments = [
+      ...(businessInfo.trim()
+        ? [{
+            text: businessInfo.trim(),
+            metadata: {
+              type: 'business_profile',
+              source: 'manual',
+              title: 'Business knowledge',
+            },
+          }]
+        : []),
       ...validFaqs.map(formatFaqDocument),
       ...documents,
     ]
@@ -163,11 +360,12 @@ export default function ChatbotKnowledgePage() {
 
     setIsSaving(true)
     try {
-      const response = await apiClient.post<{ ingested: number }>('/rag/ingest', {
+      const response = await apiClient.put<{ replaced: number }>('/rag/documents', {
         collection: 'docs',
         documents: payloadDocuments,
       })
-      const ingested = response.data?.ingested ?? payloadDocuments.length
+      const ingested = response.data?.replaced ?? payloadDocuments.length
+      setFaqs((current) => [...current.filter((row) => row.question.trim() || row.answer.trim()), newFaqRow()])
       toast.success(`Saved ${ingested} knowledge item${ingested === 1 ? '' : 's'}`)
     } catch (error: any) {
       toast.error(error?.message || 'Failed to save knowledge base')
@@ -181,6 +379,7 @@ export default function ChatbotKnowledgePage() {
     try {
       await apiClient.delete('/rag/documents?collection=docs')
       setFaqs([newFaqRow()])
+      setBusinessInfo('')
       setDocuments([])
       setBulkText('')
       toast.success('Knowledge base cleared')
@@ -202,8 +401,12 @@ export default function ChatbotKnowledgePage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={loadKnowledge} disabled={isLoading || isSaving || isClearing}>
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Refresh
+            </Button>
             <Button variant="outline" onClick={clearKnowledge} disabled={isClearing}>
-              {isClearing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              {isClearing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
               Clear
             </Button>
             <Button onClick={saveKnowledge} disabled={isSaving || totalDocuments === 0}>
@@ -216,7 +419,7 @@ export default function ChatbotKnowledgePage() {
         <Alert>
           <HelpCircle className="h-4 w-4" />
           <AlertDescription>
-            The agent uses this content for FAQ answers. Add check-in/out times, cancellation policy, address, amenities, pricing notes, documents required, delivery rules, and common service questions.
+            The agent uses this content for business knowledge answers. Add check-in/out times, cancellation policy, address, amenities, pricing notes, documents required, delivery rules, and common service questions.
           </AlertDescription>
         </Alert>
 
@@ -225,42 +428,65 @@ export default function ChatbotKnowledgePage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <HelpCircle className="h-5 w-5" />
-                <CardTitle>Manual FAQs</CardTitle>
+                <CardTitle>Business Knowledge</CardTitle>
               </div>
-              <CardDescription>Type customer questions and exact answers the AI should know.</CardDescription>
+              <CardDescription>Add general business data plus exact FAQ answers.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              {faqs.map((row, index) => (
-                <div key={row.id} className="rounded-lg border p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="text-sm font-medium">FAQ {index + 1}</p>
-                    <Button variant="ghost" size="sm" onClick={() => removeFaq(row.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="space-y-2">
-                      <Label htmlFor={`question-${row.id}`}>Question</Label>
-                      <Input
-                        id={`question-${row.id}`}
-                        value={row.question}
-                        onChange={(event) => updateFaq(row.id, { question: event.target.value })}
-                        placeholder="What is your check-in time?"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor={`answer-${row.id}`}>Answer</Label>
-                      <Textarea
-                        id={`answer-${row.id}`}
-                        value={row.answer}
-                        onChange={(event) => updateFaq(row.id, { answer: event.target.value })}
-                        placeholder="Check-in starts at 2 PM and check-out is at 11 AM."
-                        rows={3}
-                      />
-                    </div>
-                  </div>
+              {isLoading && (
+                <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading saved FAQs
                 </div>
-              ))}
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="business-info">Business facts, policies, and details</Label>
+                <Textarea
+                  id="business-info"
+                  value={businessInfo}
+                  onChange={(event) => setBusinessInfo(event.target.value)}
+                  placeholder="Add amenities, address, directions, check-in/out times, cancellation policy, payment rules, facilities, pricing notes, services, documents required, and anything the AI should know."
+                  rows={8}
+                />
+              </div>
+
+              <div className="border-t pt-5">
+                <div className="mb-4">
+                  <p className="font-medium">Manual FAQs</p>
+                  <p className="text-sm text-muted-foreground">Use these for exact answers to common customer questions.</p>
+                </div>
+                {faqs.map((row, index) => (
+                  <div key={row.id} className="rounded-lg border p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-medium">FAQ {index + 1}</p>
+                      <Button variant="ghost" size="sm" onClick={() => removeFaq(row.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor={`question-${row.id}`}>Question</Label>
+                        <Input
+                          id={`question-${row.id}`}
+                          value={row.question}
+                          onChange={(event) => updateFaq(row.id, { question: event.target.value })}
+                          placeholder="What is your check-in time?"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`answer-${row.id}`}>Answer</Label>
+                        <Textarea
+                          id={`answer-${row.id}`}
+                          value={row.answer}
+                          onChange={(event) => updateFaq(row.id, { answer: event.target.value })}
+                          placeholder="Check-in starts at 2 PM and check-out is at 11 AM."
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
               <Button variant="outline" onClick={() => setFaqs((current) => [...current, newFaqRow()])}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add FAQ
@@ -346,8 +572,8 @@ export default function ChatbotKnowledgePage() {
               <CardContent>
                 <div className="grid grid-cols-2 gap-3 text-center">
                   <div className="rounded-lg border p-4">
-                    <p className="text-2xl font-bold">{validFaqs.length}</p>
-                    <p className="text-sm text-muted-foreground">FAQs</p>
+                    <p className="text-2xl font-bold">{validFaqs.length + (businessInfo.trim() ? 1 : 0)}</p>
+                    <p className="text-sm text-muted-foreground">Typed Items</p>
                   </div>
                   <div className="rounded-lg border p-4">
                     <p className="text-2xl font-bold">{documents.length}</p>

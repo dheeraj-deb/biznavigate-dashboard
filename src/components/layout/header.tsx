@@ -8,7 +8,6 @@ import { getInitials } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import { NotificationDropdown } from './notification-dropdown'
 import { Input } from '@/components/ui/input'
-import { BusinessSwitcher } from '@/components/business/business-switcher'
 
 export function Header() {
   const router = useRouter()
@@ -45,8 +44,6 @@ export function Header() {
 
         {/* Right Side Actions */}
         <div className="flex items-center gap-3">
-          <BusinessSwitcher />
-
           {/* Theme Toggle */}
           <Button
             variant="ghost"
