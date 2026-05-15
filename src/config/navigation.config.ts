@@ -168,6 +168,7 @@ export const navigationConfig: NavigationConfig = {
         { name: 'General', href: '/settings', icon: 'Settings' },
         { name: 'Business Profile', href: '/settings/business', icon: 'Building' },
         { name: 'WhatsApp', href: '/settings/whatsapp', icon: 'MessageSquare' },
+        { name: 'Booking Methods', href: '/settings/booking-methods', icon: 'ListChecks' },
         { name: 'WA Templates', href: '/settings/whatsapp-templates', icon: 'FileText' },
         { name: 'WA Flows', href: '/settings/whatsapp-flows', icon: 'Layers' },
         { name: 'Instagram', href: '/settings/instagram', icon: 'Instagram' },
