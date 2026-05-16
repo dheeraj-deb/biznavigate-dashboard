@@ -4,7 +4,7 @@ import { apiClient } from '@/lib/api-client'
 
 export interface BookingMethodsConfig {
   availability_response: {
-    mode: 'interactive' | 'flow' | 'text'
+    mode: 'interactive' | 'flow' | 'text' | 'website_link'
   }
   ai_chat: {
     enabled: boolean

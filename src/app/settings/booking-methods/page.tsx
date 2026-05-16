@@ -7,6 +7,7 @@ import {
   Handshake,
   AlignLeft,
   Layers,
+  Link,
   ListChecks,
   Loader2,
   MessageSquare,
@@ -99,6 +100,12 @@ const responseModes: Array<{
     title: 'Plain Text',
     description: 'Send availability as a normal WhatsApp text summary.',
     icon: AlignLeft,
+  },
+  {
+    value: 'website_link',
+    title: 'Website Link',
+    description: 'Send a public booking link with known dates and guest details prefilled.',
+    icon: Link,
   },
 ]
 
@@ -219,7 +226,7 @@ export default function BookingMethodsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-4">
               {responseModes.map((mode) => {
                 const Icon = mode.icon
                 const active = config.availability_response.mode === mode.value

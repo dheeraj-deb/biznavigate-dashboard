@@ -17,7 +17,6 @@ import {
 } from '@/components/ui/select'
 import toast from 'react-hot-toast'
 import { ArrowLeft, Loader2, CalendarDays, Users, User, Phone, Mail, IndianRupee, BedDouble } from 'lucide-react'
-import { useAuthStore } from '@/store/auth-store'
 
 interface Service {
   service_id: string
@@ -29,7 +28,6 @@ interface Service {
 function NewBookingForm() {
   const router = useRouter()
   const params = useSearchParams()
-  const { user } = useAuthStore()
 
   const [services, setServices] = useState<Service[]>([])
   const [loadingServices, setLoadingServices] = useState(true)
@@ -101,17 +99,17 @@ function NewBookingForm() {
 
     setSubmitting(true)
     try {
-      const unitPrice = Number(form.total_price) || 0
-      await apiClient.post('/orders', {
-        business_id: user?.business_id,
+      await apiClient.post('/hospitality-bookings', {
         ...(fromLead ? { lead_id: fromLead } : {}),
-        total_amount: unitPrice,
-        currency: 'INR',
-        items: [{
-          item_id: form.service_id,
-          quantity: Number(form.slots_booked) || 1,
-          unit_price: unitPrice,
-        }],
+        service_id: form.service_id,
+        check_in: form.check_in_date,
+        check_out: form.check_out_date,
+        guest_name: form.customer_name,
+        phone: form.customer_phone,
+        num_guests: Number(form.slots_booked) || 1,
+        status: form.status,
+        payment_status: form.payment_status,
+        notes: form.special_requests,
       })
       toast.success('Booking created!')
       router.push('/inventory/bookings')
