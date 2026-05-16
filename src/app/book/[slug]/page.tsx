@@ -134,7 +134,7 @@ export default function PublicBookingPage() {
           quantity: form.quantity,
         },
       })
-      const list = unwrap<{ data: PublicItem[] }>(res).data ?? []
+      const list = unwrap<PublicItem[]>(res) ?? []
       setItems(list)
       const preselected = searchParams.get('itemId')
       const nextSelected = list.find((item) => item.item_id === preselected) ?? null
@@ -206,15 +206,15 @@ export default function PublicBookingPage() {
     const whatsappNumber = page.config.contact.whatsapp || page.business.whatsapp_number || page.config.contact.phone || page.business.phone
     const whatsappText = selected
       ? [
-          `Hi, I want to confirm this booking.`,
-          `Reference: ${confirmation.reference_id}`,
-          `${labels.item}: ${selected.name}`,
-          isProduct ? `Quantity: ${form.quantity}` : `Dates: ${form.check_in} to ${form.check_out}`,
-          `Name: ${form.name}`,
-          `Phone: ${form.phone}`,
-          form.address ? `Address: ${form.address}` : '',
-          form.notes ? `Notes: ${form.notes}` : '',
-        ].filter(Boolean).join('\n')
+        `Hi, I want to confirm this booking.`,
+        `Reference: ${confirmation.reference_id}`,
+        `${labels.item}: ${selected.name}`,
+        isProduct ? `Quantity: ${form.quantity}` : `Dates: ${form.check_in} to ${form.check_out}`,
+        `Name: ${form.name}`,
+        `Phone: ${form.phone}`,
+        form.address ? `Address: ${form.address}` : '',
+        form.notes ? `Notes: ${form.notes}` : '',
+      ].filter(Boolean).join('\n')
       : `Hi, I want to confirm my request. Reference: ${confirmation.reference_id}`
     const whatsappUrl = whatsappNumber ? `https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappText)}` : ''
 
@@ -282,47 +282,47 @@ export default function PublicBookingPage() {
           </div>
 
           {view === 'list' && (
-          <div className="grid gap-4 md:grid-cols-2">
-            {items.map((item) => (
-              <button
-                key={item.item_id}
-                onClick={() => {
-                  setSelected(item)
-                  setView('detail')
-                }}
-                className={`overflow-hidden rounded-xl border bg-white text-left shadow-sm transition ${selected?.item_id === item.item_id ? 'ring-2' : 'hover:border-slate-300'}`}
-                style={selected?.item_id === item.item_id ? { boxShadow: `0 0 0 2px ${accent}` } : {}}
-              >
-                <div className="aspect-[16/9] bg-slate-100">
-                  {item.primary_image_url ? <img src={item.primary_image_url} alt={item.name} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-slate-400">{labels.item}</div>}
-                </div>
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="font-bold text-gray-900">{item.name}</h3>
-                      <p className="mt-1 line-clamp-2 text-sm text-gray-500">{item.description || item.details?.service_type || item.item_type}</p>
-                    </div>
-                    <p className="whitespace-nowrap font-bold" style={{ color: accent }}>{money(item.effective_price, page.business.currency)}</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              {items.map((item) => (
+                <button
+                  key={item.item_id}
+                  onClick={() => {
+                    setSelected(item)
+                    setView('detail')
+                  }}
+                  className={`overflow-hidden rounded-xl border bg-white text-left shadow-sm transition ${selected?.item_id === item.item_id ? 'ring-2' : 'hover:border-slate-300'}`}
+                  style={selected?.item_id === item.item_id ? { boxShadow: `0 0 0 2px ${accent}` } : {}}
+                >
+                  <div className="aspect-[16/9] bg-slate-100">
+                    {(item.primary_image_url || item.image_urls?.[0]) ? <img src={item.primary_image_url || item.image_urls?.[0]} alt={item.name} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-slate-400">{labels.item}</div>}
                   </div>
-                  <p className="mt-3 text-xs text-gray-500">
-                    {isProduct ? `${item.stock_quantity ?? 'Available'} in stock` : `${item.available_slots ?? 'Available'} slot(s) available`}
-                  </p>
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold text-gray-900">{item.name}</h3>
+                        <p className="mt-1 line-clamp-2 text-sm text-gray-500">{item.description || item.details?.service_type || item.item_type}</p>
+                      </div>
+                      <p className="whitespace-nowrap font-bold" style={{ color: accent }}>{money(item.effective_price, page.business.currency)}</p>
+                    </div>
+                    <p className="mt-3 text-xs text-gray-500">
+                      {isProduct ? `${item.stock_quantity ?? 'Available'} in stock` : `${item.available_slots ?? 'Available'} slot(s) available`}
+                    </p>
+                  </div>
+                </button>
+              ))}
+              {!itemsLoading && items.length === 0 && (
+                <div className="col-span-full rounded-xl border bg-white p-10 text-center text-gray-500">
+                  No available {labels.items.toLowerCase()} found for the selected details.
                 </div>
-              </button>
-            ))}
-            {!itemsLoading && items.length === 0 && (
-              <div className="col-span-full rounded-xl border bg-white p-10 text-center text-gray-500">
-                No available {labels.items.toLowerCase()} found for the selected details.
-              </div>
-            )}
-          </div>
+              )}
+            </div>
           )}
 
           {view === 'detail' && selected && (
             <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
               <div className="aspect-[16/9] bg-slate-100">
-                {selected.primary_image_url ? (
-                  <img src={selected.primary_image_url} alt={selected.name} className="h-full w-full object-cover" />
+                {(selected.primary_image_url || selected.image_urls?.[0]) ? (
+                  <img src={selected.primary_image_url || selected.image_urls?.[0]} alt={selected.name} className="h-full w-full object-cover" />
                 ) : (
                   <div className="grid h-full place-items-center text-slate-400">{labels.item}</div>
                 )}
