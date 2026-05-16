@@ -111,7 +111,7 @@ export default function PublicBookingPage() {
   const [view, setView] = useState<'list' | 'detail' | 'form'>('list')
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const [form, setForm] = useState(() => defaultCheckoutFor('generic', searchParams))
+  const [form, setForm] = useState(() => defaultCheckoutFor(searchParams))
 
   const accent = page?.config.theme.primary_color || '#0066FF'
   const experience = page?.config.experience_type ?? 'generic'
