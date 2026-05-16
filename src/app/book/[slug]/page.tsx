@@ -146,9 +146,13 @@ export default function PublicBookingPage() {
   }
 
   useEffect(() => {
-    if (page) loadItems()
+    if (!page || !slug) return
+    const timer = window.setTimeout(() => {
+      loadItems()
+    }, 300)
+    return () => window.clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page])
+  }, [page, slug, form.check_in, form.check_out, form.guests, form.quantity])
 
   const total = useMemo(() => {
     if (!selected) return 0
