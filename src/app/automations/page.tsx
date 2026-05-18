@@ -17,6 +17,13 @@ import {
   FileText,
   Sparkles,
   Loader2,
+  MessageSquare,
+  CalendarClock,
+  Workflow as WorkflowIcon,
+  CircleDollarSign,
+  UserPlus,
+  XCircle,
+  UserMinus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -42,6 +49,65 @@ const statusConfig = {
     color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
     icon: FileText,
   },
+}
+
+// Visual config per trigger node type, used to label the kind of automation
+// in the list (message / schedule / event). Returns null when no recognised
+// trigger is present — caller falls back to the legacy intent_name badge.
+function describeTrigger(triggerType: string | undefined | null, triggerParams: any) {
+  if (!triggerType) return null
+  if (triggerType === 'trigger.whatsapp') {
+    return { label: 'On any WhatsApp message', icon: MessageSquare, color: 'text-emerald-700' }
+  }
+  if (triggerType === 'trigger.whatsapp.intent') {
+    const intent = triggerParams?.intent
+    return {
+      label: intent ? `On WhatsApp intent: ${intent}` : 'On WhatsApp intent',
+      icon: Sparkles,
+      color: 'text-violet-700',
+    }
+  }
+  if (triggerType === 'trigger.schedule') {
+    const mode = triggerParams?.schedule?.mode
+    const label =
+      mode === 'daily' ? `Schedule · daily ${triggerParams.schedule.time ?? ''}`.trim()
+        : mode === 'weekly' ? 'Schedule · weekly'
+        : mode === 'interval' ? `Schedule · every ${triggerParams.schedule.every_minutes ?? '?'}m`
+        : mode === 'one_time' ? 'Schedule · one-time'
+        : 'Schedule'
+    return { label, icon: CalendarClock, color: 'text-sky-700' }
+  }
+  if (triggerType === 'trigger.event.lead_status_changed') {
+    return { label: 'On lead status change', icon: WorkflowIcon, color: 'text-indigo-700' }
+  }
+  if (triggerType === 'trigger.event.booking_created') {
+    return { label: 'On booking created', icon: UserPlus, color: 'text-emerald-700' }
+  }
+  if (triggerType === 'trigger.event.booking_cancelled') {
+    return { label: 'On booking cancelled', icon: XCircle, color: 'text-rose-700' }
+  }
+  if (triggerType === 'trigger.event.payment_captured') {
+    return { label: 'On payment received', icon: CircleDollarSign, color: 'text-amber-700' }
+  }
+  if (triggerType === 'trigger.event.lead_inactive') {
+    const days = triggerParams?.days
+    return {
+      label: days ? `On lead inactive ${days}d` : 'On lead inactive',
+      icon: UserMinus,
+      color: 'text-slate-700',
+    }
+  }
+  return null
+}
+
+function findTriggerNode(workflow: any): { type?: string; params?: any } | null {
+  const nodes =
+    workflow?.workflow_definitions?.nodes ??
+    workflow?.workflow_definitions?.workflow_definition?.nodes ??
+    []
+  if (!Array.isArray(nodes)) return null
+  const trigger = nodes.find((n: any) => typeof n?.type === 'string' && n.type.startsWith('trigger.'))
+  return trigger ? { type: trigger.type, params: trigger.params } : null
 }
 
 export default function AutomationsPage() {
@@ -230,9 +296,7 @@ export default function AutomationsPage() {
                           )}
 
                           <div className="flex items-center gap-3">
-                            <Badge variant="outline" className="text-xs">
-                              {workflow.intent_name}
-                            </Badge>
+                            <TriggerBadge workflow={workflow} />
                             <p className="text-xs text-gray-400 dark:text-gray-500">
                               Created {new Date(workflow.created_at).toLocaleDateString()}
                             </p>
@@ -290,5 +354,29 @@ export default function AutomationsPage() {
         onClose={() => setShowCreateDialog(false)}
       />
     </DashboardLayout>
+  )
+}
+
+/**
+ * Per-row badge that summarises what kicks off this workflow. Falls back to the
+ * legacy intent_name field for workflows saved before the wizard captured trigger
+ * type on the definition.
+ */
+function TriggerBadge({ workflow }: { workflow: any }) {
+  const trigger = findTriggerNode(workflow)
+  const described = describeTrigger(trigger?.type, trigger?.params)
+  if (!described) {
+    return (
+      <Badge variant="outline" className="text-xs">
+        {workflow.intent_name ?? 'No trigger'}
+      </Badge>
+    )
+  }
+  const Icon = described.icon
+  return (
+    <Badge variant="outline" className={cn('gap-1.5 text-xs', described.color)}>
+      <Icon className="h-3 w-3" />
+      {described.label}
+    </Badge>
   )
 }
