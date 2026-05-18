@@ -85,3 +85,98 @@ export function useWorkflow(workflowId: string) {
     enabled: !!workflowId && workflowId !== 'new',
   })
 }
+
+// ─── Wizard-specific hooks ──────────────────────────────────────────────────
+
+export interface WorkflowTemplateSummary {
+  id: string
+  name: string
+  description: string
+  icon: string
+  category: 'engagement' | 'commerce' | 'support' | 'reactivation'
+  business_types: string[]
+}
+
+export function useWorkflowTemplates(businessType?: string) {
+  return useQuery({
+    queryKey: ['workflow-templates', businessType ?? null],
+    queryFn: async () => {
+      const params = businessType ? { businessType } : undefined
+      const response = await apiClient.get('/workflows/templates', { params })
+      return (response.data ?? []) as WorkflowTemplateSummary[]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export function useCloneTemplate() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: { templateId: string; business_id: string; workflow_name?: string }) => {
+      const { templateId, ...body } = data
+      const response = await apiClient.post(`/workflows/templates/${templateId}/clone`, body)
+      return (response.data?.data || response.data) as { workflow_id: string }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflows'] })
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || error.message || 'Could not clone template')
+    },
+  })
+}
+
+/**
+ * Wizard autosave mutation. Sends the full draft to PUT /workflows; the backend
+ * warn-logs validation issues on drafts instead of throwing. Activation is a
+ * separate concern via useActivateWorkflow.
+ */
+export function useSaveWorkflowDraft() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: {
+      workflow_id: string
+      workflow_name: string
+      description?: string
+      nodes: any[]
+      connections: Record<string, any>
+    }) => {
+      const response = await apiClient.put('/workflows', { ...data, is_active: false })
+      return response.data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['workflow', variables.workflow_id] })
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || error.message || 'Could not save draft')
+    },
+  })
+}
+
+export function useActivateWorkflow() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: {
+      workflow_id: string
+      workflow_name: string
+      description?: string
+      nodes: any[]
+      connections: Record<string, any>
+    }) => {
+      const response = await apiClient.put('/workflows', { ...data, is_active: true })
+      return response.data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['workflow', variables.workflow_id] })
+      queryClient.invalidateQueries({ queryKey: ['workflows'] })
+    },
+    onError: (error: any) => {
+      const errors = error?.response?.data?.errors
+      if (Array.isArray(errors) && errors.length) {
+        toast.error(`Cannot activate: ${errors[0].message}`)
+      } else {
+        toast.error(error?.response?.data?.message || error.message || 'Could not activate workflow')
+      }
+    },
+  })
+}
