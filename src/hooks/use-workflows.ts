@@ -180,3 +180,107 @@ export function useActivateWorkflow() {
     },
   })
 }
+
+/**
+ * Toggle a workflow's active flag from the list page. The backend validates
+ * before activating and syncs the BullMQ schedule.
+ */
+export function useToggleWorkflowActive() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (data: { workflow_id: string; is_active: boolean }) => {
+      const response = await apiClient.post(`/workflows/${data.workflow_id}/toggle`, {
+        is_active: data.is_active,
+      })
+      return response.data
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['workflows'] })
+      queryClient.invalidateQueries({ queryKey: ['workflow', variables.workflow_id] })
+      toast.success(variables.is_active ? 'Automation activated' : 'Automation deactivated')
+    },
+    onError: (error: any) => {
+      const errors = error?.response?.data?.errors
+      if (Array.isArray(errors) && errors.length) {
+        toast.error(`Cannot activate: ${errors[0].message}`)
+      } else {
+        toast.error(error?.response?.data?.message || error.message || 'Could not update workflow')
+      }
+    },
+  })
+}
+
+export function useDeleteWorkflow() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (workflow_id: string) => {
+      const response = await apiClient.delete(`/workflows/${workflow_id}`)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflows'] })
+      toast.success('Automation deleted')
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || error.message || 'Could not delete workflow')
+    },
+  })
+}
+
+// ─── Workflow runs ──────────────────────────────────────────────────────────
+
+export interface WorkflowRunSummary {
+  execution_id: string
+  status: string
+  waiting_for_input: boolean | null
+  current_node_id: string | null
+  lead_id: string | null
+  channel: string | null
+  chat_id: string | null
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+}
+
+export function useWorkflowRuns(workflowId: string, limit = 50) {
+  return useQuery({
+    queryKey: ['workflow-runs', workflowId, limit],
+    queryFn: async () => {
+      const response = await apiClient.get(`/workflows/${workflowId}/runs`, { params: { limit } })
+      return (response.data ?? []) as WorkflowRunSummary[]
+    },
+    enabled: !!workflowId,
+  })
+}
+
+export interface WorkflowRunStep {
+  step_id?: string
+  execution_id: string
+  workflow_id: string
+  node_id: string | null
+  node_type: string | null
+  node_name: string | null
+  status: string
+  input: any
+  output: any
+  error?: string | null
+  started_at: string | null
+  completed_at: string | null
+  duration_ms: number | null
+}
+
+export interface WorkflowRunDetail {
+  execution: any
+  steps: WorkflowRunStep[]
+}
+
+export function useWorkflowRunDetail(workflowId: string, executionId: string | null) {
+  return useQuery({
+    queryKey: ['workflow-run', workflowId, executionId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/workflows/${workflowId}/runs/${executionId}`)
+      return response.data as WorkflowRunDetail
+    },
+    enabled: !!workflowId && !!executionId,
+  })
+}
