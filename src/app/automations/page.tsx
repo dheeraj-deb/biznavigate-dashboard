@@ -24,6 +24,7 @@ import {
   UserPlus,
   XCircle,
   UserMinus,
+  Clock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -36,7 +37,17 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { CreateWorkflowDialog } from '@/components/workflows/create-workflow-dialog'
 import { useAuthStore } from '@/store/auth-store'
-import { useWorkflows } from '@/hooks/use-workflows'
+import { useDeleteWorkflow, useToggleWorkflowActive, useWorkflows } from '@/hooks/use-workflows'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 const statusConfig = {
   active: {
@@ -118,6 +129,10 @@ export default function AutomationsPage() {
 
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [filter, setFilter] = useState<'all' | 'active' | 'draft'>('all')
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const toggleActive = useToggleWorkflowActive()
+  const deleteWorkflow = useDeleteWorkflow()
+  const pendingDeleteWorkflow = workflows.find((w) => w.workflow_id === pendingDeleteId) ?? null
 
   const filteredWorkflows = workflows.filter((w) => {
     if (filter === 'all') return true
@@ -318,7 +333,15 @@ export default function AutomationsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled={toggleActive.isPending}
+                                onClick={() =>
+                                  toggleActive.mutate({
+                                    workflow_id: workflow.workflow_id,
+                                    is_active: !workflow.is_active,
+                                  })
+                                }
+                              >
                                 {workflow.is_active ? (
                                   <>
                                     <Pause className="h-4 w-4 mr-2" />
@@ -331,8 +354,17 @@ export default function AutomationsPage() {
                                   </>
                                 )}
                               </DropdownMenuItem>
+                              <Link href={`/automations/${workflow.workflow_id}/runs`}>
+                                <DropdownMenuItem>
+                                  <Clock className="h-4 w-4 mr-2" />
+                                  View runs
+                                </DropdownMenuItem>
+                              </Link>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-600 dark:text-red-400">
+                              <DropdownMenuItem
+                                className="text-red-600 dark:text-red-400"
+                                onClick={() => setPendingDeleteId(workflow.workflow_id)}
+                              >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Delete
                               </DropdownMenuItem>
@@ -353,6 +385,39 @@ export default function AutomationsPage() {
         open={showCreateDialog}
         onClose={() => setShowCreateDialog(false)}
       />
+
+      <AlertDialog
+        open={!!pendingDeleteId}
+        onOpenChange={(open) => !open && setPendingDeleteId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete &ldquo;{pendingDeleteWorkflow?.workflow_name ?? 'this automation'}&rdquo;?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the automation and any scheduled fires. Past runs are kept for audit.
+              This can&rsquo;t be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteWorkflow.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteWorkflow.isPending}
+              onClick={(e) => {
+                e.preventDefault()
+                if (!pendingDeleteId) return
+                deleteWorkflow.mutate(pendingDeleteId, {
+                  onSuccess: () => setPendingDeleteId(null),
+                })
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   )
 }
