@@ -120,7 +120,7 @@ export function useHandoffWebSocket() {
                 type: 'escalation' as const,
                 priority: 'urgent' as const,
                 is_read: false,
-                action_url: `/crm/handoff`,
+                    action_url: `/crm/inbox?tab=needs`,
                 metadata: {
                     conversationId: payload.conversationId,
                     phone: payload.phone,
