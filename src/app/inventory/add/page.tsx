@@ -336,6 +336,13 @@ export default function AddInventoryPage() {
 
   const UNIT_ACCOM_TYPES = ['villa', 'cabin', 'glamping']
   const isUnitAccom = UNIT_ACCOM_TYPES.includes(accommodationType)
+  const isDormitory = accommodationType === 'dormitory'
+  const isTentSite = accommodationType === 'tent_site'
+  const wholeUnitLabel = accommodationType === 'villa'
+    ? 'Villa'
+    : accommodationType === 'cabin'
+      ? 'Cabin'
+      : 'Glamping unit'
 
   // Capacity label/placeholder/default per accommodation type
   const ACCOM_CAPACITY: Record<string, { label: string; placeholder: string; defaultQty: string }> = {
@@ -350,7 +357,13 @@ export default function AddInventoryPage() {
   // Reset qty default when accommodation type changes
   useEffect(() => {
     const def = ACCOM_CAPACITY[accommodationType]?.defaultQty ?? ''
-    setRooms(prev => prev.map((r, i) => i === 0 ? { ...r, qty: def } : r))
+    setRooms(prev => prev.map((r, i) => {
+      if (i !== 0) return r
+      if (isUnitAccom) return { ...r, type: wholeUnitLabel, capacity: maxGuests, qty: def || '1' }
+      if (isDormitory) return { ...r, type: 'Dormitory Bed', capacity: '1', qty: '' }
+      if (isTentSite) return { ...r, type: 'Tent Spot', capacity: '2', qty: '' }
+      return { ...r, qty: def }
+    }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accommodationType])
 
@@ -438,13 +451,18 @@ export default function AddInventoryPage() {
   // Validate
   const validate = () => {
     const e: Record<string, string> = {}
-    if (!name.trim()) e.name = 'Name is required'
+    if (!name.trim()) e.name = bizType === 'hospitality' ? 'Property or room name is required' : 'Name is required'
     // For hospitality, price comes from room entries; for events, from ticket entries
     if (bizType !== 'hospitality' && bizType !== 'events') {
       if (!price.trim() || isNaN(Number(price))) e.price = 'Valid price is required'
     }
     if (bizType === 'hospitality') {
       if (!location.trim()) e.location = 'Location is required'
+      const firstRoom = rooms[0]
+      if (!firstRoom?.price || Number(firstRoom.price) <= 0) e.roomPrice = 'Price per night is required'
+      if (isUnitAccom && (!maxGuests || Number(maxGuests) <= 0)) e.roomCapacity = 'Max guests is required'
+      if (!isUnitAccom && !isDormitory && (!firstRoom?.capacity || Number(firstRoom.capacity) <= 0)) e.roomCapacity = 'Max guests is required'
+      if (!isUnitAccom && (!firstRoom?.qty || Number(firstRoom.qty) <= 0)) e.roomQty = isDormitory ? 'Number of beds is required' : 'Total rooms or units is required'
     }
     if (bizType === 'events') {
       if (!eventDate) e.eventDate = 'Event date is required'
@@ -544,6 +562,8 @@ export default function AddInventoryPage() {
         // total_units → Number of Rooms/Units field (qty) entered by user
         const serviceCapacity: number = isUnitAccom
           ? parseInt(maxGuests) || 1                         // whole-unit: max guests dropdown
+          : isDormitory
+          ? parseInt(rooms[0]?.qty) || 1                     // dormitory: total beds available
           : isRoomBased
           ? parseInt(rooms[0]?.capacity) || 0               // room: Capacity field value
           : parseInt(totalCapacity) || 0                    // events: total capacity field
@@ -577,7 +597,7 @@ export default function AddInventoryPage() {
             max_adults: maxAdults ? parseInt(maxAdults) : undefined,
           },
         })
-        toast.success('Service added to inventory! 🎉', {
+        toast.success(isHospitality ? 'Room / property added!' : 'Service added to inventory!', {
           style: { borderRadius: '12px', background: '#1e293b', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px' },
         })
         router.push('/inventory/services')
@@ -616,22 +636,22 @@ export default function AddInventoryPage() {
 
   const pageConfig = {
     hospitality: {
-      title: 'Add Property Listing',
-      subtitle: 'Add a new property with rooms, star rating, amenities and pricing',
+      title: 'Add Room / Property',
+      subtitle: 'Set name, price, rooms available, max guests and photos for booking',
       icon: Hotel,
       accent: '#0066FF',
-      badge: 'Hospitality',
+      badge: 'Properties & Rooms',
     },
     hotel: {
-      title: 'Add Hotel Listing',
-      subtitle: 'Add a new property with rooms, star rating, amenities and pricing',
+      title: 'Add Room / Property',
+      subtitle: 'Set name, price, rooms available, max guests and photos for booking',
       icon: Hotel,
       accent: '#0066FF',
       badge: 'Hotel',
     },
     resort: {
-      title: 'Add Resort / Property',
-      subtitle: 'Add a luxury property with villas, rooms, amenities and pricing',
+      title: 'Add Room / Property',
+      subtitle: 'Set name, price, rooms available, max guests and photos for booking',
       icon: Hotel,
       accent: '#0066FF',
       badge: 'Resort',
@@ -715,7 +735,7 @@ export default function AddInventoryPage() {
           <div className="flex items-start gap-4">
             <button
               type="button"
-              onClick={() => router.push('/inventory/products')}
+              onClick={() => router.push(bizType === 'hospitality' ? '/inventory/services' : '/inventory/products')}
               className="mt-1 flex h-9 w-9 items-center justify-center rounded-xl border border-[#E5E5E5] hover:bg-slate-50 transition-colors"
             >
               <ArrowLeft className="h-4 w-4 text-[#4B4B4B]" />
@@ -757,13 +777,20 @@ export default function AddInventoryPage() {
 
           {/* Active toggle */}
           <div className="flex items-center gap-2.5 rounded-xl border border-[#E5E5E5] bg-white px-4 py-2.5 shadow-sm">
-            <span className="text-[12px] font-bold text-[#4B4B4B]">Active</span>
+            <span className="text-[12px] font-bold text-[#4B4B4B]">
+              {bizType === 'hospitality' ? 'Available for booking' : 'Active'}
+            </span>
             <Switch checked={isActive} onCheckedChange={setIsActive} />
           </div>
         </div>
 
         {/* ── Photos ── */}
-        <SectionCard title="Photos" subtitle="Upload high-quality photos. First image will be the cover." icon={Camera} accent={pageConfig.accent}>
+        <SectionCard
+          title="Photos"
+          subtitle={bizType === 'hospitality' ? 'Add clear property photos. First image will be the cover.' : 'Upload high-quality photos. First image will be the cover.'}
+          icon={Camera}
+          accent={pageConfig.accent}
+        >
           <ImageUploadGrid
             previews={previews}
             onAdd={handleAddImages} onRemove={handleRemoveImage}
@@ -772,13 +799,18 @@ export default function AddInventoryPage() {
         </SectionCard>
 
         {/* ── Basic Info ── */}
-        <SectionCard title="Basic Information" subtitle="Core details visible to your customers" icon={Info} accent={pageConfig.accent}>
+        <SectionCard
+          title={bizType === 'hospitality' ? 'Property basics' : 'Basic Information'}
+          subtitle={bizType === 'hospitality' ? 'This is what guests see in WhatsApp and booking pages' : 'Core details visible to your customers'}
+          icon={Info}
+          accent={pageConfig.accent}
+        >
           <div className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
                 <FieldLabel required>
                   {bizType === 'hospitality'
-                    ? 'Property Name'
+                    ? 'Room / Property Name'
                     : bizType === 'events' ? (eventsSubType === 'camping' ? 'Camp Name' : 'Event Name')
                     : bizType === ('education' as string) ? 'Course / Program Title'
                     : 'Product Name'}
@@ -786,7 +818,7 @@ export default function AddInventoryPage() {
                 <FieldInput
                   id="name" value={name} onChange={setName}
                   placeholder={
-                    bizType === 'hospitality' ? 'e.g. The Grand Aravalli Resort'
+                    bizType === 'hospitality' ? 'e.g. Pondy Resort, Deluxe Room, Pool Villa'
                     : bizType === 'events' ? (eventsSubType === 'camping' ? 'e.g. Himalayan Base Camp Experience' : 'e.g. Sunburn Music Festival 2026')
                     : (bizType as string) === 'education' ? 'e.g. Advanced Digital Marketing Course'
                     : 'e.g. Premium Leather Wallet'
@@ -800,7 +832,7 @@ export default function AddInventoryPage() {
                   <FieldLabel required>Location</FieldLabel>
                   <FieldInput
                     id="location" value={location} onChange={setLocation}
-                    placeholder={bizType === 'hospitality' ? 'e.g. Rishikesh, Uttarakhand' : 'e.g. NESCO Grounds, Mumbai'}
+                    placeholder={bizType === 'hospitality' ? 'e.g. Pondicherry, Wayanad, Munnar' : 'e.g. NESCO Grounds, Mumbai'}
                     error={errors.location}
                   />
                 </div>
@@ -850,14 +882,14 @@ export default function AddInventoryPage() {
           <>
             {/* Property Details */}
             <SectionCard
-              title="Property Details"
-              subtitle="Star rating, check-in/out times and total room count"
+              title="Booking settings"
+              subtitle="Choose property type, check-in times and guest rules"
               icon={Hotel}
               accent="#0066FF"
             >
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <FieldLabel required>Accommodation Type</FieldLabel>
+                  <FieldLabel required>Property / Room Type</FieldLabel>
                   <FieldSelect
                     value={accommodationType}
                     onChange={setAccommodationType}
@@ -912,7 +944,7 @@ export default function AddInventoryPage() {
                 </div>
 
                 {/* Pricing extras */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid gap-4 md:grid-cols-3">
                   <div className="space-y-1.5">
                     <FieldLabel>Tax %</FieldLabel>
                     <FieldInput type="number" value={taxPercentage} onChange={setTaxPercentage} placeholder="e.g. 12.5" />
@@ -969,22 +1001,31 @@ export default function AddInventoryPage() {
 
             {/* Room Types */}
             <SectionCard
-              title="Room Types & Packages"
+              title={isUnitAccom ? `${wholeUnitLabel} price` : isDormitory ? 'Dormitory beds' : isTentSite ? 'Tent spots' : 'Rooms and price'}
               subtitle="Add your room categories — Standard, Deluxe, Suite, etc. — with individual pricing"
               icon={Tag}
               accent="#0066FF"
             >
               <div className="space-y-3">
+                {(isUnitAccom || isDormitory || isTentSite) && (
+                  <div className="rounded-xl border border-[#DDE7F7] bg-[#F7FAFF] px-4 py-3 text-[13px] text-[#334155]">
+                    {isUnitAccom && `Add one ${wholeUnitLabel.toLowerCase()} with its guest limit and nightly price.`}
+                    {isDormitory && 'Add total beds and the price for one bed per night.'}
+                    {isTentSite && 'Add tent spots, guests per spot and the price for one spot per night.'}
+                  </div>
+                )}
                 {rooms.map((room, i) => (
                   <div key={i} className="relative rounded-xl border border-[#E5E5E5] bg-slate-50/50 p-4">
-                    <div className="grid gap-3 md:grid-cols-5 items-start">
+                    <div className={`grid gap-3 items-start ${isUnitAccom || isDormitory ? 'md:grid-cols-2' : isTentSite ? 'md:grid-cols-3' : 'md:grid-cols-5'}`}>
+                      {!isUnitAccom && !isDormitory && !isTentSite && (
                       <div className="space-y-1 md:col-span-2">
-                        <FieldLabel>Room Type</FieldLabel>
+                          <FieldLabel>Room / Unit Type</FieldLabel>
                         <FieldSelect
                           value={room.type} onChange={v => updateRoom(i, 'type', v)}
                           options={ROOM_TYPES}
                         />
                       </div>
+                      )}
                       {isUnitAccom ? (
                         <div className="space-y-1">
                           <FieldLabel>Max Guests</FieldLabel>
@@ -994,21 +1035,43 @@ export default function AddInventoryPage() {
                             options={['1','2','3','4','5','6','7','8','9','10','12','15','20']}
                           />
                         </div>
+                      ) : isDormitory ? (
+                        <div className="space-y-1">
+                          <FieldLabel required>Number of Beds</FieldLabel>
+                          <FieldInput type="number" value={room.qty} onChange={v => updateRoom(i, 'qty', v)} placeholder="e.g. 20" error={errors.roomQty} />
+                        </div>
                       ) : (
                         <div className="space-y-1">
-                          <FieldLabel>Capacity</FieldLabel>
-                          <FieldInput type="number" value={room.capacity} onChange={v => updateRoom(i, 'capacity', v)} placeholder="Guests" />
+                          <FieldLabel required>{isTentSite ? 'Guests / Spot' : 'Max Guests'}</FieldLabel>
+                          <FieldInput type="number" value={room.capacity} onChange={v => updateRoom(i, 'capacity', v)} placeholder="Guests" error={errors.roomCapacity} />
                         </div>
                       )}
                       <div className="space-y-1">
-                        <FieldLabel>Price / Night (₹)</FieldLabel>
-                        <FieldInput type="number" value={room.price} onChange={v => updateRoom(i, 'price', v)} placeholder="0" />
+                        <FieldLabel required>Price / Night (₹)</FieldLabel>
+                        <FieldInput type="number" value={room.price} onChange={v => updateRoom(i, 'price', v)} placeholder="0" error={errors.roomPrice} />
+                        {(isDormitory || isTentSite) && (
+                          <p className="text-[11px] text-[#6E6E6E]">
+                            {isDormitory ? 'This is the price for one bed.' : 'This is the price for one tent spot.'}
+                          </p>
+                        )}
                       </div>
-                      <div className="space-y-1">
-                        <FieldLabel required={!accomCap.defaultQty}>{accomCap.label}</FieldLabel>
-                        <FieldInput type="number" value={room.qty} onChange={v => updateRoom(i, 'qty', v)} placeholder={accomCap.placeholder} />
-                      </div>
+                      {!isUnitAccom && !isDormitory && (
+                        <div className="space-y-1">
+                          <FieldLabel required={!accomCap.defaultQty}>{accomCap.label}</FieldLabel>
+                          <FieldInput type="number" value={room.qty} onChange={v => updateRoom(i, 'qty', v)} placeholder={accomCap.placeholder} error={errors.roomQty} />
+                        </div>
+                      )}
                     </div>
+                    {isUnitAccom && (
+                      <p className="mt-3 rounded-lg bg-white px-3 py-2 text-[12px] text-[#5F6B7A]">
+                        This is booked as one whole {wholeUnitLabel.toLowerCase()}, not as separate rooms.
+                      </p>
+                    )}
+                    {isDormitory && (
+                      <p className="mt-3 rounded-lg bg-white px-3 py-2 text-[12px] text-[#5F6B7A]">
+                        Guests book available beds for the selected dates.
+                      </p>
+                    )}
                     {rooms.length > 1 && (
                       <button type="button" onClick={() => removeRoom(i)}
                         className="absolute top-3 right-3 text-red-400 hover:text-red-600 transition-colors">
@@ -1017,13 +1080,15 @@ export default function AddInventoryPage() {
                     )}
                   </div>
                 ))}
-                <button
-                  type="button" onClick={addRoom}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#E5E5E5] py-3 text-[13px] font-semibold text-[#6E6E6E] hover:border-[#0066FF] hover:text-[#0066FF] transition-all"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Room Type
-                </button>
+                {!isUnitAccom && !isDormitory && !isTentSite && (
+                  <button
+                    type="button" onClick={addRoom}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#E5E5E5] py-3 text-[13px] font-semibold text-[#6E6E6E] hover:border-[#0066FF] hover:text-[#0066FF] transition-all"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add another room type
+                  </button>
+                )}
               </div>
             </SectionCard>
 

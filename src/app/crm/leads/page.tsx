@@ -9,18 +9,23 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import toast from 'react-hot-toast'
 import {
+  AlertTriangle,
+  Building2,
   CalendarDays,
   CheckCircle2,
   Clock,
   Globe,
+  Link2,
   Loader2,
   MessageCircle,
   Phone,
   Search,
+  Sparkles,
   Users,
+  X,
 } from 'lucide-react'
 
-type LeadTab = 'new' | 'conversation' | 'booked' | 'followup' | 'lost'
+type LeadTab = 'all' | 'new' | 'conversation' | 'booked' | 'followup' | 'lost'
 
 interface LeadContext {
   check_in?: string
@@ -62,7 +67,33 @@ interface LeadStats {
   by_status?: Array<{ status: string; count: number }>
 }
 
+interface ResortWorklist {
+  booking_link_sent?: any[]
+  demand_missed?: any[]
+  upcoming_bookings?: any[]
+  property_options?: Array<{ item_id: string; name: string }>
+  counts?: {
+    booking_link_sent?: number
+    demand_missed?: number
+    upcoming_bookings?: number
+  }
+}
+
+interface ReminderReadiness {
+  ready?: any[]
+  stopped?: any[]
+  missing_details?: any[]
+  counts?: {
+    ready?: number
+    stopped?: number
+    missing_details?: number
+    total?: number
+  }
+  checked_at?: string
+}
+
 const TABS: Array<{ key: LeadTab; label: string; help: string }> = [
+  { key: 'all', label: 'All', help: 'Every guest enquiry' },
   { key: 'new', label: 'New Enquiries', help: 'Fresh messages to check' },
   { key: 'conversation', label: 'In Conversation', help: 'Guests you are talking to' },
   { key: 'booked', label: 'Booked', help: 'Confirmed or won enquiries' },
@@ -134,6 +165,25 @@ function getItemName(context?: LeadContext) {
   return context?.item_name ?? context?.property_name ?? context?.room_preference
 }
 
+function hasBookingLinkContext(context?: LeadContext) {
+  return Boolean((context?.check_in || context?.requested_date) && context?.check_out && getItemName(context))
+}
+
+function leadMatchesProperty(lead: Lead, propertyName: string) {
+  if (!propertyName) return true
+  const expected = propertyName.toLowerCase()
+  const context = lead.context ?? {}
+  return [context.item_name, context.property_name, context.room_preference]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(expected))
+}
+
+function leadMatchesDate(lead: Lead, date: string) {
+  if (!date) return true
+  const context = lead.context ?? {}
+  return [context.check_in, context.requested_date].some((value) => String(value ?? '') === date)
+}
+
 function formatDate(date?: string) {
   if (!date) return ''
   const parsed = new Date(date)
@@ -166,8 +216,8 @@ function tabForLead(lead: Lead): LeadTab {
   const quality = (lead.lead_quality ?? '').toLowerCase()
   if (BOOKED.has(status)) return 'booked'
   if (LOST.has(status)) return 'lost'
-  if (lead.followup_at || lead.follow_up_date || quality === 'warm') return 'followup'
   if (IN_CONVERSATION.has(status)) return 'conversation'
+  if (lead.followup_at || lead.follow_up_date || quality === 'warm') return 'followup'
   return 'new'
 }
 
@@ -220,6 +270,12 @@ function LeadCard({ lead }: { lead: Lead }) {
             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
               {simpleStatus(lead)}
             </span>
+            {!isBooked && hasBookingLinkContext(context) && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800">
+                <Link2 className="h-3 w-3" />
+                Link sent
+              </span>
+            )}
           </div>
 
           <div className="grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
@@ -247,9 +303,13 @@ function LeadCard({ lead }: { lead: Lead }) {
           </div>
 
           {itemName && (
-            <p className="text-sm font-medium text-slate-800">
-              Interested in {String(itemName)}
-            </p>
+            <div className="inline-flex max-w-full items-center gap-2 rounded-md border border-blue-100 bg-[#F7FAFF] px-3 py-2">
+              <Building2 className="h-4 w-4 shrink-0 text-[#0066FF]" />
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Interested in</p>
+                <p className="truncate text-sm font-bold text-slate-950">{String(itemName)}</p>
+              </div>
+            </div>
           )}
         </div>
 
@@ -292,11 +352,15 @@ function LeadCard({ lead }: { lead: Lead }) {
 }
 
 export default function LeadsPage() {
-  const [activeTab, setActiveTab] = useState<LeadTab>('new')
+  const [activeTab, setActiveTab] = useState<LeadTab>('all')
   const [leads, setLeads] = useState<Lead[]>([])
   const [stats, setStats] = useState<LeadStats | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [propertyFilter, setPropertyFilter] = useState('')
+  const [dateFilter, setDateFilter] = useState('')
+  const [worklist, setWorklist] = useState<ResortWorklist | null>(null)
+  const [reminderReadiness, setReminderReadiness] = useState<ReminderReadiness | null>(null)
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
   const searchTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -310,6 +374,22 @@ export default function LeadsPage() {
   useEffect(() => {
     apiClient.get('/leads/stats/overview')
       .then((res) => setStats(unwrap(res) as LeadStats))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    apiClient.get('/leads/dashboard/resort-worklist', { params: { days: 14 } })
+      .then((res) => {
+        const raw = unwrap(res)
+        setWorklist((raw?.data ?? raw) as ResortWorklist)
+      })
+      .catch(() => {})
+
+    apiClient.get('/leads/dashboard/resort-reminders', { params: { days: 14 } })
+      .then((res) => {
+        const raw = unwrap(res)
+        setReminderReadiness((raw?.data ?? raw) as ReminderReadiness)
+      })
       .catch(() => {})
   }, [])
 
@@ -334,6 +414,7 @@ export default function LeadsPage() {
 
   const counts = useMemo(() => {
     const result: Record<LeadTab, number> = {
+      all: leads.length,
       new: 0,
       conversation: 0,
       booked: 0,
@@ -347,52 +428,191 @@ export default function LeadsPage() {
   }, [leads])
 
   const visibleLeads = useMemo(
-    () => leads.filter((lead) => tabForLead(lead) === activeTab),
-    [activeTab, leads],
+    () => {
+      const tabbed = activeTab === 'all' ? leads : leads.filter((lead) => tabForLead(lead) === activeTab)
+      return tabbed.filter((lead) => leadMatchesProperty(lead, propertyFilter) && leadMatchesDate(lead, dateFilter))
+    },
+    [activeTab, dateFilter, leads, propertyFilter],
   )
+
+  const resortCounts = worklist?.counts ?? {}
+  const reminderCounts = reminderReadiness?.counts ?? {}
+  const propertyOptions = worklist?.property_options ?? []
+  const hasFilters = Boolean(propertyFilter || dateFilter)
 
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-6xl space-y-5 pb-12">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-950 dark:text-white">Guest Enquiries</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Simple view of WhatsApp, website, and booking enquiries.
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 bg-[#F7FAFF] px-5 py-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-[#0066FF] text-white shadow-sm">
+                  <Building2 className="h-7 w-7" />
+                </div>
+                <div className="min-w-0">
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-[#0066FF]">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Guest pipeline
+                  </div>
+                  <h1 className="mt-2 text-2xl font-bold text-slate-950 dark:text-white">Guest Enquiries</h1>
+                  <p className="mt-1 text-sm text-slate-500">
+                    WhatsApp, website, and booking enquiries grouped into simple work stages.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm sm:flex">
+                <div className="min-w-[112px] rounded-md border border-blue-100 bg-white px-4 py-3 shadow-sm">
+                  <span className="block text-xs font-medium text-slate-500">Total enquiries</span>
+                  <strong className="mt-1 block text-xl text-slate-950">{stats?.total_leads ?? total}</strong>
+                </div>
+                <div className="min-w-[112px] rounded-md border border-green-100 bg-white px-4 py-3 shadow-sm">
+                  <span className="block text-xs font-medium text-slate-500">Booked</span>
+                  <strong className="mt-1 block text-xl text-green-700">{stats?.converted_leads ?? counts.booked}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 py-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search guest name or phone"
+                className="h-11 border-slate-200 bg-slate-50 pl-10 focus-visible:bg-white"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-3 md:grid-cols-4">
+          <button
+            type="button"
+            onClick={() => setActiveTab('followup')}
+            className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-left shadow-sm transition-colors hover:bg-amber-100"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-md bg-white text-amber-700">
+                <Link2 className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-amber-900">Booking links sent</p>
+                <p className="mt-1 text-2xl font-bold text-amber-950">{resortCounts.booking_link_sent ?? 0}</p>
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-amber-800">Guests who checked dates but have not booked yet.</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('followup')}
+            className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-left shadow-sm transition-colors hover:bg-blue-100"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-md bg-white text-blue-700">
+                <CheckCircle2 className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-blue-900">Safe reminders</p>
+                <p className="mt-1 text-2xl font-bold text-blue-950">{reminderCounts.ready ?? 0}</p>
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-blue-800">
+              Checked with live occupancy before sending.
             </p>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-sm sm:flex">
-            <div className="rounded-md border bg-white px-3 py-2">
-              <span className="block text-xs text-slate-500">Total</span>
-              <strong>{stats?.total_leads ?? total}</strong>
-            </div>
-            <div className="rounded-md border bg-white px-3 py-2">
-              <span className="block text-xs text-slate-500">Booked</span>
-              <strong>{stats?.converted_leads ?? counts.booked}</strong>
-            </div>
-          </div>
-        </div>
+          </button>
 
-        <Card className="p-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search guest name or phone"
-              className="h-11 pl-10"
-            />
-          </div>
-        </Card>
+          <button
+            type="button"
+            onClick={() => setActiveTab('followup')}
+            className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-left shadow-sm transition-colors hover:bg-rose-100"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-md bg-white text-rose-700">
+                <AlertTriangle className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-rose-900">No rooms available</p>
+                <p className="mt-1 text-2xl font-bold text-rose-950">{resortCounts.demand_missed ?? 0}</p>
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-rose-800">Guests asked for dates that were already full.</p>
+            {(reminderCounts.stopped ?? 0) > 0 && (
+              <p className="mt-2 rounded-md bg-white/70 px-2 py-1 text-xs font-semibold text-rose-900">
+                {reminderCounts.stopped} reminder{reminderCounts.stopped === 1 ? '' : 's'} stopped after occupancy check
+              </p>
+            )}
+          </button>
 
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          <button
+            type="button"
+            onClick={() => setActiveTab('booked')}
+            className="rounded-lg border border-green-200 bg-green-50 p-4 text-left shadow-sm transition-colors hover:bg-green-100"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-md bg-white text-green-700">
+                <CalendarDays className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-green-900">Upcoming stays</p>
+                <p className="mt-1 text-2xl font-bold text-green-950">{resortCounts.upcoming_bookings ?? 0}</p>
+              </div>
+            </div>
+            <p className="mt-3 text-sm text-green-800">Bookings with check-in coming soon.</p>
+          </button>
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+            <label className="space-y-1">
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Property</span>
+              <select
+                value={propertyFilter}
+                onChange={(event) => setPropertyFilter(event.target.value)}
+                className="h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-800 outline-none transition-colors focus:border-[#0066FF] focus:bg-white"
+              >
+                <option value="">All properties</option>
+                {propertyOptions.map((property) => (
+                  <option key={property.item_id} value={property.name}>{property.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Check-in date</span>
+              <Input
+                type="date"
+                value={dateFilter}
+                onChange={(event) => setDateFilter(event.target.value)}
+                className="h-11 border-slate-200 bg-slate-50 focus-visible:bg-white"
+              />
+            </label>
+            {hasFilters && (
+              <Button
+                type="button"
+                variant="outline"
+                className="self-end gap-2"
+                onClick={() => {
+                  setPropertyFilter('')
+                  setDateFilter('')
+                }}
+              >
+                <X className="h-4 w-4" />
+                Clear
+              </Button>
+            )}
+          </div>
+        </section>
+
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
           {TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`rounded-md border px-3 py-3 text-left transition-colors ${
+              className={`rounded-md border px-3 py-3 text-left shadow-sm transition-colors ${
                 activeTab === tab.key
-                  ? 'border-[#0066FF] bg-blue-50 text-[#0052CC]'
+                  ? 'border-[#0066FF] bg-[#F7FAFF] text-[#0052CC] shadow'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
               }`}
             >

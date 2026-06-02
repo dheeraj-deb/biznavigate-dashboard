@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { CalendarDays, CheckCircle2, Loader2, Mail, Phone, User, Users } from 'lucide-react'
+import { AlertCircle, CalendarDays, CheckCircle2, Loader2, Mail, Phone, User, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface PublicBookingItem {
@@ -84,6 +84,8 @@ function PublicBookingForm() {
   const [businessName, setBusinessName] = useState('Book your stay')
   const [items, setItems] = useState<PublicBookingItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [availabilityLoading, setAvailabilityLoading] = useState(false)
+  const [availabilityMessage, setAvailabilityMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
@@ -119,12 +121,6 @@ function PublicBookingForm() {
         if (cancelled) return
         const payload = unwrapData(res)
         setBusinessName(payload?.business?.name ?? payload?.businessName ?? payload?.name ?? 'Book your stay')
-        const normalized = normalizeItems(payload)
-        setItems(normalized)
-        setForm((prev) => ({
-          ...prev,
-          itemId: prev.itemId || normalized[0]?.item_id || '',
-        }))
       })
       .catch(() => {
         if (!cancelled) toast.error('Could not load booking options')
@@ -138,10 +134,50 @@ function PublicBookingForm() {
     }
   }, [slug])
 
+  useEffect(() => {
+    let cancelled = false
+
+    const params: Record<string, string> = {}
+    if (form.checkIn) params.checkIn = form.checkIn
+    if (form.checkOut) params.checkOut = form.checkOut
+    if (form.guests) params.guests = form.guests
+
+    setAvailabilityLoading(true)
+    apiClient.get(`/public-booking/${encodeURIComponent(slug)}/items`, { params })
+      .then((res) => {
+        if (cancelled) return
+        const normalized = normalizeItems(res)
+        setItems(normalized)
+        setForm((prev) => ({
+          ...prev,
+          itemId: prev.itemId || normalized[0]?.item_id || '',
+        }))
+
+        if (form.itemId && form.checkIn && form.checkOut) {
+          const stillAvailable = normalized.some((item) => item.item_id === form.itemId)
+          setAvailabilityMessage(stillAvailable ? '' : 'This option is no longer available for the selected dates.')
+        } else {
+          setAvailabilityMessage('')
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAvailabilityMessage('Could not check live availability. Please try again.')
+      })
+      .finally(() => {
+        if (!cancelled) setAvailabilityLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [slug, form.checkIn, form.checkOut, form.guests, form.itemId])
+
   const selectedItem = useMemo(
     () => items.find((item) => item.item_id === form.itemId),
     [form.itemId, items],
   )
+  const pageTitle = selectedItem ? `Booking for ${selectedItem.name}` : businessName
+  const isSelectedUnavailable = Boolean(form.itemId && form.checkIn && form.checkOut && !selectedItem && !availabilityLoading)
 
   const set = (key: keyof BookingFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -155,9 +191,21 @@ function PublicBookingForm() {
     if (!form.checkOut) return toast.error('Please choose a check-out date')
     if (!form.name.trim()) return toast.error('Please enter your name')
     if (!form.phone.trim()) return toast.error('Please enter your phone number')
+    if (isSelectedUnavailable) return toast.error('This room is no longer available for the selected dates')
 
     setSubmitting(true)
     try {
+      const latest = await apiClient.get(`/public-booking/${encodeURIComponent(slug)}/items`, {
+        params: { checkIn: form.checkIn, checkOut: form.checkOut, guests: form.guests },
+      })
+      const latestItems = normalizeItems(latest)
+      if (!latestItems.some((item) => item.item_id === form.itemId)) {
+        setItems(latestItems)
+        setAvailabilityMessage('This option was just booked for these dates. Please choose another date.')
+        toast.error('This room is no longer available for the selected dates')
+        return
+      }
+
       await apiClient.post(`/public-booking/${encodeURIComponent(slug)}/requests`, {
         item_id: form.itemId,
         checkIn: form.checkIn,
@@ -205,9 +253,11 @@ function PublicBookingForm() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-6">
           <p className="text-sm font-semibold text-[#0066FF]">Booking request</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">{businessName}</h1>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">{pageTitle}</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Share your stay details and contact number. The team will confirm availability with you.
+            {selectedItem
+              ? `${businessName} will confirm your ${selectedItem.name} booking request.`
+              : 'Share your stay details and contact number. The team will confirm availability with you.'}
           </p>
         </div>
 
@@ -223,6 +273,27 @@ function PublicBookingForm() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <section className="space-y-4">
                     <h2 className="text-base font-bold text-slate-900">Stay details</h2>
+
+                    {(availabilityLoading || availabilityMessage || isSelectedUnavailable) && (
+                      <div
+                        className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
+                          availabilityMessage || isSelectedUnavailable
+                            ? 'border-amber-200 bg-amber-50 text-amber-900'
+                            : 'border-blue-100 bg-blue-50 text-blue-800'
+                        }`}
+                      >
+                        {availabilityLoading ? (
+                          <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+                        ) : (
+                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        )}
+                        <span>
+                          {availabilityLoading
+                            ? 'Checking live availability...'
+                            : availabilityMessage || 'This option is no longer available for the selected dates.'}
+                        </span>
+                      </div>
+                    )}
 
                     <div className="space-y-1.5">
                       <Label>Room or service</Label>
@@ -348,7 +419,11 @@ function PublicBookingForm() {
                     </div>
                   </section>
 
-                  <Button type="submit" disabled={submitting} className="h-11 w-full bg-[#0066FF] hover:bg-[#0052CC]">
+                  <Button
+                    type="submit"
+                    disabled={submitting || availabilityLoading || isSelectedUnavailable}
+                    className="h-11 w-full bg-[#0066FF] hover:bg-[#0052CC]"
+                  >
                     {submitting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -369,6 +444,10 @@ function PublicBookingForm() {
                 <h2 className="text-base font-bold text-slate-900">Selected option</h2>
                 {selectedItem ? (
                   <div className="mt-4 space-y-3">
+                    <div className="rounded-md border border-blue-100 bg-[#F7FAFF] px-3 py-2">
+                      <p className="text-xs font-bold uppercase tracking-wide text-[#0066FF]">Selected property</p>
+                      <p className="mt-1 text-lg font-bold text-slate-950">{selectedItem.name}</p>
+                    </div>
                     {selectedItem.primary_image_url && (
                       <img
                         src={selectedItem.primary_image_url}

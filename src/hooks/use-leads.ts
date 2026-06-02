@@ -258,7 +258,46 @@ export function useMarkFollowupDone() {
   })
 }
 
+export function useResortWorklist(days = 14) {
+  return useQuery({
+    queryKey: ['dashboard-resort-worklist', days],
+    queryFn: async () => {
+      const response = await apiClient.get('/leads/dashboard/resort-worklist', { params: { days } })
+      const raw = response.data?.data ?? response.data
+      return raw?.data ?? raw ?? {
+        booking_link_sent: [],
+        demand_missed: [],
+        upcoming_bookings: [],
+        property_options: [],
+        counts: { booking_link_sent: 0, demand_missed: 0, upcoming_bookings: 0 },
+      }
+    },
+    staleTime: 60000,
+    retry: 1,
+  })
+}
+
 // ── Dashboard sub-hooks ───────────────────────────────────────────────────────
+
+export function useResortReminderReadiness(days = 14) {
+  return useQuery({
+    queryKey: ['dashboard-resort-reminders', days],
+    queryFn: async () => {
+      const response = await apiClient.get('/leads/dashboard/resort-reminders', { params: { days } })
+      const raw = response.data?.data ?? response.data
+      return raw?.data ?? raw ?? {
+        ready: [],
+        stopped: [],
+        missing_details: [],
+        counts: { ready: 0, stopped: 0, missing_details: 0, total: 0 },
+        rule: 'Booking reminders are shown only after live occupancy is checked.',
+        checked_at: null,
+      }
+    },
+    staleTime: 30000,
+    retry: 1,
+  })
+}
 
 export function useDailyOverview() {
   return useQuery({
