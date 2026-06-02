@@ -221,8 +221,8 @@ export function useDeleteCatalogItem() {
 export function useUpdateCatalogStock() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ itemId, quantity }: { itemId: string; quantity: number }) => {
-      const response = await apiClient.patch(`/catalog/${itemId}/stock`, { quantity })
+    mutationFn: async ({ itemId, quantity_delta }: { itemId: string; quantity_delta: number }) => {
+      const response = await apiClient.patch(`/catalog/${itemId}/stock`, { quantity_delta })
       return (response as any).data?.data ?? (response as any).data
     },
     onSuccess: (_, { itemId }) => {

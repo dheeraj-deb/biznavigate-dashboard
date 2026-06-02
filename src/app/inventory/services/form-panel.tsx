@@ -98,6 +98,7 @@ export function ServiceFormPanel({ open, schema, editData, serviceType: _service
 
   const set = (k: keyof ServiceFormData, v: unknown) => setForm(p => ({ ...p, [k]: v }))
   const setAttr = (k: string, v: unknown) => setForm(p => ({ ...p, attributes: { ...p.attributes, [k]: v } }))
+  const isHospitality = typeLabel.toLowerCase().includes('property') || typeLabel.toLowerCase().includes('room')
   const addUrl = () => {
     if (newUrl.trim()) { set('image_urls', [...form.image_urls, newUrl.trim()]); setNewUrl('') }
   }
@@ -130,10 +131,17 @@ export function ServiceFormPanel({ open, schema, editData, serviceType: _service
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {/* Fixed fields */}
           <div className="space-y-4">
-            <p className="text-[11px] font-bold text-[#989898] uppercase tracking-wider">Basic Details</p>
+            <p className="text-[11px] font-bold text-[#989898] uppercase tracking-wider">
+              {isHospitality ? 'Room / Property Details' : 'Basic Details'}
+            </p>
             <div className="space-y-1.5">
-              <FieldLabel required>Name</FieldLabel>
-              <input value={form.name} onChange={e => set('name', e.target.value)} placeholder={`e.g. Deluxe ${typeLabel}`} className={INPUT_CLS} />
+              <FieldLabel required>{isHospitality ? 'Room / Property Name' : 'Name'}</FieldLabel>
+              <input
+                value={form.name}
+                onChange={e => set('name', e.target.value)}
+                placeholder={isHospitality ? 'e.g. Pondy Resort, Deluxe Room, Pool Villa' : `e.g. Deluxe ${typeLabel}`}
+                className={INPUT_CLS}
+              />
             </div>
             <div className="space-y-1.5">
               <FieldLabel>Description</FieldLabel>
@@ -165,7 +173,9 @@ export function ServiceFormPanel({ open, schema, editData, serviceType: _service
 
           {/* Image URLs */}
           <div className="space-y-3">
-            <p className="text-[11px] font-bold text-[#989898] uppercase tracking-wider">Image URLs</p>
+            <p className="text-[11px] font-bold text-[#989898] uppercase tracking-wider">
+              {isHospitality ? 'Photo URLs' : 'Image URLs'}
+            </p>
             <div className="flex gap-2">
               <input value={newUrl} onChange={e => setNewUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addUrl())}
                 placeholder="https://…" className={`${INPUT_CLS} flex-1`} />

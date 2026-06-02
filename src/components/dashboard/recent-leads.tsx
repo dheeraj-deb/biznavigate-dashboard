@@ -17,42 +17,24 @@ interface RecentLeadsProps {
 export function RecentLeads({ leads, maxItems = 5 }: RecentLeadsProps) {
   const displayedLeads = leads.slice(0, maxItems)
 
-  const getStatusVariant = (status: LeadStatus) => {
-    switch (status) {
-      case 'WON':
-        return 'default'
-      case 'QUALIFIED':
-      case 'PROPOSAL':
-        return 'secondary'
-      case 'CONTACTED':
-      case 'NEGOTIATION':
-        return 'outline'
-      case 'NEW':
-        return 'secondary'
-      case 'LOST':
-        return 'destructive'
-      default:
-        return 'outline'
-    }
+  const getStatusVariant = (status: string) => {
+    const s = status?.toLowerCase()
+    if (s === 'converted' || s === 'won') return 'default'
+    if (s === 'interested' || s === 'qualified' || s === 'proposal') return 'secondary'
+    if (s === 'contacted' || s === 'negotiation') return 'outline'
+    if (s === 'new') return 'secondary'
+    if (s === 'lost') return 'destructive'
+    return 'outline'
   }
 
-  const getStatusColor = (status: LeadStatus) => {
-    switch (status) {
-      case 'WON':
-        return 'text-green-600'
-      case 'QUALIFIED':
-      case 'PROPOSAL':
-        return 'text-blue-600'
-      case 'CONTACTED':
-      case 'NEGOTIATION':
-        return 'text-purple-600'
-      case 'NEW':
-        return 'text-yellow-600'
-      case 'LOST':
-        return 'text-red-600'
-      default:
-        return 'text-gray-600'
-    }
+  const getStatusColor = (status: string) => {
+    const s = status?.toLowerCase()
+    if (s === 'converted' || s === 'won') return 'text-green-600'
+    if (s === 'interested' || s === 'qualified' || s === 'proposal') return 'text-blue-600'
+    if (s === 'contacted' || s === 'negotiation') return 'text-purple-600'
+    if (s === 'new') return 'text-yellow-600'
+    if (s === 'lost') return 'text-red-600'
+    return 'text-gray-600'
   }
 
   const getSourceIcon = (source?: string) => {
@@ -122,13 +104,13 @@ export function RecentLeads({ leads, maxItems = 5 }: RecentLeadsProps) {
                           <span>•</span>
                         </>
                       )}
-                      <span>{formatDistanceToNow(new Date(lead.createdAt), { addSuffix: true })}</span>
+                      <span>{lead.createdAt || lead.created_at ? formatDistanceToNow(new Date((lead.createdAt ?? lead.created_at) as string), { addSuffix: true }) : ''}</span>
                     </div>
                   </div>
                 </div>
                 <div className="text-right space-y-1">
-                  <p className="font-bold text-sm">{formatCurrency(lead.value)}</p>
-                  <p className="text-xs text-muted-foreground">{lead.probability}% prob.</p>
+                  <p className="font-bold text-sm">{lead.value != null ? formatCurrency(lead.value as number) : ''}</p>
+                  {lead.probability != null && <p className="text-xs text-muted-foreground">{lead.probability}% prob.</p>}
                 </div>
               </div>
             )

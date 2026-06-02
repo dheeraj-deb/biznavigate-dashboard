@@ -464,7 +464,7 @@ export default function CatalogPage() {
   }
 
   const handleStockUpdate = async (id: string, qty: number) => {
-    await updateStock.mutateAsync({ itemId: id, quantity: qty })
+    await updateStock.mutateAsync({ itemId: id, quantity_delta: qty })
   }
 
   return (

@@ -5,7 +5,6 @@ import { useBusinessType } from '@/hooks/use-business-type'
 import { useAuthStore } from '@/store/auth-store'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { getStatusLabel, getStatusStyle } from '@/lib/lead-status'
 import {
   useDailyOverview,
   useNeedsAttention,
@@ -23,72 +22,6 @@ import {
   ChevronRight,
   Loader2,
 } from 'lucide-react'
-
-const LEAD_INTELLIGENCE_CONFIG = {
-  hospitality: {
-    intentType: 'resort',
-    sectionTitle: 'Resort Enquiries',
-    subtitle: 'Guest conversations and booking leads',
-    enquiryLabel: 'Bookings',
-    contactLabel: 'Guest',
-  },
-  events: {
-    intentType: 'camping',
-    sectionTitle: 'Event Enquiries',
-    subtitle: 'Event, venue, and experience leads',
-    enquiryLabel: 'Bookings',
-    contactLabel: 'Client',
-  },
-  products: {
-    intentType: 'product',
-    sectionTitle: 'Product Enquiries',
-    subtitle: 'Product conversations and order leads',
-    enquiryLabel: 'Orders',
-    contactLabel: 'Customer',
-  },
-  retail: {
-    intentType: 'product',
-    sectionTitle: 'Retail Enquiries',
-    subtitle: 'Product conversations and customer leads',
-    enquiryLabel: 'Orders',
-    contactLabel: 'Customer',
-  },
-  healthcare: {
-    intentType: undefined,
-    sectionTitle: 'Patient Enquiries',
-    subtitle: 'Appointment enquiries and patient follow-ups',
-    enquiryLabel: 'Appointments',
-    contactLabel: 'Patient',
-  },
-  real_estate: {
-    intentType: undefined,
-    sectionTitle: 'Property Enquiries',
-    subtitle: 'Buyer, tenant, and site visit leads',
-    enquiryLabel: 'Deals',
-    contactLabel: 'Buyer',
-  },
-  professional_services: {
-    intentType: undefined,
-    sectionTitle: 'Client Enquiries',
-    subtitle: 'Client conversations and service leads',
-    enquiryLabel: 'Engagements',
-    contactLabel: 'Client',
-  },
-  education: {
-    intentType: undefined,
-    sectionTitle: 'Student Enquiries',
-    subtitle: 'Admissions, course, and student follow-ups',
-    enquiryLabel: 'Enrollments',
-    contactLabel: 'Student',
-  },
-  crm_automation: {
-    intentType: undefined,
-    sectionTitle: 'CRM Enquiries',
-    subtitle: 'Leads, campaigns, workflows, FAQs, and AI handoffs',
-    enquiryLabel: 'Conversions',
-    contactLabel: 'Contact',
-  },
-} as const
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -172,39 +105,28 @@ export function LeadIntelligenceSection() {
   const { user } = useAuthStore()
   const businessId = user?.business_id
 
-  const intelligenceConfig = LEAD_INTELLIGENCE_CONFIG[businessType] ?? LEAD_INTELLIGENCE_CONFIG.crm_automation
-  const { intentType, sectionTitle, subtitle, enquiryLabel, contactLabel } = intelligenceConfig
+  const intentType = businessType === 'hospitality' ? 'resort' : businessType === 'events' ? 'camping' : 'product'
+  const sectionTitle = businessType === 'hospitality' ? 'Resort Enquiries' : businessType === 'events' ? 'Camping Enquiries' : 'Product Enquiries'
+  const enquiryLabel = businessType === 'products' ? 'Orders' : 'Bookings'
 
   // ── Data fetching via dedicated dashboard endpoints ──
   // businessId is passed as a hint; server also infers it from the Bearer token
-  const dailyOverviewQuery = useDailyOverview(businessId)
-  const needsAttentionQuery = useNeedsAttention(businessId)
-  const channelAnalyticsQuery = useChannelAnalytics(businessId)
-  const recentLeadsQuery = useLeads({
-    ...(intentType ? { intent_type: intentType } : {}),
-    limit: 6,
-    sortBy: 'created_at',
-    sortOrder: 'desc',
-    businessId,
-  })
+  const dailyOverviewQuery = useDailyOverview()
+  const needsAttentionQuery = useNeedsAttention()
+  const channelAnalyticsQuery = useChannelAnalytics()
+  const recentLeadsQuery = useLeads({ intent_type: intentType, limit: 6 })
 
   const loading = dailyOverviewQuery.isLoading || needsAttentionQuery.isLoading || channelAnalyticsQuery.isLoading
 
   // ── Daily overview stats ──
   const dailyOverview = dailyOverviewQuery.data
-  const enquiriesToday = dailyOverview?.total_leads
-    ?? dailyOverview?.enquiries
-    ?? 0
   const wonToday = dailyOverview?.won_count
-    ?? dailyOverview?.converted
     ?? dailyOverview?.by_status?.find((s: any) => s.status === 'won')?.count
     ?? 0
   const pendingToday = dailyOverview?.pending_count
-    ?? (dailyOverview?.by_status
-      ? dailyOverview.by_status
-          .filter((s: any) => !['won', 'lost'].includes(s.status))
-          .reduce((a: number, s: any) => a + s.count, 0)
-      : Math.max(0, enquiriesToday - wonToday))
+    ?? (dailyOverview?.by_status ?? [])
+        .filter((s: any) => !['won', 'lost'].includes(s.status))
+        .reduce((a: number, s: any) => a + s.count, 0)
 
   // ── Needs attention leads ──
   const attentionLeads = (needsAttentionQuery.data ?? []).map(normalizeLead)
@@ -247,7 +169,7 @@ export function LeadIntelligenceSection() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Today&apos;s Snapshot</h2>
-          <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{sectionTitle} — WhatsApp leads</p>
         </div>
         <button onClick={() => router.push('/crm/leads')} className="text-xs text-[#0066FF] hover:underline flex items-center gap-1">
           View all leads <ChevronRight className="h-3 w-3" />
@@ -261,7 +183,7 @@ export function LeadIntelligenceSection() {
               <Users className="h-4 w-4 text-blue-600" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">{enquiriesToday}</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">{dailyOverview?.total_leads ?? 0}</div>
               <div className="text-xs text-gray-500">Enquiries Today</div>
             </div>
           </div>
@@ -435,7 +357,7 @@ export function LeadIntelligenceSection() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-900/50">
-                <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase">{contactLabel}</th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase">Guest</th>
                 <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase">Phone</th>
                 <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase">Category</th>
                 <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase">What They Want</th>
@@ -470,8 +392,19 @@ export function LeadIntelligenceSection() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${getStatusStyle(lead.status)}`}>
-                        {getStatusLabel(lead.status)}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                        lead.status === 'new' ? 'bg-gray-100 text-gray-600 border-gray-300'
+                        : lead.status === 'contacted' ? 'bg-blue-100 text-blue-700 border-blue-300'
+                        : lead.status === 'interested' ? 'bg-orange-100 text-orange-700 border-orange-300'
+                        : lead.status === 'converted' ? 'bg-green-100 text-green-700 border-green-300'
+                        : 'bg-red-100 text-red-500 border-red-300'
+                      }`}>
+                        {lead.status === 'new' ? 'New'
+                          : lead.status === 'contacted' ? 'Contacted'
+                          : lead.status === 'interested' ? 'Interested'
+                          : lead.status === 'converted' ? 'Converted'
+                          : lead.status === 'lost' ? 'Lost'
+                          : lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-400">{lead.time}</td>

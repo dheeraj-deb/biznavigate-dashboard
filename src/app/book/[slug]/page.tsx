@@ -1,685 +1,486 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { apiClient } from '@/lib/api-client'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
-  ArrowLeft,
-  BedDouble,
-  CalendarDays,
-  CheckCircle2,
-  Copy,
-  IndianRupee,
-  Loader2,
-  MapPin,
-  MessageCircle,
-  Phone,
-  Search,
-  ShoppingBag,
-  Users,
-} from 'lucide-react'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { AlertCircle, CalendarDays, CheckCircle2, Loader2, Mail, Phone, User, Users } from 'lucide-react'
+import toast from 'react-hot-toast'
 
-type Experience = 'hospitality' | 'events' | 'services' | 'healthcare' | 'education' | 'products' | 'generic'
-
-interface PublicPageData {
-  business: {
-    business_name: string
-    business_type?: string
-    phone?: string
-    whatsapp_number?: string
-    address?: string
-    city?: string
-    currency?: string
-  }
-  config: {
-    enabled: boolean
-    experience_type: Experience
-    payment_mode: 'manual' | 'advance' | 'full'
-    theme: { primary_color: string; show_banner: boolean }
-    policies: { cancellation: string; refund: string; terms: string }
-    contact: { phone: string; whatsapp: string; address: string }
-    required_fields: { name: boolean; phone: boolean; email: boolean; address: boolean; notes: boolean }
-  }
-  labels: { item: string; items: string; customer: string; request: string }
-}
-
-interface PublicItem {
+interface PublicBookingItem {
   item_id: string
-  item_type: string
   name: string
   description?: string
-  base_price: number
-  effective_price: number
-  available_slots?: number | null
-  stock_quantity?: number | null
+  base_price?: string | number
   primary_image_url?: string
-  image_urls?: string[]
-  details?: Record<string, any>
-  variants?: Array<{ variant_id: string; name: string; price: number; stock_quantity: number }>
+  capacity?: number
 }
 
-function unwrap<T>(response: any): T {
-  return (response?.data?.data ?? response?.data ?? response) as T
+interface BookingFormState {
+  itemId: string
+  checkIn: string
+  checkOut: string
+  guests: string
+  leadId: string
+  name: string
+  phone: string
+  email: string
+  address: string
+  notes: string
 }
 
-function money(value: number, currency = 'INR') {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value || 0)
+function unwrapData(value: any) {
+  return value?.data?.data ?? value?.data ?? value
 }
 
-function defaultCheckoutFor(params: URLSearchParams) {
-  const today = new Date().toISOString().slice(0, 10)
-  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
-  return {
-    check_in: params.get('checkIn') ?? params.get('date') ?? today,
-    check_out: params.get('checkOut') ?? tomorrow,
-    guests: params.get('guests') ?? '1',
-    quantity: params.get('quantity') ?? '1',
+function normalizeItems(raw: any): PublicBookingItem[] {
+  const payload = unwrapData(raw)
+  const list = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.items)
+      ? payload.items
+      : Array.isArray(payload?.services)
+        ? payload.services
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : []
+
+  return list.map((item: any) => ({
+    item_id: item.item_id ?? item.service_id ?? item.id ?? '',
+    name: item.name ?? item.title ?? 'Stay option',
+    description: item.description,
+    base_price: item.base_price ?? item.price,
+    primary_image_url: item.primary_image_url ?? item.image_url,
+    capacity: item.capacity ?? item.max_guests,
+  })).filter((item: PublicBookingItem) => item.item_id)
+}
+
+function formatPrice(value?: string | number) {
+  if (value == null || value === '') return null
+  const amount = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(amount)) return null
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
+
+function PublicBookingForm() {
+  const params = useParams<{ slug: string }>()
+  const searchParams = useSearchParams()
+  const slug = params.slug
+
+  const [businessName, setBusinessName] = useState('Book your stay')
+  const [items, setItems] = useState<PublicBookingItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [availabilityLoading, setAvailabilityLoading] = useState(false)
+  const [availabilityMessage, setAvailabilityMessage] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+
+  const [form, setForm] = useState<BookingFormState>(() => ({
+    itemId: searchParams.get('itemId') ?? '',
+    checkIn: searchParams.get('checkIn') ?? '',
+    checkOut: searchParams.get('checkOut') ?? '',
+    guests: searchParams.get('guests') ?? '1',
+    leadId: searchParams.get('leadId') ?? '',
     name: '',
     phone: '',
     email: '',
     address: '',
     notes: '',
-  }
-}
-
-function heroTitle(experience: Experience, businessName: string) {
-  if (experience === 'products') return `Shop from ${businessName}`
-  if (experience === 'healthcare') return `Book an appointment with ${businessName}`
-  if (experience === 'education') return `Explore programs at ${businessName}`
-  if (experience === 'events') return `Reserve your spot with ${businessName}`
-  if (experience === 'services') return `Request a service from ${businessName}`
-  return `Book your stay at ${businessName}`
-}
-
-function paymentLabel(mode: 'manual' | 'advance' | 'full') {
-  if (mode === 'advance') return 'Advance payment'
-  if (mode === 'full') return 'Pay in full now'
-  return 'Pay at the venue'
-}
-
-export default function PublicBookingPage() {
-  const params = useParams<{ slug: string }>()
-  const searchParams = useSearchParams()
-  const slug = params.slug
-  const [page, setPage] = useState<PublicPageData | null>(null)
-  const [items, setItems] = useState<PublicItem[]>([])
-  const [selected, setSelected] = useState<PublicItem | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [itemsLoading, setItemsLoading] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [confirmation, setConfirmation] = useState<any>(null)
-  const [view, setView] = useState<'list' | 'detail' | 'form'>('list')
-  const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [form, setForm] = useState(() => defaultCheckoutFor(searchParams))
-
-  const accent = page?.config.theme.primary_color || '#0066FF'
-  const experience = page?.config.experience_type ?? 'generic'
-  const isProduct = experience === 'products'
-  const labels = page?.labels ?? { item: 'Item', items: 'Items', customer: 'Customer', request: 'Request' }
-  const required = page?.config.required_fields ?? { name: true, phone: true, email: false, address: false, notes: false }
-  const paymentMode = page?.config.payment_mode ?? 'manual'
+  }))
 
   useEffect(() => {
-    setForm((prev) => ({ ...defaultCheckoutFor(searchParams), name: prev.name, phone: prev.phone, email: prev.email, address: prev.address, notes: prev.notes }))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [experience])
+    setForm((prev) => ({
+      ...prev,
+      itemId: searchParams.get('itemId') ?? prev.itemId,
+      checkIn: searchParams.get('checkIn') ?? prev.checkIn,
+      checkOut: searchParams.get('checkOut') ?? prev.checkOut,
+      guests: searchParams.get('guests') ?? prev.guests,
+      leadId: searchParams.get('leadId') ?? prev.leadId,
+    }))
+  }, [searchParams])
 
   useEffect(() => {
-    if (!slug) return
-    setLoading(true)
-    apiClient.get(`/public-booking/${slug}`)
-      .then((res) => setPage(unwrap<PublicPageData>(res)))
-      .catch(() => setPage(null))
-      .finally(() => setLoading(false))
+    let cancelled = false
+
+    apiClient.get(`/public-booking/${encodeURIComponent(slug)}`)
+      .then((res) => {
+        if (cancelled) return
+        const payload = unwrapData(res)
+        setBusinessName(payload?.business?.name ?? payload?.businessName ?? payload?.name ?? 'Book your stay')
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Could not load booking options')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [slug])
 
-  const loadItems = async () => {
-    if (!slug) return
-    setItemsLoading(true)
-    try {
-      const res = await apiClient.get(`/public-booking/${slug}/items`, {
-        params: {
-          checkIn: form.check_in,
-          checkOut: form.check_out,
-          guests: form.guests,
-          quantity: form.quantity,
-        },
+  useEffect(() => {
+    let cancelled = false
+
+    const params: Record<string, string> = {}
+    if (form.checkIn) params.checkIn = form.checkIn
+    if (form.checkOut) params.checkOut = form.checkOut
+    if (form.guests) params.guests = form.guests
+
+    setAvailabilityLoading(true)
+    apiClient.get(`/public-booking/${encodeURIComponent(slug)}/items`, { params })
+      .then((res) => {
+        if (cancelled) return
+        const normalized = normalizeItems(res)
+        setItems(normalized)
+        setForm((prev) => ({
+          ...prev,
+          itemId: prev.itemId || normalized[0]?.item_id || '',
+        }))
+
+        if (form.itemId && form.checkIn && form.checkOut) {
+          const stillAvailable = normalized.some((item) => item.item_id === form.itemId)
+          setAvailabilityMessage(stillAvailable ? '' : 'This option is no longer available for the selected dates.')
+        } else {
+          setAvailabilityMessage('')
+        }
       })
-      const list = unwrap<PublicItem[]>(res) ?? []
-      setItems(list)
-      const preselected = searchParams.get('itemId')
-      const nextSelected = list.find((item) => item.item_id === preselected) ?? null
-      setSelected(nextSelected)
-      setView(nextSelected ? 'detail' : 'list')
-    } finally {
-      setItemsLoading(false)
+      .catch(() => {
+        if (!cancelled) setAvailabilityMessage('Could not check live availability. Please try again.')
+      })
+      .finally(() => {
+        if (!cancelled) setAvailabilityLoading(false)
+      })
+
+    return () => {
+      cancelled = true
     }
+  }, [slug, form.checkIn, form.checkOut, form.guests, form.itemId])
+
+  const selectedItem = useMemo(
+    () => items.find((item) => item.item_id === form.itemId),
+    [form.itemId, items],
+  )
+  const pageTitle = selectedItem ? `Booking for ${selectedItem.name}` : businessName
+  const isSelectedUnavailable = Boolean(form.itemId && form.checkIn && form.checkOut && !selectedItem && !availabilityLoading)
+
+  const set = (key: keyof BookingFormState, value: string) => {
+    setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  useEffect(() => {
-    if (!page || !slug) return
-    const timer = window.setTimeout(() => {
-      loadItems()
-    }, 300)
-    return () => window.clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, slug, form.check_in, form.check_out, form.guests, form.quantity])
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
 
-  const total = useMemo(() => {
-    if (!selected) return 0
-    if (isProduct) return selected.effective_price * (Number(form.quantity) || 1)
-    const nights = Math.max(1, Math.round((new Date(form.check_out).getTime() - new Date(form.check_in).getTime()) / 86_400_000))
-    return selected.effective_price * nights
-  }, [form.check_in, form.check_out, form.quantity, isProduct, selected])
+    if (!form.itemId) return toast.error('Please choose an option')
+    if (!form.checkIn) return toast.error('Please choose a check-in date')
+    if (!form.checkOut) return toast.error('Please choose a check-out date')
+    if (!form.name.trim()) return toast.error('Please enter your name')
+    if (!form.phone.trim()) return toast.error('Please enter your phone number')
+    if (isSelectedUnavailable) return toast.error('This room is no longer available for the selected dates')
 
-  const nights = useMemo(() => {
-    if (isProduct) return 0
-    return Math.max(1, Math.round((new Date(form.check_out).getTime() - new Date(form.check_in).getTime()) / 86_400_000))
-  }, [form.check_in, form.check_out, isProduct])
-
-  const formValid = useMemo(() => {
-    if (required.name && !form.name.trim()) return false
-    if (required.phone && !form.phone.trim()) return false
-    if (required.email && !form.email.trim()) return false
-    if (required.address && !form.address.trim()) return false
-    if (required.notes && !form.notes.trim()) return false
-    return true
-  }, [form, required])
-
-  const submit = async () => {
-    if (!selected || !page || !formValid) return
     setSubmitting(true)
-    setError(null)
     try {
-      const res = await apiClient.post(`/public-booking/${slug}/requests`, {
-        item_id: selected.item_id,
-        check_in: form.check_in,
-        check_out: form.check_out,
-        guests: Number(form.guests) || 1,
-        quantity: Number(form.quantity) || 1,
-        customer: {
-          name: form.name,
-          phone: form.phone,
-          email: form.email,
-          address: form.address,
-          notes: form.notes,
-        },
-        notes: form.notes,
+      const latest = await apiClient.get(`/public-booking/${encodeURIComponent(slug)}/items`, {
+        params: { checkIn: form.checkIn, checkOut: form.checkOut, guests: form.guests },
       })
-      setConfirmation(unwrap(res))
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Could not complete your booking. Please try again.')
+      const latestItems = normalizeItems(latest)
+      if (!latestItems.some((item) => item.item_id === form.itemId)) {
+        setItems(latestItems)
+        setAvailabilityMessage('This option was just booked for these dates. Please choose another date.')
+        toast.error('This room is no longer available for the selected dates')
+        return
+      }
+
+      await apiClient.post(`/public-booking/${encodeURIComponent(slug)}/requests`, {
+        item_id: form.itemId,
+        checkIn: form.checkIn,
+        checkOut: form.checkOut,
+        guests: Number(form.guests) || 1,
+        leadId: form.leadId || undefined,
+        customer: {
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          email: form.email.trim() || undefined,
+          address: form.address.trim() || undefined,
+          notes: form.notes.trim() || undefined,
+        },
+      })
+      setSubmitted(true)
+    } catch (error: any) {
+      toast.error(error?.message || 'Could not submit booking request')
     } finally {
       setSubmitting(false)
     }
   }
 
-  const copyReference = async (ref: string) => {
-    try {
-      await navigator.clipboard.writeText(ref)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 2000)
-    } catch {
-      /* noop */
-    }
-  }
-
-  if (loading) {
+  if (submitted) {
     return (
-      <div className="grid min-h-screen place-items-center bg-slate-50 text-gray-500">
-        <Loader2 className="h-6 w-6 animate-spin" />
-      </div>
-    )
-  }
-
-  if (!page) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-slate-50 px-4 text-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Booking link not found</h1>
-          <p className="mt-2 text-gray-500">This public link is disabled or unavailable.</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (confirmation) {
-    const whatsappNumber = page.config.contact.whatsapp || page.business.whatsapp_number || page.config.contact.phone || page.business.phone
-    const supportUrl = whatsappNumber ? `https://wa.me/${whatsappNumber.replace(/\D/g, '')}` : ''
-
-    return (
-      <div className="min-h-screen bg-slate-50 px-4 py-10">
-        <div className="mx-auto max-w-md rounded-2xl bg-white p-8 shadow-sm">
-          <div className="text-center">
-            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-green-50">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
-            </div>
-            <h1 className="mt-4 text-2xl font-bold text-gray-900">You&rsquo;re all set</h1>
-            <p className="mt-2 text-sm text-gray-600">{confirmation.message}</p>
-          </div>
-
-          <div className="mt-6 space-y-3 rounded-xl border bg-slate-50 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Reference</p>
-                <p className="mt-0.5 truncate font-mono text-xs text-gray-800">{confirmation.reference_id}</p>
+      <main className="min-h-screen bg-slate-50 px-4 py-8">
+        <div className="mx-auto flex min-h-[70vh] max-w-lg items-center justify-center">
+          <Card className="w-full border-slate-200 shadow-sm">
+            <CardContent className="p-8 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-50 text-green-600">
+                <CheckCircle2 className="h-8 w-8" />
               </div>
-              <button
-                onClick={() => copyReference(confirmation.reference_id)}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-white px-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                <Copy className="h-3.5 w-3.5" />
-                {copied ? 'Copied' : 'Copy'}
-              </button>
-            </div>
-            {selected && (
-              <div className="border-t pt-3">
-                <p className="font-semibold text-gray-900">{selected.name}</p>
-                <p className="mt-1 text-sm text-gray-600">
-                  {isProduct
-                    ? `Quantity: ${form.quantity}`
-                    : `${form.check_in} → ${form.check_out} · ${form.guests} guest(s)`}
-                </p>
-                <p className="mt-1 text-sm font-semibold" style={{ color: accent }}>
-                  {money(total, page.business.currency)}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
-            <p className="font-semibold">Next steps</p>
-            <p className="mt-1">
-              {paymentMode === 'manual'
-                ? 'Payment will be collected by the business directly. We&rsquo;ll send confirmation details over WhatsApp.'
-                : 'You&rsquo;ll receive payment instructions on WhatsApp shortly.'}
-            </p>
-          </div>
-
-          {supportUrl && (
-            <a
-              href={supportUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-md border bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              <MessageCircle className="h-4 w-4" />
-              Need help? Chat with us on WhatsApp
-            </a>
-          )}
+              <h1 className="text-2xl font-bold text-slate-900">Request sent</h1>
+              <p className="mt-2 text-sm text-slate-600">
+                We have received your booking request. Our team will contact you shortly.
+              </p>
+            </CardContent>
+          </Card>
         </div>
-      </div>
+      </main>
     )
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <section className="px-4 py-10 text-white" style={{ background: `linear-gradient(135deg, ${accent}, #111827)` }}>
-        <div className="mx-auto max-w-6xl">
-          <p className="text-xs font-semibold uppercase tracking-wider opacity-80">{labels.request}</p>
-          <h1 className="mt-2 max-w-3xl text-3xl font-bold leading-tight md:text-5xl">
-            {heroTitle(experience, page.business.business_name)}
-          </h1>
-          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm opacity-90">
-            {(page.config.contact.address || page.business.address) && (
-              <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4" />{page.config.contact.address || page.business.address}</span>
-            )}
-            {(page.config.contact.phone || page.business.phone) && (
-              <span className="inline-flex items-center gap-1.5"><Phone className="h-4 w-4" />{page.config.contact.phone || page.business.phone}</span>
-            )}
-          </div>
+    <main className="min-h-screen bg-slate-50 px-4 py-6 sm:py-10">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-6">
+          <p className="text-sm font-semibold text-[#0066FF]">Booking request</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-950">{pageTitle}</h1>
+          <p className="mt-2 max-w-2xl text-sm text-slate-600">
+            {selectedItem
+              ? `${businessName} will confirm your ${selectedItem.name} booking request.`
+              : 'Share your stay details and contact number. The team will confirm availability with you.'}
+          </p>
         </div>
-      </section>
 
-      <section className="mx-auto grid max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[1fr_360px]">
-        <div className="space-y-5">
-          <div className="rounded-2xl border bg-white p-4 shadow-sm">
-            <div className={`grid gap-3 ${isProduct ? 'sm:grid-cols-[1fr_auto]' : 'md:grid-cols-[1fr_1fr_1fr_auto]'}`}>
-              {!isProduct ? (
-                <>
-                  <label className="space-y-1.5 text-sm font-medium">
-                    <span className="flex items-center gap-1 text-gray-600"><CalendarDays className="h-4 w-4" />Check-in</span>
-                    <input
-                      className="h-10 w-full rounded-md border border-gray-200 px-3 outline-none focus:border-gray-400"
-                      type="date"
-                      value={form.check_in}
-                      onChange={(e) => setForm({ ...form, check_in: e.target.value })}
-                    />
-                  </label>
-                  <label className="space-y-1.5 text-sm font-medium">
-                    <span className="text-gray-600">Check-out</span>
-                    <input
-                      className="h-10 w-full rounded-md border border-gray-200 px-3 outline-none focus:border-gray-400"
-                      type="date"
-                      min={form.check_in}
-                      value={form.check_out}
-                      onChange={(e) => setForm({ ...form, check_out: e.target.value })}
-                    />
-                  </label>
-                  <label className="space-y-1.5 text-sm font-medium">
-                    <span className="flex items-center gap-1 text-gray-600"><Users className="h-4 w-4" />Guests</span>
-                    <input
-                      className="h-10 w-full rounded-md border border-gray-200 px-3 outline-none focus:border-gray-400"
-                      type="number"
-                      min="1"
-                      value={form.guests}
-                      onChange={(e) => setForm({ ...form, guests: e.target.value })}
-                    />
-                  </label>
-                </>
+        <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+          <Card className="border-slate-200 shadow-sm">
+            <CardContent className="p-5 sm:p-6">
+              {loading ? (
+                <div className="flex min-h-[360px] items-center justify-center text-slate-500">
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Loading booking options...
+                </div>
               ) : (
-                <label className="space-y-1.5 text-sm font-medium">
-                  <span className="flex items-center gap-1 text-gray-600"><ShoppingBag className="h-4 w-4" />Quantity</span>
-                  <input
-                    className="h-10 w-full rounded-md border border-gray-200 px-3 outline-none focus:border-gray-400"
-                    type="number"
-                    min="1"
-                    value={form.quantity}
-                    onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-                  />
-                </label>
-              )}
-              <button
-                onClick={loadItems}
-                className="inline-flex h-10 items-center justify-center gap-2 self-end rounded-md px-4 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
-                style={{ background: accent }}
-              >
-                {itemsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                Search
-              </button>
-            </div>
-          </div>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <section className="space-y-4">
+                    <h2 className="text-base font-bold text-slate-900">Stay details</h2>
 
-          {view === 'list' && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {itemsLoading && items.length === 0 && (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-                    <div className="aspect-[16/9] animate-pulse bg-slate-100" />
-                    <div className="space-y-2 p-4">
-                      <div className="h-4 w-2/3 animate-pulse rounded bg-slate-100" />
-                      <div className="h-3 w-full animate-pulse rounded bg-slate-100" />
-                      <div className="h-3 w-1/3 animate-pulse rounded bg-slate-100" />
+                    {(availabilityLoading || availabilityMessage || isSelectedUnavailable) && (
+                      <div
+                        className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${
+                          availabilityMessage || isSelectedUnavailable
+                            ? 'border-amber-200 bg-amber-50 text-amber-900'
+                            : 'border-blue-100 bg-blue-50 text-blue-800'
+                        }`}
+                      >
+                        {availabilityLoading ? (
+                          <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+                        ) : (
+                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        )}
+                        <span>
+                          {availabilityLoading
+                            ? 'Checking live availability...'
+                            : availabilityMessage || 'This option is no longer available for the selected dates.'}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5">
+                      <Label>Room or service</Label>
+                      <Select value={form.itemId} onValueChange={(value) => set('itemId', value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose an option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {items.map((item) => (
+                            <SelectItem key={item.item_id} value={item.item_id}>
+                              {item.name}{formatPrice(item.base_price) ? ` - ${formatPrice(item.base_price)}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  </div>
-                ))
-              )}
-              {items.map((item) => {
-                const img = item.primary_image_url || item.image_urls?.[0]
-                const isSelected = selected?.item_id === item.item_id
-                return (
-                  <button
-                    key={item.item_id}
-                    onClick={() => {
-                      setSelected(item)
-                      setView('detail')
-                    }}
-                    className="overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                    style={isSelected ? { boxShadow: `0 0 0 2px ${accent}` } : {}}
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="flex items-center gap-1.5">
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          Check-in
+                        </Label>
+                        <Input
+                          type="date"
+                          value={form.checkIn}
+                          onChange={(event) => set('checkIn', event.target.value)}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="flex items-center gap-1.5">
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          Check-out
+                        </Label>
+                        <Input
+                          type="date"
+                          value={form.checkOut}
+                          min={form.checkIn}
+                          onChange={(event) => set('checkOut', event.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 sm:max-w-[220px]">
+                      <Label className="flex items-center gap-1.5">
+                        <Users className="h-3.5 w-3.5" />
+                        Guests
+                      </Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={form.guests}
+                        onChange={(event) => set('guests', event.target.value)}
+                      />
+                    </div>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h2 className="text-base font-bold text-slate-900">Contact details</h2>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label>Name</Label>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                          <Input
+                            value={form.name}
+                            onChange={(event) => set('name', event.target.value)}
+                            className="pl-9"
+                            placeholder="Your name"
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Phone</Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                          <Input
+                            value={form.phone}
+                            onChange={(event) => set('phone', event.target.value)}
+                            className="pl-9"
+                            placeholder="+91 98765 43210"
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label>Email</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                        <Input
+                          type="email"
+                          value={form.email}
+                          onChange={(event) => set('email', event.target.value)}
+                          className="pl-9"
+                          placeholder="Optional"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label>Address</Label>
+                      <Input
+                        value={form.address}
+                        onChange={(event) => set('address', event.target.value)}
+                        placeholder="Optional"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label>Notes</Label>
+                      <textarea
+                        value={form.notes}
+                        onChange={(event) => set('notes', event.target.value)}
+                        placeholder="Any special request?"
+                        className="h-24 w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      />
+                    </div>
+                  </section>
+
+                  <Button
+                    type="submit"
+                    disabled={submitting || availabilityLoading || isSelectedUnavailable}
+                    className="h-11 w-full bg-[#0066FF] hover:bg-[#0052CC]"
                   >
-                    <div className="aspect-[16/9] bg-slate-100">
-                      {img ? (
-                        <img src={img} alt={item.name} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="grid h-full place-items-center text-sm text-slate-400">{labels.item}</div>
+                    {submitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending request...
+                      </>
+                    ) : (
+                      'Send booking request'
+                    )}
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+
+          <aside className="space-y-4">
+            <Card className="border-slate-200 shadow-sm">
+              <CardContent className="p-5">
+                <h2 className="text-base font-bold text-slate-900">Selected option</h2>
+                {selectedItem ? (
+                  <div className="mt-4 space-y-3">
+                    <div className="rounded-md border border-blue-100 bg-[#F7FAFF] px-3 py-2">
+                      <p className="text-xs font-bold uppercase tracking-wide text-[#0066FF]">Selected property</p>
+                      <p className="mt-1 text-lg font-bold text-slate-950">{selectedItem.name}</p>
+                    </div>
+                    {selectedItem.primary_image_url && (
+                      <img
+                        src={selectedItem.primary_image_url}
+                        alt={selectedItem.name}
+                        className="aspect-video w-full rounded-md object-cover"
+                      />
+                    )}
+                    <div>
+                      <p className="font-semibold text-slate-900">{selectedItem.name}</p>
+                      {selectedItem.description && (
+                        <p className="mt-1 text-sm text-slate-600">{selectedItem.description}</p>
                       )}
                     </div>
-                    <div className="p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="truncate font-semibold text-gray-900">{item.name}</h3>
-                          <p className="mt-1 line-clamp-2 text-sm text-gray-500">
-                            {item.description || item.details?.service_type || item.item_type}
-                          </p>
-                        </div>
-                        <p className="whitespace-nowrap text-base font-bold" style={{ color: accent }}>
-                          {money(item.effective_price, page.business.currency)}
-                        </p>
-                      </div>
-                      <p className="mt-3 text-xs text-gray-500">
-                        {isProduct
-                          ? `${item.stock_quantity ?? 'Available'} in stock`
-                          : `${item.available_slots ?? 'Available'} slot(s) available`}
-                      </p>
+                    <div className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">
+                      {formatPrice(selectedItem.base_price) ?? 'Price will be confirmed'}
                     </div>
-                  </button>
-                )
-              })}
-              {!itemsLoading && items.length === 0 && (
-                <div className="col-span-full rounded-2xl border bg-white p-10 text-center text-gray-500">
-                  No available {labels.items.toLowerCase()} found for the selected details.
-                </div>
-              )}
-            </div>
-          )}
-
-          {view === 'detail' && selected && (
-            <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-              <div className="aspect-[16/9] bg-slate-100">
-                {(selected.primary_image_url || selected.image_urls?.[0]) ? (
-                  <img src={selected.primary_image_url || selected.image_urls?.[0]} alt={selected.name} className="h-full w-full object-cover" />
+                  </div>
                 ) : (
-                  <div className="grid h-full place-items-center text-slate-400">{labels.item}</div>
+                  <p className="mt-3 text-sm text-slate-500">Choose a room or service to continue.</p>
                 )}
-              </div>
-              <div className="space-y-5 p-5">
-                <button onClick={() => setView('list')} className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900">
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to {labels.items.toLowerCase()}
-                </button>
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">{selected.name}</h2>
-                    <p className="mt-2 text-gray-600">{selected.description || selected.details?.service_type || selected.item_type}</p>
-                  </div>
-                  <div className="rounded-xl bg-slate-50 p-4 text-right">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Total estimate</p>
-                    <p className="mt-0.5 text-2xl font-bold" style={{ color: accent }}>{money(total, page.business.currency)}</p>
-                    {!isProduct && <p className="text-xs text-gray-500">{nights} night{nights === 1 ? '' : 's'}</p>}
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-lg border p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{isProduct ? 'Stock' : 'Availability'}</p>
-                    <p className="mt-1 font-semibold text-gray-900">{isProduct ? `${selected.stock_quantity ?? 'Available'} in stock` : `${selected.available_slots ?? 'Available'} slot(s)`}</p>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Price</p>
-                    <p className="mt-1 font-semibold text-gray-900">{money(selected.effective_price, page.business.currency)}</p>
-                  </div>
-                  <div className="rounded-lg border p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{isProduct ? 'Quantity' : 'Guests'}</p>
-                    <p className="mt-1 font-semibold text-gray-900">{isProduct ? form.quantity : form.guests}</p>
-                  </div>
-                </div>
-                {selected.details && Object.keys(selected.details).length > 0 && (
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Details</h3>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      {Object.entries(selected.details).slice(0, 10).map(([key, value]) => (
-                        <div key={key} className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                          <span className="font-semibold capitalize text-gray-600">{key.replace(/_/g, ' ')}: </span>
-                          <span className="text-gray-800">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <button
-                  onClick={() => setView('form')}
-                  className="inline-flex h-11 w-full items-center justify-center rounded-md px-5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 sm:w-auto"
-                  style={{ background: accent }}
-                >
-                  Continue to {labels.request.toLowerCase()}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {view === 'form' && selected && (
-            <div className="rounded-2xl border bg-white p-5 shadow-sm">
-              <button onClick={() => setView('detail')} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900">
-                <ArrowLeft className="h-4 w-4" />
-                Back to details
-              </button>
-              <h2 className="text-xl font-bold text-gray-900">Your details</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                We&rsquo;ll use these to confirm your {labels.request.toLowerCase()}. {paymentLabel(paymentMode)}.
-              </p>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <Field label={`${labels.customer} name`} required={required.name}>
-                  <input
-                    className="h-10 w-full rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-gray-400"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  />
-                </Field>
-                <Field label="Phone number" required={required.phone}>
-                  <input
-                    className="h-10 w-full rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-gray-400"
-                    inputMode="tel"
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  />
-                </Field>
-                <Field label="Email" required={required.email}>
-                  <input
-                    className="h-10 w-full rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-gray-400"
-                    inputMode="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  />
-                </Field>
-                {!isProduct && (
-                  <Field label="Guest count">
-                    <input
-                      className="h-10 w-full rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-gray-400"
-                      type="number"
-                      min="1"
-                      value={form.guests}
-                      onChange={(e) => setForm({ ...form, guests: e.target.value })}
-                    />
-                  </Field>
-                )}
-                <Field label="Address" required={required.address} className="sm:col-span-2">
-                  <textarea
-                    className="min-h-20 w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
-                    value={form.address}
-                    onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  />
-                </Field>
-                <Field label="Notes" required={required.notes} className="sm:col-span-2">
-                  <textarea
-                    className="min-h-20 w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
-                    placeholder="Anything we should know?"
-                    value={form.notes}
-                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  />
-                </Field>
-              </div>
-
-              {error && (
-                <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-              )}
-
-              <div className="mt-5 flex items-center justify-between rounded-xl bg-slate-50 p-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Total</p>
-                  <p className="text-lg font-bold text-gray-900">{money(total, page.business.currency)}</p>
-                </div>
-                <p className="text-xs text-gray-500">{paymentLabel(paymentMode)}</p>
-              </div>
-
-              <button
-                disabled={submitting || !formValid}
-                onClick={submit}
-                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-md text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ background: accent }}
-              >
-                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                Confirm {labels.request.toLowerCase()}
-              </button>
-            </div>
-          )}
+              </CardContent>
+            </Card>
+          </aside>
         </div>
-
-        <aside className="h-fit space-y-4 lg:sticky lg:top-6">
-          <div className="rounded-2xl border bg-white p-5 shadow-sm">
-            <h2 className="text-base font-semibold text-gray-900">Summary</h2>
-            {selected ? (
-              <div className="mt-3 space-y-3">
-                <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="flex items-center gap-2 font-semibold text-gray-900">
-                    <BedDouble className="h-4 w-4 text-gray-500" />
-                    {selected.name}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {isProduct ? `Quantity: ${form.quantity}` : `${form.check_in} → ${form.check_out} · ${form.guests} guest(s)`}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between border-t pt-3 text-sm">
-                  <span className="text-gray-600">Total</span>
-                  <span className="inline-flex items-center font-bold text-gray-900">
-                    <IndianRupee className="h-3.5 w-3.5" />
-                    {money(total, page.business.currency).replace(/^₹/, '')}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500">{paymentLabel(paymentMode)}</p>
-              </div>
-            ) : (
-              <p className="mt-3 text-sm text-gray-500">
-                Select a {labels.item.toLowerCase()} to see details and continue.
-              </p>
-            )}
-          </div>
-
-          {(page.config.policies.cancellation || page.config.policies.terms || page.config.policies.refund) && (
-            <div className="rounded-2xl border bg-white p-5 text-xs text-gray-600 shadow-sm">
-              <h3 className="text-sm font-semibold text-gray-900">Policies</h3>
-              <div className="mt-2 space-y-2">
-                {page.config.policies.cancellation && <p><span className="font-semibold text-gray-800">Cancellation:</span> {page.config.policies.cancellation}</p>}
-                {page.config.policies.refund && <p><span className="font-semibold text-gray-800">Refund:</span> {page.config.policies.refund}</p>}
-                {page.config.policies.terms && <p><span className="font-semibold text-gray-800">Terms:</span> {page.config.policies.terms}</p>}
-              </div>
-            </div>
-          )}
-
-          {(page.config.contact.whatsapp || page.business.whatsapp_number) && (
-            <a
-              className="flex items-center justify-center gap-2 rounded-2xl border bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
-              href={`https://wa.me/${(page.config.contact.whatsapp || page.business.whatsapp_number || '').replace(/\D/g, '')}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <MessageCircle className="h-4 w-4" />
-              Need help? Chat with us
-            </a>
-          )}
-        </aside>
-      </section>
+      </div>
     </main>
   )
 }
 
-function Field({
-  label,
-  required,
-  className,
-  children,
-}: {
-  label: string
-  required?: boolean
-  className?: string
-  children: React.ReactNode
-}) {
+export default function PublicBookingPage() {
   return (
-    <label className={`space-y-1.5 text-sm font-medium ${className ?? ''}`}>
-      <span className="flex items-center gap-1 text-gray-700">
-        {label}
-        {required && <span className="text-red-500">*</span>}
-      </span>
-      {children}
-    </label>
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading...</div>}>
+      <PublicBookingForm />
+    </Suspense>
   )
 }

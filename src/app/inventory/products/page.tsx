@@ -181,21 +181,21 @@ export default function ProductsPage() {
     if (!silent) setLoading(true)
     else setRefreshing(true)
     try {
-      const res = await apiClient.get('/catalog', { params: { item_type: 'physical_product', limit: 500 } })
+      const res = await apiClient.get('/products', { params: { limit: 500 } })
       const body = (res as any).data?.data ?? (res as any).data
-      const raw: any[] = Array.isArray(body) ? body : (body?.data ?? [])
+      const raw: any[] = Array.isArray(body) ? body : (body?.data ?? body?.products ?? [])
       const list: Product[] = raw.map((item: any) => ({
-        product_id: item.item_id,
-        id: item.item_id,
+        product_id: item.product_id ?? item.item_id ?? item.id ?? '',
+        id: item.product_id ?? item.item_id ?? item.id ?? '',
         name: item.name,
         description: item.description,
-        price: typeof item.base_price === 'string' ? parseFloat(item.base_price) || 0 : (item.base_price ?? 0),
-        sku: item.sku ?? item.attributes?.sku,
-        brand: item.attributes?.brand,
+        price: typeof (item.price ?? item.base_price) === 'string' ? parseFloat(item.price ?? item.base_price) || 0 : (item.price ?? item.base_price ?? 0),
+        sku: item.sku,
+        brand: item.brand ?? item.attributes?.brand,
         category: item.category,
-        track_inventory: item.stock_quantity !== null,
+        track_inventory: item.track_inventory ?? (item.stock_quantity != null),
         stock_quantity: item.stock_quantity ?? 0,
-        low_stock_threshold: item.attributes?.low_stock_threshold ?? 10,
+        low_stock_threshold: item.low_stock_threshold ?? item.attributes?.low_stock_threshold ?? 10,
         is_active: item.is_active,
         primary_image_url: item.primary_image_url,
         images: item.image_urls,
@@ -214,7 +214,7 @@ export default function ProductsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await apiClient.delete(`/catalog/${id}`)
+      await apiClient.delete(`/products/${id}`)
       setProducts(p => p.filter(x => pid(x) !== id))
       toast.success('Product deleted')
     } catch {

@@ -494,7 +494,7 @@ export default function InventoryServicesPage() {
     )
   }
 
-  const typeLabel = isHospitality ? 'Property' : (bizType.charAt(0).toUpperCase() + bizType.slice(1))
+  const typeLabel = isHospitality ? 'Room / Property' : (bizType.charAt(0).toUpperCase() + bizType.slice(1))
   const addHref = '/inventory/add'
 
   return (
@@ -536,8 +536,10 @@ export default function InventoryServicesPage() {
             <div className="h-14 w-14 rounded-2xl flex items-center justify-center mx-auto" style={{ background: `${ACCENT}10` }}>
               {isHospitality ? <BedDouble className="h-7 w-7" style={{ color: ACCENT }} /> : <Package className="h-7 w-7" style={{ color: ACCENT }} />}
             </div>
-            <p className="font-bold text-[#4B4B4B]">No {typeLabel.toLowerCase()}s yet</p>
-            <p className="text-[13px] text-[#6E6E6E]">Add your first listing to get started</p>
+            <p className="font-bold text-[#4B4B4B]">No {typeLabel.toLowerCase()} yet</p>
+            <p className="text-[13px] text-[#6E6E6E]">
+              {isHospitality ? 'Add rooms, villas, cottages, or properties guests can book.' : 'Add your first listing to get started'}
+            </p>
             <a href={addHref}
               className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-bold text-white mt-2 transition-all"
               style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT}cc)` }}>
