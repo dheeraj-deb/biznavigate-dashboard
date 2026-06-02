@@ -186,11 +186,9 @@ export default function CreateOrderPage() {
 
     // Prepare order data matching backend CreateOrderDto
     const orderData = {
-      business_id: businessId,
-      tenant_id: tenantId,
       customer_id: formData.customerId,
       items: formData.items.map(item => ({
-        product_id: item.productId,
+        item_id: item.productId,
         quantity: item.quantity,
         discount: item.discount
       })),
@@ -364,7 +362,7 @@ export default function CreateOrderPage() {
                             <div>
                               <p className="font-medium text-gray-900 dark:text-gray-100">{product.name}</p>
                               <p className="text-sm text-gray-600 dark:text-gray-400">SKU: {product.sku || 'N/A'}</p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">Stock: {product.stock_quantity || product.stockQuantity || 0}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">Stock: {product.stock_quantity || 0}</p>
                             </div>
                             <p className="font-semibold text-blue-600 dark:text-blue-400">₹{product.price.toLocaleString()}</p>
                           </div>

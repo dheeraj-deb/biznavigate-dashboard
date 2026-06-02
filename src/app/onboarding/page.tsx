@@ -20,8 +20,11 @@ import {
   ArrowLeft,
   Plus,
   Trash2,
-  PackageCheck,
+  Bot,
+  MessageCircle,
+  Package,
   Sparkles,
+  PackageCheck,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { AppLogo } from '@/components/ui/app-logo'
@@ -81,6 +84,7 @@ export default function OnboardingPage() {
     businessType: '',
     industry: '',
     phone: '',
+    whatsappNumber: '',
     email: '',
     website: '',
     address: '',
@@ -112,9 +116,14 @@ export default function OnboardingPage() {
       if (!formData.phone.trim()) newErrors.phone = 'Phone number is required'
       if (!formData.city.trim()) newErrors.city = 'City is required'
     } else if (step === 3 && formData.employees.length > 0) {
-      const firstEmployee = formData.employees[0]
-      if (!firstEmployee.name.trim()) newErrors.employeeName = 'Employee name is required'
-      if (!firstEmployee.email.trim() || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(firstEmployee.email)) newErrors.employeeEmail = 'Valid employee email is required'
+      formData.employees.forEach((employee, index) => {
+        const hasAnyValue = Boolean(employee.name.trim() || employee.email.trim() || employee.phone.trim())
+        if (!hasAnyValue) return
+        if (!employee.name.trim()) newErrors[`employeeName${index}`] = 'Employee name is required'
+        if (!employee.email.trim() || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(employee.email)) {
+          newErrors[`employeeEmail${index}`] = 'Valid employee email is required'
+        }
+      })
     }
 
     setErrors(newErrors)
@@ -170,7 +179,7 @@ export default function OnboardingPage() {
       country: formData.country,
       gst_number: formData.gstNumber || undefined,
       pan_number: formData.panNumber || undefined,
-      whatsapp_number: formData.phone || undefined,
+      whatsapp_number: formData.whatsappNumber || formData.phone || undefined,
       employees: formData.employees
         .filter(e => e.name.trim() && e.email.trim())
         .map(e => ({
@@ -471,7 +480,15 @@ export default function OnboardingPage() {
                     <Input
                       id="phone"
                       value={formData.phone}
-                      onChange={(e) => { setFormData({ ...formData, phone: e.target.value }); setErrors({ ...errors, phone: '' }) }}
+                      onChange={(e) => {
+                        const nextPhone = e.target.value
+                        setFormData({
+                          ...formData,
+                          phone: nextPhone,
+                          whatsappNumber: formData.whatsappNumber || nextPhone,
+                        })
+                        setErrors({ ...errors, phone: '' })
+                      }}
                       placeholder="+91 98765 43210"
                       className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors.phone ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
                     />
@@ -479,7 +496,21 @@ export default function OnboardingPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[13px] font-bold text-[#4B4B4B]">Website (Optional)</label>
+                    <label className="text-[13px] font-bold text-[#4B4B4B]">WhatsApp Number</label>
+                    <Input
+                      id="whatsappNumber"
+                      value={formData.whatsappNumber}
+                      onChange={(e) => setFormData({ ...formData, whatsappNumber: e.target.value })}
+                      placeholder="+91 98765 43210"
+                      className="h-10 w-full bg-transparent border-[#989898] text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] transition-colors shadow-none rounded-[4px]"
+                    />
+                    <p className="text-[11px] text-[#989898]">Used for customer chat, booking links and AI replies.</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-[#4B4B4B]">Website <span className="text-[11px] font-normal text-[#6E6E6E]">(Optional)</span></label>
                     <Input
                       id="website"
                       value={formData.website}
@@ -488,6 +519,56 @@ export default function OnboardingPage() {
                       className="h-10 w-full bg-transparent border-[#989898] text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] transition-colors shadow-none rounded-[4px]"
                     />
                   </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-[#4B4B4B]">GSTIN <span className="text-[11px] font-normal text-[#6E6E6E]">(Optional)</span></label>
+                    <Input
+                      id="gstNumber"
+                      value={formData.gstNumber}
+                      onChange={(e) => setFormData({ ...formData, gstNumber: e.target.value.toUpperCase() })}
+                      placeholder="22AAAAA0000A1Z5"
+                      maxLength={15}
+                      className="h-10 w-full bg-transparent border-[#989898] text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] transition-colors shadow-none rounded-[4px] uppercase"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-bold text-[#4B4B4B]">PAN <span className="text-[11px] font-normal text-[#6E6E6E]">(Optional)</span></label>
+                    <Input
+                      id="panNumber"
+                      value={formData.panNumber}
+                      onChange={(e) => setFormData({ ...formData, panNumber: e.target.value.toUpperCase() })}
+                      placeholder="ABCDE1234F"
+                      maxLength={10}
+                      className="h-10 w-full bg-transparent border-[#989898] text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] transition-colors shadow-none rounded-[4px] uppercase"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-bold text-[#4B4B4B]">Business Type*</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {onboardingBusinessTypes.filter((t) => ['hospitality', 'events', 'products'].includes(t.value)).map((t) => {
+                      const Icon = resolveIcon(t.icon)
+                      const active = formData.businessType === t.value
+                      return (
+                        <button
+                          key={t.value}
+                          type="button"
+                          onClick={() => { setFormData({ ...formData, businessType: t.value }); setErrors({ ...errors, businessType: '' }) }}
+                          className={`flex flex-col items-center gap-1.5 rounded-[8px] border px-2 py-3 text-center transition-all ${
+                            active
+                              ? 'border-[#0066FF] bg-blue-50 text-[#0066FF]'
+                              : 'border-[#E5E5E5] bg-white text-[#6E6E6E] hover:border-[#0066FF] hover:text-[#0066FF]'
+                          }`}
+                        >
+                          <Icon className="h-5 w-5" />
+                          <span className="text-[12px] font-semibold leading-tight">{t.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {errors.businessType && <p className="mt-1 text-xs text-red-500 font-medium">{errors.businessType}</p>}
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
@@ -531,7 +612,7 @@ export default function OnboardingPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[13px] font-bold text-[#4B4B4B]">Address Workspace</label>
+                    <label className="text-[13px] font-bold text-[#4B4B4B]">Address</label>
                     <Input
                       id="address"
                       value={formData.address}
@@ -552,8 +633,8 @@ export default function OnboardingPage() {
                     <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-[#4B4B4B]">Team Setup</h3>
-                    <p className="text-[13px] text-[#6E6E6E]">Add your team members and assign roles</p>
+                    <h3 className="text-xl font-bold text-[#4B4B4B]">Team Access</h3>
+                    <p className="text-[13px] text-[#6E6E6E]">Optional. Add staff now or skip and invite them later.</p>
                   </div>
                 </div>
 
@@ -572,22 +653,22 @@ export default function OnboardingPage() {
                           <label className="text-[13px] font-bold text-[#4B4B4B]">Name</label>
                           <Input
                             value={employee.name}
-                            onChange={(e) => { updateEmployee(index, 'name', e.target.value); if (index === 0) setErrors({ ...errors, employeeName: '' }) }}
+                            onChange={(e) => { updateEmployee(index, 'name', e.target.value); setErrors({ ...errors, [`employeeName${index}`]: '' }) }}
                             placeholder="Employee name"
-                            className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${(index === 0 && errors.employeeName) ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
+                            className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors[`employeeName${index}`] ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
                           />
-                          {index === 0 && errors.employeeName && <p className="mt-1 text-xs text-red-500 font-medium">{errors.employeeName}</p>}
+                          {errors[`employeeName${index}`] && <p className="mt-1 text-xs text-red-500 font-medium">{errors[`employeeName${index}`]}</p>}
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-[13px] font-bold text-[#4B4B4B]">Email</label>
                           <Input
                             type="email"
                             value={employee.email}
-                            onChange={(e) => { updateEmployee(index, 'email', e.target.value); if (index === 0) setErrors({ ...errors, employeeEmail: '' }) }}
+                            onChange={(e) => { updateEmployee(index, 'email', e.target.value); setErrors({ ...errors, [`employeeEmail${index}`]: '' }) }}
                             placeholder="email@example.com"
-                            className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${(index === 0 && errors.employeeEmail) ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
+                            className={`h-10 w-full bg-transparent text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 transition-colors shadow-none rounded-[4px] ${errors[`employeeEmail${index}`] ? 'border-red-500 focus-visible:ring-red-500 focus-visible:border-red-500' : 'border-[#989898] focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF]'}`}
                           />
-                          {index === 0 && errors.employeeEmail && <p className="mt-1 text-xs text-red-500 font-medium">{errors.employeeEmail}</p>}
+                          {errors[`employeeEmail${index}`] && <p className="mt-1 text-xs text-red-500 font-medium">{errors[`employeeEmail${index}`]}</p>}
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-[13px] font-bold text-[#4B4B4B]">Phone</label>
@@ -671,8 +752,8 @@ export default function OnboardingPage() {
                       <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 mb-2">
                         <CheckCircle2 className="h-7 w-7 text-[#0066FF]" />
                       </div>
-                      <h3 className="text-[19px] font-semibold tracking-tight text-[#4B4B4B] mb-1">Review & Complete</h3>
-                      <p className="text-[13px] text-[#6E6E6E]">Confirm your setup before finalising</p>
+                      <h3 className="text-[19px] font-semibold tracking-tight text-[#4B4B4B] mb-1">Review & Launch Setup</h3>
+                      <p className="text-[13px] text-[#6E6E6E]">Confirm the basics. Next, the dashboard will guide WhatsApp, inventory and booking setup.</p>
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-2">
@@ -685,6 +766,7 @@ export default function OnboardingPage() {
                           <div><strong>Type:</strong> {onboardingBusinessTypes.find(t => t.value === formData.businessType)?.label ?? formData.businessType}</div>
                           <div><strong>City:</strong> {formData.city}</div>
                           <div><strong>Email:</strong> {formData.email}</div>
+                          <div><strong>WhatsApp:</strong> {formData.whatsappNumber || formData.phone}</div>
                           {formData.gstNumber && <div><strong>GST:</strong> {formData.gstNumber}</div>}
                         </div>
                       </div>
@@ -695,9 +777,37 @@ export default function OnboardingPage() {
                         </div>
                         <div className="space-y-1 text-[#6E6E6E]">
                           <div><strong>Total:</strong> {formData.employees.length} member{formData.employees.length !== 1 ? 's' : ''}</div>
-                          {formData.employees.map((emp, i) => (
-                            <div key={i}>{emp.name || `Member ${i + 1}`} — {emp.role}</div>
+                          {formData.employees.length === 0 ? (
+                            <div>You can invite staff later from settings.</div>
+                          ) : formData.employees.map((emp, i) => (
+                            <div key={i}>{emp.name || `Member ${i + 1}`} - {emp.role}</div>
                           ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[8px] border border-blue-100 bg-[#F7FAFF] p-4">
+                      <div className="mb-3 flex items-center gap-2 font-bold text-[#4B4B4B]">
+                        <Bot className="h-4 w-4 text-[#0066FF]" />
+                        What happens after setup
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div className="rounded-md bg-white p-3">
+                          <MessageCircle className="mb-2 h-4 w-4 text-green-600" />
+                          <p className="text-[13px] font-bold text-[#4B4B4B]">Connect WhatsApp</p>
+                          <p className="mt-1 text-[12px] text-[#6E6E6E]">Receive enquiries and AI replies.</p>
+                        </div>
+                        <div className="rounded-md bg-white p-3">
+                          <Package className="mb-2 h-4 w-4 text-blue-600" />
+                          <p className="text-[13px] font-bold text-[#4B4B4B]">
+                            {formData.businessType === 'hospitality' ? 'Add rooms & villas' : 'Add inventory'}
+                          </p>
+                          <p className="mt-1 text-[12px] text-[#6E6E6E]">Set what customers can book or buy.</p>
+                        </div>
+                        <div className="rounded-md bg-white p-3">
+                          <CheckCircle2 className="mb-2 h-4 w-4 text-amber-600" />
+                          <p className="text-[13px] font-bold text-[#4B4B4B]">Review AI work</p>
+                          <p className="mt-1 text-[12px] text-[#6E6E6E]">See replies, follow-ups and approvals.</p>
                         </div>
                       </div>
                     </div>

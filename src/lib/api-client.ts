@@ -43,6 +43,18 @@ class ApiClient {
       async (error: AxiosError<ApiError>) => {
         const originalRequest = error.config as any
 
+        // Subscription guard — redirect to billing on 403 "subscription" errors
+        if (error.response?.status === 403) {
+          const body = error.response.data as any
+          const msg: string = body?.message ?? ''
+          if (msg.toLowerCase().includes('subscription') || msg.toLowerCase().includes('active')) {
+            if (typeof window !== 'undefined') {
+              window.location.href = '/billing'
+            }
+            return Promise.reject(this.handleError(error))
+          }
+        }
+
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true
 

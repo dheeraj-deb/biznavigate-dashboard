@@ -20,7 +20,7 @@ export const navigationConfig: NavigationConfig = {
     // ─ Front Desk / Event Management (hospitality & events only) ─────────────
     {
       name: 'Front Desk',
-      displayName: { hospitality: 'Front Desk', events: 'Event Management' },
+      displayName: { hospitality: 'Bookings', events: 'Event Bookings' },
       icon: 'ConciergeBell',
       businessTypes: ['hospitality', 'events'],
       children: [
@@ -54,12 +54,12 @@ export const navigationConfig: NavigationConfig = {
     // ─ Inventory (visible to all, items vary) ────────────────────────────────
     {
       name: 'Inventory',
-      displayName: { hospitality: 'Properties', events: 'My Events', products: 'My Products' },
+      displayName: { hospitality: 'Rooms & Properties', events: 'My Events', products: 'My Products' },
       icon: 'Package',
       children: [
         {
           name: 'Services & Rooms',
-          displayName: { hospitality: 'My Rooms & Villas' },
+          displayName: { hospitality: 'Rooms, Villas & Dorms' },
           href: '/inventory/services',
           icon: 'BedDouble',
           businessTypes: ['hospitality'],
@@ -72,13 +72,6 @@ export const navigationConfig: NavigationConfig = {
           businessTypes: ['events'],
         },
         { name: 'Products', href: '/inventory/products', icon: 'Package', businessTypes: ['products'] },
-        {
-          name: 'Add Item',
-          displayName: { hospitality: 'Add Property', events: 'Add Event', products: 'Add Product' },
-          href: '/inventory/add',
-          icon: 'Plus',
-          businessTypes: ['hospitality', 'events', 'products'],
-        },
         {
           name: 'Categories',
           displayName: { hospitality: 'Room Categories', events: 'Event Categories', products: 'Product Categories' },
@@ -94,18 +87,18 @@ export const navigationConfig: NavigationConfig = {
     // ─ CRM (all types, label changes per type) ───────────────────────────────
     {
       name: 'CRM',
-      displayName: { hospitality: 'Guest Relations', events: 'Audience', products: 'Customers' },
+      displayName: { hospitality: 'Enquiries', events: 'Enquiries', products: 'Customers' },
       icon: 'Users',
       children: [
         {
           name: 'Leads',
-          displayName: { hospitality: 'Guest Leads', events: 'Event Leads' },
+          displayName: { hospitality: 'Guest Enquiries', events: 'Event Enquiries', products: 'Customer Enquiries' },
           href: '/crm/leads',
           icon: 'UserPlus',
         },
         {
           name: 'Social Inbox',
-          displayName: { hospitality: 'Guest Chat', events: 'Attendee Chat', products: 'Customer Chat' },
+          displayName: { hospitality: 'WhatsApp Inbox', events: 'WhatsApp Inbox', products: 'WhatsApp Inbox' },
           href: '/crm/inbox',
           icon: 'Inbox',
         },
@@ -125,9 +118,10 @@ export const navigationConfig: NavigationConfig = {
     // ─ Analytics (all types, some items vary) ────────────────────────────────
     {
       name: 'Analytics',
+      displayName: { hospitality: 'Reports', events: 'Reports', products: 'Reports' },
       icon: 'BarChart3',
       children: [
-        { name: 'Overview', href: '/analytics', icon: 'BarChart3' },
+        { name: 'Overview', displayName: { hospitality: 'Business Summary', events: 'Business Summary', products: 'Business Summary' }, href: '/analytics', icon: 'BarChart3' },
         { name: 'AI Forecasting', href: '/analytics/forecasting', icon: 'Brain' },
         {
           name: 'Sales Reports',
@@ -143,13 +137,13 @@ export const navigationConfig: NavigationConfig = {
     // ─ AI Tools (hospitality sees it as AI Assistant) ────────────────────────
     {
       name: 'AI Tools',
-      displayName: { hospitality: 'AI Assistant' },
+      displayName: { hospitality: 'AI Assistant', events: 'AI Assistant', products: 'AI Assistant' },
       icon: 'Brain',
       children: [
         { name: 'Campaign Optimizer', href: '/campaigns/optimizer', icon: 'Zap', businessTypes: ['events', 'products', 'crm_automation'] },
-        { name: 'Live Monitor', href: '/campaigns/live', icon: 'Activity' },
-        { name: 'AI Chatbot', href: '/chatbot', icon: 'Bot' },
-        { name: 'Bot Business Data', href: '/chatbot/data', icon: 'Database' },
+        { name: 'AI Chatbot', displayName: { hospitality: 'Chatbot Settings', events: 'Chatbot Settings', products: 'Chatbot Settings' }, href: '/chatbot', icon: 'Bot' },
+        { name: 'Live Monitor', displayName: { hospitality: 'AI Activity', events: 'AI Activity', products: 'AI Activity' }, href: '/campaigns/live', icon: 'Activity' },
+        { name: 'Bot Business Data', href: '/chatbot/data', icon: 'Database', comingSoon: true },
       ],
     },
 
@@ -169,7 +163,7 @@ export const navigationConfig: NavigationConfig = {
         { name: 'Instagram', href: '/settings/instagram', icon: 'Instagram' },
         { name: 'Integrations', href: '/settings/integrations', icon: 'Plug' },
         { name: 'Roles & Permissions', href: '/settings/roles', icon: 'Shield' },
-        { name: 'Billing & Plan', href: '/settings/billing', icon: 'CreditCard' },
+        { name: 'Billing & Plan', href: '/billing', icon: 'CreditCard' },
       ],
     },
   ],

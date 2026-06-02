@@ -132,29 +132,53 @@ export interface Contact {
 }
 
 export enum LeadStatus {
-  NEW = 'NEW',
-  CONTACTED = 'CONTACTED',
-  QUALIFIED = 'QUALIFIED',
-  PROPOSAL = 'PROPOSAL',
-  NEGOTIATION = 'NEGOTIATION',
-  WON = 'WON',
-  LOST = 'LOST',
+  NEW = 'new',
+  CONTACTED = 'contacted',
+  INTERESTED = 'interested',
+  CONVERTED = 'converted',
+  LOST = 'lost',
 }
 
 export interface Lead {
   id: string
-  contactId: string
+  lead_id?: string
+  contactId?: string
   contact?: Contact
-  title: string
+  title?: string
   description?: string
-  status: LeadStatus
-  value: number
-  probability: number
+  status: LeadStatus | string
+  value?: number
+  probability?: number
   source?: string
   assignedTo?: string
+  assigned_to?: string
   expectedCloseDate?: string
-  createdAt: string
-  updatedAt: string
+  createdAt?: string
+  created_at?: string
+  updatedAt?: string
+  updated_at?: string
+  // Backend snake_case fields
+  first_name?: string
+  last_name?: string
+  name?: string
+  phone?: string
+  email?: string
+  lead_quality?: string
+  lead_score?: number
+  estimated_value?: number
+  intent_type?: string
+  city?: string
+  state?: string
+  country?: string
+  pincode?: string
+  tags?: string[]
+  last_contacted_at?: string
+  conversation_id?: string
+  extracted_entities?: Record<string, unknown>
+  is_converted?: boolean
+  staff_notes?: string
+  follow_up_date?: string
+  [key: string]: unknown
 }
 
 export interface Campaign {
