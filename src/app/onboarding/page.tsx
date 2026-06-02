@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useCompleteOnboarding, type OnboardingResult } from '@/hooks/use-onboarding'
+import type { StarterTemplateInstallResult } from '@/hooks/use-starter-templates'
 import { useAuthStore } from '@/store/auth-store'
 import { onboardingBusinessTypes } from '@/business-types/onboarding-business-types'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,8 @@ import {
   ArrowLeft,
   Plus,
   Trash2,
+  PackageCheck,
+  Sparkles,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { AppLogo } from '@/components/ui/app-logo'
@@ -241,6 +244,15 @@ export default function OnboardingPage() {
 
   const selectedBusinessType = onboardingBusinessTypes.find((type) => type.value === formData.businessType) ?? onboardingBusinessTypes[0]
   const progressPercent = Math.round((currentStep / totalSteps) * 100)
+  const starterTemplates = onboardingResult?.starter_templates
+  const starterTemplateInstalls: StarterTemplateInstallResult[] = starterTemplates && 'installed' in starterTemplates && Array.isArray(starterTemplates.installed)
+    ? starterTemplates.installed
+    : []
+  const starterTemplateSkipReason = starterTemplates && 'status' in starterTemplates && starterTemplates.status === 'skipped'
+    ? starterTemplates.reason
+    : null
+  const installedStarterTemplates = starterTemplateInstalls.filter((item) => item.status === 'installed').length
+  const skippedStarterTemplates = starterTemplateInstalls.filter((item) => item.status === 'skipped').length
 
   return (
     <div className="h-screen bg-slate-50 text-slate-900 selection:bg-blue-600/20 font-sans overflow-hidden relative flex flex-col">
@@ -701,6 +713,52 @@ export default function OnboardingPage() {
                         <strong>{onboardingResult.business?.business_name ?? formData.businessName}</strong> is ready. Share these temporary passwords with your team.
                       </p>
                     </div>
+
+                    {(starterTemplateInstalls.length > 0 || starterTemplateSkipReason) && (
+                      <div className="rounded-[4px] border border-[#DDE8FF] bg-[#F8FBFF] p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-[#0066FF]/10 text-[#0066FF]">
+                              <PackageCheck className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <h4 className="text-[14px] font-bold text-[#4B4B4B]">Workspace templates</h4>
+                              <p className="mt-0.5 text-[12px] text-[#6E6E6E]">
+                                {starterTemplateSkipReason
+                                  ? `Template setup skipped: ${starterTemplateSkipReason}`
+                                  : `${installedStarterTemplates} installed${skippedStarterTemplates ? `, ${skippedStarterTemplates} already present` : ''}`}
+                              </p>
+                            </div>
+                          </div>
+                          {!starterTemplateSkipReason && (
+                            <div className="inline-flex items-center gap-1.5 rounded-full border border-[#DDE8FF] bg-white px-3 py-1 text-[11px] font-bold text-[#0066FF]">
+                              <Sparkles className="h-3.5 w-3.5" />
+                              Recommended setup applied
+                            </div>
+                          )}
+                        </div>
+
+                        {starterTemplateInstalls.length > 0 && (
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            {starterTemplateInstalls.map((item: any) => (
+                              <div key={item.template_key} className="flex items-center justify-between gap-3 rounded-[4px] border border-[#E8EEFF] bg-white px-3 py-2">
+                                <div className="min-w-0">
+                                  <p className="truncate text-[12px] font-bold text-[#4B4B4B]">{item.template_key.replaceAll('_', ' ')}</p>
+                                  <p className="text-[11px] capitalize text-[#6E6E6E]">{item.kind.replaceAll('_', ' ')}</p>
+                                </div>
+                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                  item.status === 'installed'
+                                    ? 'bg-green-50 text-green-700'
+                                    : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {item.status}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {onboardingResult?.employees_created?.length > 0 && (
                       <div className="border border-[#E5E5E5] rounded-[4px] overflow-hidden">
