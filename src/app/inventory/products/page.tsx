@@ -7,8 +7,9 @@ import toast from 'react-hot-toast'
 import {
   Plus, Search, Package, AlertTriangle, AlertCircle,
   Pencil, Trash2, Loader2, RefreshCw, IndianRupee,
-  CheckCircle2, XCircle, Box,
+  CheckCircle2, XCircle, Box, Download, MessageSquare,
 } from 'lucide-react'
+import { useImportWhatsAppCatalog, useWhatsAppCatalogPreview } from '@/hooks/use-whatsapp-catalog'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -176,6 +177,8 @@ export default function ProductsPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const { data: catalogPreview, isLoading: checkingCatalog } = useWhatsAppCatalogPreview(true)
+  const importCatalog = useImportWhatsAppCatalog()
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -220,6 +223,13 @@ export default function ProductsPage() {
     } catch {
       toast.error('Failed to delete product')
     }
+  }
+
+  const handleImportCatalog = () => {
+    importCatalog.mutate(
+      { limit: 100 },
+      { onSuccess: () => load(true) },
+    )
   }
 
   // Stats
@@ -289,6 +299,42 @@ export default function ProductsPage() {
 
         {/* ── Stats strip ── */}
         {!loading && (
+          <>
+          <div className="rounded-2xl border border-green-200 bg-white/85 px-5 py-4 shadow-sm">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-50">
+                  <MessageSquare className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-[14px] font-bold text-[#4B4B4B]">Already using WhatsApp catalog?</p>
+                  <p className="mt-0.5 text-[12px] text-[#6E6E6E]">
+                    {checkingCatalog
+                      ? 'Checking connected WhatsApp catalog...'
+                      : catalogPreview?.hasCatalog
+                        ? `${catalogPreview.count} product${catalogPreview.count === 1 ? '' : 's'} found. Import creates missing products and links existing ones.`
+                        : 'Connect WhatsApp catalog or add products manually.'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleImportCatalog}
+                  disabled={checkingCatalog || importCatalog.isPending || !catalogPreview?.hasCatalog || catalogPreview.count === 0}
+                  className="inline-flex items-center gap-2 rounded-full bg-green-600 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {importCatalog.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  Import WhatsApp Products
+                </button>
+                <a
+                  href="/inventory/catalog"
+                  className="inline-flex items-center gap-2 rounded-full border border-[#E5E5E5] bg-white px-4 py-2.5 text-[13px] font-bold text-[#4B4B4B] hover:border-green-500 hover:text-green-700"
+                >
+                  View Catalog
+                </a>
+              </div>
+            </div>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: 'Total Products', value: stats.total, color: '#4B4B4B', icon: Package },
@@ -308,6 +354,7 @@ export default function ProductsPage() {
               )
             })}
           </div>
+          </>
         )}
 
         {/* ── Search + filters ── */}

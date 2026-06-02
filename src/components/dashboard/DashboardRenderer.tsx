@@ -24,6 +24,8 @@ import {
   Package,
   Phone,
   ShieldCheck,
+  ShoppingCart,
+  AlertTriangle,
   Users,
 } from 'lucide-react'
 
@@ -182,8 +184,9 @@ function useRecentWork(businessType: string) {
   return useQuery({
     queryKey: ['dashboard-simple-recent-work', businessType],
     queryFn: async () => {
-      const endpoint = businessType === 'products' ? '/orders' : '/orders'
-      const params = businessType === 'products'
+      const productBusiness = businessType === 'products' || businessType === 'retail'
+      const endpoint = productBusiness ? '/orders' : '/orders'
+      const params = productBusiness
         ? { limit: 4, sort: '-created_at' }
         : { order_type: 'accommodation', limit: 4, sort: '-created_at' }
       const response = await apiClient.get(endpoint, { params })
@@ -237,6 +240,12 @@ function suggestionIcon(type: string) {
   if (type === 'reply_waiting') return MessageCircle
   if (type === 'prepare_checkins') return CalendarCheck
   if (type === 'alternate_dates') return CalendarCheck
+  if (type === 'product_inquiry') return Package
+  if (type === 'payment_pending') return IndianRupee
+  if (type === 'pack_orders') return ShoppingCart
+  if (type === 'abandoned_cart') return ShoppingCart
+  if (type === 'low_stock') return AlertTriangle
+  if (type === 'out_of_stock') return AlertTriangle
   if (type === 'open_inventory') return Package
   if (type === 'price_review') return IndianRupee
   return Bot
@@ -275,6 +284,7 @@ function AiSuggestionCard({ suggestion }: { suggestion: AiManagerSuggestion }) {
 
 export function DashboardRenderer() {
   const { businessType, isLoading: bizLoading } = useBusinessType()
+  const isProductBusiness = businessType === 'products' || businessType === 'retail'
   const { data: statsData, isLoading: statsLoading } = useDashboardStats()
   const { data: businessSettings } = useBusinessSettings()
   const dailyOverviewQuery = useDailyOverview()
@@ -282,13 +292,21 @@ export function DashboardRenderer() {
   const recentLeadsQuery = useLeads({ limit: 5, sort: '-created_at' } as any)
   const recentWorkQuery = useRecentWork(businessType)
   const inboxQuery = useConversations({ channel: 'whatsapp', limit: 5 } as any)
-  const resortWorklistQuery = useResortWorklist(14)
-  const resortRemindersQuery = useResortReminderReadiness(14)
+  const resortWorklistQuery = useResortWorklist(14, !isProductBusiness)
+  const resortRemindersQuery = useResortReminderReadiness(14, !isProductBusiness)
   const aiManagerQuery = useAiManagerToday()
 
-  const bookingLabel = businessType === 'products' ? 'orders' : 'bookings'
+  const bookingLabel = isProductBusiness ? 'orders' : 'bookings'
+  const enquiryTitle = isProductBusiness ? 'Product enquiries' : 'Guest enquiries'
+  const inventoryHref = isProductBusiness ? '/inventory/products' : '/inventory/rooms'
+  const ordersHref = isProductBusiness ? '/orders' : '/inventory/bookings'
+  const aiTitle = aiManagerQuery.data?.title ?? (isProductBusiness ? 'AI Store Manager' : 'AI Resort Manager')
+  const aiSubtitle = aiManagerQuery.data?.subtitle
+    ?? (isProductBusiness
+      ? 'What to do today to convert product enquiries into orders.'
+      : 'What to do today to get bookings and avoid mistakes.')
   const businessName = businessSettings?.business_name?.trim()
-    || (businessType === 'products' ? 'Your Store' : businessType === 'events' ? 'Your Event Venue' : 'Your Resort')
+    || (isProductBusiness ? 'Your Store' : businessType === 'events' ? 'Your Event Venue' : 'Your Resort')
   const location = [businessSettings?.city, businessSettings?.state].filter(Boolean).join(', ')
 
   const attentionLeads: SimpleLead[] = (needsAttentionQuery.data ?? [])
@@ -313,9 +331,11 @@ export function DashboardRenderer() {
   const todayKey = offsetDateKey(0)
   const tomorrowKey = offsetDateKey(1)
   const upcomingStays: ResortBookingPreview[] = resortWorklistQuery.data?.upcoming_bookings ?? []
-  const nearCheckIns = upcomingStays
-    .filter((booking) => [todayKey, tomorrowKey].includes(dateKey(booking.check_in)))
-    .slice(0, 4)
+  const nearCheckIns = isProductBusiness
+    ? []
+    : upcomingStays
+      .filter((booking) => [todayKey, tomorrowKey].includes(dateKey(booking.check_in)))
+      .slice(0, 4)
 
   const todayLeads = dailyOverviewQuery.data?.total_leads ?? recentLeads.length
   const pendingToday = dailyOverviewQuery.data?.pending_count ?? attentionLeads.length
@@ -324,7 +344,7 @@ export function DashboardRenderer() {
     ?? dailyOverviewQuery.data?.by_status?.find((item: any) => ['won', 'booked', 'converted'].includes(item.status))?.count
     ?? 0
   const revenue = (statsData as any)?.totalRevenue ?? (statsData as any)?.revenue ?? 0
-  const missedDemand = Number(resortCounts.demand_missed ?? 0)
+  const missedDemand = isProductBusiness ? 0 : Number(resortCounts.demand_missed ?? 0)
   const reminderCounts = resortRemindersQuery.data?.counts ?? {}
   const remindersReady = Number(reminderCounts.ready ?? 0)
   const needsAttentionTotal = pendingToday + needsReplyCount + missedDemand
@@ -348,12 +368,12 @@ export function DashboardRenderer() {
                 <Bot className="h-5 w-5" />
               </span>
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wide text-[#0066FF]">AI Resort Manager</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-[#0066FF]">{aiTitle}</p>
                 <h1 className="truncate text-2xl font-bold text-slate-950">{businessName}</h1>
               </div>
             </div>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Today&apos;s owner view. See what needs action first, then check bookings, enquiries and WhatsApp in one place.
+              {aiSubtitle}
             </p>
           </div>
 
@@ -367,11 +387,11 @@ export function DashboardRenderer() {
             <Button asChild variant="outline" className="gap-2 bg-white">
               <Link href="/crm/leads">
                 <Users className="h-4 w-4" />
-                Guest enquiries
+                {enquiryTitle}
               </Link>
             </Button>
             <Button asChild variant="outline" className="gap-2 bg-white">
-              <Link href={businessType === 'products' ? '/inventory/products' : '/inventory/rooms'}>
+              <Link href={inventoryHref}>
                 <Package className="h-4 w-4" />
                 Inventory
               </Link>
@@ -382,23 +402,23 @@ export function DashboardRenderer() {
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             icon={Users}
-            label="Enquiries"
+            label={isProductBusiness ? 'Product leads' : 'Enquiries'}
             value={todayLeads}
             note="today"
             tone="bg-blue-50 text-blue-700"
           />
           <MetricCard
             icon={Clock}
-            label="Follow-up"
+            label={isProductBusiness ? 'Need reply' : 'Follow-up'}
             value={pendingToday}
             note="waiting"
             tone="bg-amber-50 text-amber-700"
           />
           <MetricCard
             icon={CheckCircle2}
-            label={`Confirmed ${bookingLabel}`}
+            label={isProductBusiness ? 'Orders today' : `Confirmed ${bookingLabel}`}
             value={doneToday}
-            note="done"
+            note={isProductBusiness ? 'new' : 'done'}
             tone="bg-green-50 text-green-700"
           />
           <MetricCard
@@ -417,7 +437,9 @@ export function DashboardRenderer() {
             <div>
               <h2 className="text-xl font-bold text-slate-950">What to do now</h2>
               <p className="mt-1 text-sm text-slate-500">
-                AI suggestions are checked against enquiries, WhatsApp and live availability.
+                {isProductBusiness
+                  ? 'AI suggestions are checked against product enquiries, orders, carts, stock and WhatsApp.'
+                  : 'AI suggestions are checked against enquiries, WhatsApp and live availability.'}
               </p>
             </div>
             <span className="w-fit rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-900">
@@ -442,7 +464,9 @@ export function DashboardRenderer() {
           ) : (
             <div className="mt-4 rounded-md border border-green-100 bg-green-50 p-4">
               <p className="font-semibold text-green-900">No urgent action right now.</p>
-              <p className="mt-1 text-sm text-green-800">New work appears here when guests enquire or bookings need attention.</p>
+              <p className="mt-1 text-sm text-green-800">
+                New work appears here when {isProductBusiness ? 'customers enquire, orders need payment, or stock needs attention' : 'guests enquire or bookings need attention'}.
+              </p>
             </div>
           )}
         </Card>
@@ -472,7 +496,42 @@ export function DashboardRenderer() {
               <strong className="shrink-0 text-sm text-slate-950">{needsReplyCount}</strong>
             </Link>
 
-            {businessType !== 'products' ? (
+            {isProductBusiness ? (
+              <>
+                <Link href="/orders" className="flex items-center justify-between gap-3 p-3 hover:bg-slate-50">
+                  <span className="flex min-w-0 items-center gap-3">
+                    <IndianRupee className="h-4 w-4 shrink-0 text-amber-600" />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-slate-950">Unpaid orders</span>
+                      <span className="block truncate text-xs text-slate-500">Collect payment or confirm customer interest</span>
+                    </span>
+                  </span>
+                  <strong className="shrink-0 text-sm text-slate-950">{aiManagerQuery.data?.counts?.payment_pending ?? 0}</strong>
+                </Link>
+
+                <Link href="/crm/leads" className="flex items-center justify-between gap-3 p-3 hover:bg-slate-50">
+                  <span className="flex min-w-0 items-center gap-3">
+                    <ShoppingCart className="h-4 w-4 shrink-0 text-blue-600" />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-slate-950">Active carts</span>
+                      <span className="block truncate text-xs text-slate-500">Customers selected products but may need help</span>
+                    </span>
+                  </span>
+                  <strong className="shrink-0 text-sm text-slate-950">{aiManagerQuery.data?.counts?.active_carts ?? 0}</strong>
+                </Link>
+
+                <Link href="/inventory/products" className="flex items-center justify-between gap-3 p-3 hover:bg-slate-50">
+                  <span className="flex min-w-0 items-center gap-3">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-slate-950">Stock issues</span>
+                      <span className="block truncate text-xs text-slate-500">Low or out-of-stock products</span>
+                    </span>
+                  </span>
+                  <strong className="shrink-0 text-sm text-slate-950">{aiManagerQuery.data?.counts?.low_stock ?? 0}</strong>
+                </Link>
+              </>
+            ) : (
               <>
                 <Link href="/crm/leads" className="flex items-center justify-between gap-3 p-3 hover:bg-slate-50">
                   <span className="flex min-w-0 items-center gap-3">
@@ -507,7 +566,7 @@ export function DashboardRenderer() {
                   <strong className="shrink-0 text-sm text-slate-950">{nearCheckIns.length}</strong>
                 </Link>
               </>
-            ) : null}
+            )}
           </div>
         </Card>
       </section>
@@ -516,8 +575,10 @@ export function DashboardRenderer() {
         <Card className="border-slate-200 p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-slate-950">Guest enquiries</h2>
-              <p className="mt-1 text-sm text-slate-500">New and warm leads, kept simple.</p>
+              <h2 className="text-lg font-bold text-slate-950">{enquiryTitle}</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {isProductBusiness ? 'Customers asking about products, price, delivery or payment.' : 'New and warm leads, kept simple.'}
+              </p>
             </div>
             <Button asChild variant="ghost" size="sm" className="gap-1 text-[#0066FF]">
               <Link href="/crm/leads">
@@ -554,7 +615,7 @@ export function DashboardRenderer() {
                         onClick={() => window.open(`https://wa.me/${lead.phone?.replace(/\D/g, '')}`, '_blank')}
                       >
                         <Phone className="h-4 w-4" />
-                        Call
+                        {isProductBusiness ? 'WhatsApp' : 'Call'}
                       </Button>
                     ) : null}
                   </div>
@@ -567,12 +628,14 @@ export function DashboardRenderer() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-slate-950">
-                {businessType === 'products' ? `Latest ${bookingLabel}` : 'Bookings and stays'}
+                {isProductBusiness ? `Latest ${bookingLabel}` : 'Bookings and stays'}
               </h2>
-              <p className="mt-1 text-sm text-slate-500">Recent bookings with the next arrival checks.</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {isProductBusiness ? 'Recent customer orders and payment value.' : 'Recent bookings with the next arrival checks.'}
+              </p>
             </div>
             <Button asChild variant="ghost" size="sm" className="gap-1 text-[#0066FF]">
-              <Link href={businessType === 'products' ? '/orders' : '/inventory/bookings'}>
+              <Link href={ordersHref}>
                 View
                 <ArrowRight className="h-4 w-4" />
               </Link>

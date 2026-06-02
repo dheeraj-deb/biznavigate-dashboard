@@ -24,6 +24,7 @@ export interface AiManagerToday {
     high: number
     needs_approval: number
     blocked: number
+    [key: string]: number
   }
 }
 

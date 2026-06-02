@@ -17,9 +17,12 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  Download,
 } from 'lucide-react';
 import {
   useWhatsAppCatalogStatus,
+  useWhatsAppCatalogPreview,
+  useImportWhatsAppCatalog,
   useSyncCatalog,
 } from '@/hooks/use-whatsapp-catalog';
 
@@ -33,13 +36,19 @@ export function WhatsAppCatalogPanel({
   selectedProductIds = [],
 }: WhatsAppCatalogPanelProps) {
   const { data: status, isLoading: statusLoading } = useWhatsAppCatalogStatus(businessId);
+  const { data: preview, isLoading: previewLoading } = useWhatsAppCatalogPreview(!!businessId);
   const syncMutation = useSyncCatalog();
+  const importMutation = useImportWhatsAppCatalog();
 
   const handleSync = () => {
     syncMutation.mutate({
       businessId,
       productIds: selectedProductIds.length > 0 ? selectedProductIds : undefined,
     });
+  };
+
+  const handleImport = () => {
+    importMutation.mutate({ limit: 100 });
   };
 
   const stats = status?.stats || {};
@@ -54,40 +63,88 @@ export function WhatsAppCatalogPanel({
   return (
     <Card className="border-green-200 dark:border-green-800 bg-gradient-to-br from-green-50 to-white dark:from-green-950/20 dark:to-gray-950">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-400" />
-            <CardTitle className="text-green-900 dark:text-green-100">
-              WhatsApp Catalog
-            </CardTitle>
+            <CardTitle className="text-green-900 dark:text-green-100">WhatsApp Catalog</CardTitle>
           </div>
-          <Button
-            onClick={handleSync}
-            disabled={syncMutation.isPending || isSyncing || totalInCatalog === 0}
-            size="sm"
-            className="bg-green-600 hover:bg-green-700 text-white"
-          >
-            {syncMutation.isPending || isSyncing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Syncing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Sync to WhatsApp
-              </>
-            )}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={handleImport}
+              disabled={importMutation.isPending || previewLoading || !preview?.hasCatalog || preview.count === 0}
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {importMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Import from WhatsApp
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handleSync}
+              disabled={syncMutation.isPending || isSyncing || totalInCatalog === 0}
+              size="sm"
+              variant="outline"
+            >
+              {syncMutation.isPending || isSyncing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Update Status
+                </>
+              )}
+            </Button>
+          </div>
         </div>
         <CardDescription className="text-gray-600 dark:text-gray-400">
-          {selectedProductIds.length > 0
-            ? `Sync ${selectedProductIds.length} selected products`
-            : 'Sync all catalog products to WhatsApp Commerce Manager'}
+          Bring existing WhatsApp products into BizNavigo inventory, then manage stock and orders here.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {previewLoading ? (
+          <div className="flex items-center gap-2 rounded-lg border border-green-100 bg-white/70 px-3 py-2 text-sm text-gray-600">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Checking WhatsApp catalog...
+          </div>
+        ) : preview?.hasCatalog ? (
+          <div className="rounded-lg border border-green-100 bg-white/80 px-4 py-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-green-900">
+                  {preview.count} product{preview.count === 1 ? '' : 's'} found in WhatsApp
+                </p>
+                <p className="mt-0.5 text-xs text-gray-600">
+                  Import links matching products and creates missing products in inventory.
+                </p>
+              </div>
+              {preview.products?.[0]?.name && (
+                <p className="max-w-full truncate text-xs text-gray-500 sm:max-w-[240px]">
+                  Latest: {preview.products[0].name}
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <Alert className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+            <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertDescription className="text-blue-800 dark:text-blue-200">
+              {preview?.message || 'Connect a WhatsApp catalog to import existing products.'}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Stats Grid */}
         {statusLoading ? (
           <div className="flex items-center justify-center py-8">
@@ -177,8 +234,7 @@ export function WhatsAppCatalogPanel({
           <Alert className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
             <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <AlertDescription className="text-blue-800 dark:text-blue-200">
-              No products in catalog. Use the checkboxes below to add products to your
-              WhatsApp catalog.
+              No products are linked yet. Import from WhatsApp or add products manually.
             </AlertDescription>
           </Alert>
         ) : (stats.pending || 0) > 0 || (stats.failed || 0) > 0 ? (
@@ -195,7 +251,7 @@ export function WhatsAppCatalogPanel({
                   {stats.failed} products failed to sync.
                 </span>
               )}
-              {' '}Click "Sync to WhatsApp" to update.
+              {' '}Use import/update status after changing products.
             </AlertDescription>
           </Alert>
         ) : null}

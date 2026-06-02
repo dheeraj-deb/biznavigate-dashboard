@@ -22,6 +22,7 @@ import {
   Bot,
   MessageCircle,
   Package,
+  Shield,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { AppLogo } from '@/components/ui/app-logo'
@@ -41,7 +42,7 @@ const INDIAN_CITIES = ['Agartala', 'Agra', 'Ahmedabad', 'Ahmednagar', 'Aizawl', 
 const BUSINESS_DESCRIPTION_TEMPLATES: Record<string, string> = {
   hospitality: "[BusinessName] is a premier hospitality business in [City], offering exceptional stays, world-class amenities, and memorable experiences to every guest.",
   events:      "[BusinessName] is a professional event management company in [City], turning visions into unforgettable experiences.",
-  products:    "[BusinessName] is a premium retail business in [City], offering high-quality products and exceptional customer service.",
+  products:    "[BusinessName] is a product business in [City], helping customers discover, ask about, and order quality products through fast WhatsApp support.",
   retail:      "[BusinessName] is a retail business in [City], helping customers discover and buy quality products with fast, helpful service.",
   healthcare:  "[BusinessName] is a healthcare practice in [City], helping patients get timely support, appointments, and follow-ups.",
   real_estate: "[BusinessName] is a real estate business in [City], helping buyers, renters, and property owners with trusted property guidance.",
@@ -63,6 +64,33 @@ const AUDIENCE_SUGGESTIONS: Record<string, string[]> = {
   education:   ['Students', 'Parents', 'Professionals', 'Learners'],
   default:     ['Local Residents', 'Online Shoppers', 'General Public', 'B2B Clients']
 }
+
+const WHATSAPP_USAGE_OPTIONS = [
+  {
+    value: 'business_app',
+    label: 'WhatsApp Business App',
+    description: 'I already use the green WhatsApp Business app on this phone number.',
+    guidance: 'Use Meta popup only. Do not delete the app/account manually. Meta may allow app + API coexistence or ask for migration.',
+  },
+  {
+    value: 'personal_whatsapp',
+    label: 'Normal WhatsApp',
+    description: 'I use the regular personal WhatsApp app for this number.',
+    guidance: 'Use a business number when possible. Personal/family numbers are risky for automation and should not receive bulk campaigns.',
+  },
+  {
+    value: 'new_number',
+    label: 'New number',
+    description: 'This number is not used on WhatsApp yet, or I will create a new setup.',
+    guidance: 'Create/select the setup inside Meta popup. Catalogue import will be empty until products are added.',
+  },
+  {
+    value: 'not_sure',
+    label: 'Not sure',
+    description: 'I am not sure how this WhatsApp number is currently used.',
+    guidance: 'Continue safely. Meta popup will show available options. Do not delete any WhatsApp account manually.',
+  },
+] as const
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -89,6 +117,8 @@ export default function OnboardingPage() {
     country: 'India',
     gstNumber: '',
     panNumber: '',
+    whatsappUsage: 'not_sure' as 'business_app' | 'personal_whatsapp' | 'new_number' | 'not_sure',
+    whatsappSafetyAcknowledged: false,
 
     // Step 3: Team Setup
     employees: [] as Array<{ name: string; email: string; role: string; phone: string }>,
@@ -112,6 +142,9 @@ export default function OnboardingPage() {
       if (!formData.email.trim() || !/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Valid email is required'
       if (!formData.phone.trim()) newErrors.phone = 'Phone number is required'
       if (!formData.city.trim()) newErrors.city = 'City is required'
+      if (formData.businessType === 'products' && !formData.whatsappSafetyAcknowledged) {
+        newErrors.whatsappSafetyAcknowledged = 'Please confirm WhatsApp safety guidance'
+      }
     } else if (step === 3 && formData.employees.length > 0) {
       formData.employees.forEach((employee, index) => {
         const hasAnyValue = Boolean(employee.name.trim() || employee.email.trim() || employee.phone.trim())
@@ -177,6 +210,8 @@ export default function OnboardingPage() {
       gst_number: formData.gstNumber || undefined,
       pan_number: formData.panNumber || undefined,
       whatsapp_number: formData.whatsappNumber || formData.phone || undefined,
+      whatsapp_current_usage: formData.whatsappUsage,
+      whatsapp_safety_acknowledged: formData.whatsappSafetyAcknowledged,
       employees: formData.employees
         .filter(e => e.name.trim() && e.email.trim())
         .map(e => ({
@@ -250,6 +285,10 @@ export default function OnboardingPage() {
 
   const selectedBusinessType = onboardingBusinessTypes.find((type) => type.value === formData.businessType) ?? onboardingBusinessTypes[0]
   const progressPercent = Math.round((currentStep / totalSteps) * 100)
+  const isProductSeller = formData.businessType === 'products'
+  const handleWhatsAppConnected = () => {
+    router.push(isProductSeller ? '/inventory/products' : '/dashboard')
+  }
 
   return (
     <div className="h-screen bg-slate-50 text-slate-900 selection:bg-blue-600/20 font-sans overflow-hidden relative flex flex-col">
@@ -492,9 +531,78 @@ export default function OnboardingPage() {
                       placeholder="+91 98765 43210"
                       className="h-10 w-full bg-transparent border-[#989898] text-[#4B4B4B] placeholder:text-[#989898] rounded-md focus-visible:ring-1 focus-visible:ring-[#0066FF] focus-visible:border-[#0066FF] transition-colors shadow-none rounded-[4px]"
                     />
-                    <p className="text-[11px] text-[#989898]">Used for customer chat, booking links and AI replies.</p>
+                    <p className="text-[11px] text-[#989898]">
+                      {isProductSeller
+                        ? 'Used for customer chat, product enquiries and AI replies.'
+                        : 'Used for customer chat, booking links and AI replies.'}
+                    </p>
                   </div>
                 </div>
+
+                {isProductSeller && (
+                  <div className="rounded-[10px] border border-amber-200 bg-amber-50/70 p-4">
+                    <div className="mb-3 flex items-start gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-white text-amber-700">
+                        <Shield className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-bold text-[#4B4B4B]">Where is this WhatsApp number used now?</p>
+                        <p className="mt-0.5 text-[12px] text-[#6E6E6E]">
+                          This helps us show the right Meta onboarding path and avoid unsafe number handling.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {WHATSAPP_USAGE_OPTIONS.map((option) => {
+                        const active = formData.whatsappUsage === option.value
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => {
+                              setFormData({ ...formData, whatsappUsage: option.value })
+                              setErrors({ ...errors, whatsappSafetyAcknowledged: '' })
+                            }}
+                            className={`rounded-[8px] border bg-white px-3 py-3 text-left transition-all ${
+                              active
+                                ? 'border-amber-500 shadow-[0_8px_20px_rgba(245,158,11,0.12)]'
+                                : 'border-[#E5E5E5] hover:border-amber-300'
+                            }`}
+                          >
+                            <span className="flex items-center justify-between gap-2">
+                              <span className="text-[13px] font-bold text-[#4B4B4B]">{option.label}</span>
+                              {active && <CheckCircle2 className="h-4 w-4 text-amber-600" />}
+                            </span>
+                            <span className="mt-1 block text-[12px] leading-5 text-[#6E6E6E]">{option.description}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    <div className="mt-3 rounded-[8px] bg-white px-3 py-2 text-[12px] leading-5 text-[#4B4B4B]">
+                      {WHATSAPP_USAGE_OPTIONS.find((option) => option.value === formData.whatsappUsage)?.guidance}
+                    </div>
+
+                    <label className="mt-3 flex items-start gap-2 text-[12px] text-[#4B4B4B]">
+                      <input
+                        type="checkbox"
+                        checked={formData.whatsappSafetyAcknowledged}
+                        onChange={(e) => {
+                          setFormData({ ...formData, whatsappSafetyAcknowledged: e.target.checked })
+                          setErrors({ ...errors, whatsappSafetyAcknowledged: '' })
+                        }}
+                        className="mt-0.5 h-4 w-4 rounded border-[#989898]"
+                      />
+                      <span>
+                        I understand that I should follow the Meta popup, avoid manual account deletion, use opted-in messaging, and avoid spam/bulk sending.
+                      </span>
+                    </label>
+                    {errors.whatsappSafetyAcknowledged && (
+                      <p className="mt-2 text-xs font-medium text-red-500">{errors.whatsappSafetyAcknowledged}</p>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">
@@ -741,7 +849,11 @@ export default function OnboardingPage() {
                         <CheckCircle2 className="h-7 w-7 text-[#0066FF]" />
                       </div>
                       <h3 className="text-[19px] font-semibold tracking-tight text-[#4B4B4B] mb-1">Review & Launch Setup</h3>
-                      <p className="text-[13px] text-[#6E6E6E]">Confirm the basics. Next, the dashboard will guide WhatsApp, inventory and booking setup.</p>
+                      <p className="text-[13px] text-[#6E6E6E]">
+                        {isProductSeller
+                          ? 'Confirm the basics. Next, connect WhatsApp and import your existing product catalogue.'
+                          : 'Confirm the basics. Next, the dashboard will guide WhatsApp, inventory and booking setup.'}
+                      </p>
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-2">
@@ -783,19 +895,35 @@ export default function OnboardingPage() {
                         <div className="rounded-md bg-white p-3">
                           <MessageCircle className="mb-2 h-4 w-4 text-green-600" />
                           <p className="text-[13px] font-bold text-[#4B4B4B]">Connect WhatsApp</p>
-                          <p className="mt-1 text-[12px] text-[#6E6E6E]">Receive enquiries and AI replies.</p>
+                          <p className="mt-1 text-[12px] text-[#6E6E6E]">
+                            {isProductSeller ? 'Receive product enquiries and order chats.' : 'Receive enquiries and AI replies.'}
+                          </p>
                         </div>
                         <div className="rounded-md bg-white p-3">
                           <Package className="mb-2 h-4 w-4 text-blue-600" />
                           <p className="text-[13px] font-bold text-[#4B4B4B]">
-                            {formData.businessType === 'hospitality' ? 'Add rooms & villas' : 'Add inventory'}
+                            {formData.businessType === 'hospitality'
+                              ? 'Add rooms & villas'
+                              : isProductSeller
+                                ? 'Import catalogue'
+                                : 'Add inventory'}
                           </p>
-                          <p className="mt-1 text-[12px] text-[#6E6E6E]">Set what customers can book or buy.</p>
+                          <p className="mt-1 text-[12px] text-[#6E6E6E]">
+                            {isProductSeller
+                              ? 'Bring WhatsApp products into BizNavigo or add manually.'
+                              : 'Set what customers can book or buy.'}
+                          </p>
                         </div>
                         <div className="rounded-md bg-white p-3">
                           <CheckCircle2 className="mb-2 h-4 w-4 text-amber-600" />
-                          <p className="text-[13px] font-bold text-[#4B4B4B]">Review AI work</p>
-                          <p className="mt-1 text-[12px] text-[#6E6E6E]">See replies, follow-ups and approvals.</p>
+                          <p className="text-[13px] font-bold text-[#4B4B4B]">
+                            {isProductSeller ? 'Review orders' : 'Review AI work'}
+                          </p>
+                          <p className="mt-1 text-[12px] text-[#6E6E6E]">
+                            {isProductSeller
+                              ? 'Track payments, stock issues and follow-ups.'
+                              : 'See replies, follow-ups and approvals.'}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -847,12 +975,19 @@ export default function OnboardingPage() {
             {currentStep === 5 && onboardingResult && (
               <div className="space-y-4">
                 <div className="text-center mb-2">
-                  <h3 className="text-[19px] font-semibold tracking-tight text-[#4B4B4B] mb-1">Connect WhatsApp</h3>
-                  <p className="text-[13px] text-[#6E6E6E]">Link your WhatsApp Business account to start messaging customers</p>
+                  <h3 className="text-[19px] font-semibold tracking-tight text-[#4B4B4B] mb-1">
+                    {isProductSeller ? 'Connect WhatsApp and import products' : 'Connect WhatsApp'}
+                  </h3>
+                  <p className="text-[13px] text-[#6E6E6E]">
+                    {isProductSeller
+                      ? 'After connection, you will go to Products to import your existing WhatsApp catalogue.'
+                      : 'Link your WhatsApp Business account to start messaging customers'}
+                  </p>
                 </div>
                 <SimpleWhatsAppConnect
                   businessId={onboardingResult.business.business_id}
-                  onComplete={() => router.push('/dashboard')}
+                  businessType={formData.businessType}
+                  onComplete={handleWhatsAppConnected}
                 />
               </div>
             )}

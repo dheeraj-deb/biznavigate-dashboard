@@ -32,14 +32,14 @@ export const onboardingBusinessTypes: OnboardingBusinessTypeOption[] = [
     industries: ['Hotels', 'Resorts', 'Villas', 'Homestays', 'Camping stays'],
   },
   {
-    value: 'retail',
-    label: 'Retail',
+    value: 'products',
+    label: 'Product Sellers',
     icon: 'Store',
-    description: 'Retail, ecommerce and product businesses',
+    description: 'Shops, ecommerce sellers, boutiques and distributors',
     explanation:
-      'Retail is for businesses that sell products online or locally. BizNavigate helps manage product catalogues, customer chats, order enquiries, WhatsApp commerce, payments, and follow-ups from one workspace.',
-    features: ['Product catalogues', 'Order enquiries', 'Customer CRM', 'WhatsApp product flows'],
-    industries: ['Ecommerce stores', 'Local retailers', 'D2C brands', 'Boutiques', 'Distributors'],
+      'Product Sellers is for businesses that sell physical products on WhatsApp, online, or locally. BizNavigate can import an existing WhatsApp catalogue, keep inventory organized, capture product enquiries, and help owners review orders, payments, stock and follow-ups from one workspace.',
+    features: ['WhatsApp catalogue import', 'Product inventory', 'Order enquiries', 'Stock follow-ups'],
+    industries: ['Local shops', 'Ecommerce stores', 'D2C brands', 'Boutiques', 'Distributors'],
   },
   {
     value: 'healthcare',

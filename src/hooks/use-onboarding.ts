@@ -23,6 +23,8 @@ export interface OnboardingPayload {
   gst_number?: string
   pan_number?: string
   whatsapp_number?: string
+  whatsapp_current_usage?: 'business_app' | 'personal_whatsapp' | 'new_number' | 'not_sure'
+  whatsapp_safety_acknowledged?: boolean
   employees: OnboardingEmployee[]
 }
 
