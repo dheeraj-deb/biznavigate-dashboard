@@ -8,7 +8,7 @@ import { useDashboardStats } from '@/hooks/use-dashboard'
 import { useDailyOverview, useLeads, useNeedsAttention, useResortReminderReadiness, useResortWorklist } from '@/hooks/use-leads'
 import { useBusinessSettings } from '@/hooks/use-settings'
 import { useConversations } from '@/hooks/use-inbox'
-import { useAiManagerToday, type AiManagerSuggestion } from '@/hooks/use-ai-manager'
+import { useAiManagerToday, type AiEmployee, type AiEmployeeMetric, type AiManagerSuggestion } from '@/hooks/use-ai-manager'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
@@ -24,8 +24,12 @@ import {
   Package,
   Phone,
   ShieldCheck,
+  ShoppingBag,
   ShoppingCart,
   AlertTriangle,
+  BarChart3,
+  Megaphone,
+  Truck,
   Users,
 } from 'lucide-react'
 
@@ -282,6 +286,470 @@ function AiSuggestionCard({ suggestion }: { suggestion: AiManagerSuggestion }) {
   )
 }
 
+function employeeIcon(key: string) {
+  if (key === 'sales') return Users
+  if (key === 'orders') return Truck
+  if (key === 'inventory') return Package
+  if (key === 'marketing') return Megaphone
+  if (key === 'growth') return BarChart3
+  return Bot
+}
+
+function employeeStatusTone(status: string) {
+  if (status === 'needs_attention') return 'border-rose-200 bg-rose-50 text-rose-700'
+  if (status === 'working') return 'border-amber-200 bg-amber-50 text-amber-700'
+  return 'border-green-200 bg-green-50 text-green-700'
+}
+
+function metricTone(tone?: AiEmployeeMetric['tone']) {
+  if (tone === 'danger') return 'bg-rose-50 text-rose-700'
+  if (tone === 'warning') return 'bg-amber-50 text-amber-700'
+  if (tone === 'good') return 'bg-green-50 text-green-700'
+  return 'bg-slate-100 text-slate-700'
+}
+
+function formatEmployeeMetric(metric: AiEmployeeMetric) {
+  if (metric.format === 'money') return money(metric.value)
+  return metric.value
+}
+
+function ProductAiEmployees({ employees }: { employees: AiEmployee[] }) {
+  if (!employees.length) return null
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-slate-950">AI employees</h2>
+          <p className="mt-1 text-sm text-slate-500">Separate workers for sales, orders, inventory, marketing and growth.</p>
+        </div>
+        <Button asChild variant="outline" size="sm" className="w-fit gap-2 bg-white">
+          <Link href="/campaigns/live">
+            <Bot className="h-4 w-4" />
+            Activity
+          </Link>
+        </Button>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-5">
+        {employees.map((employee) => {
+          const Icon = employeeIcon(employee.key)
+          const statusTone = employeeStatusTone(employee.status)
+          const primaryAction = employee.next_actions?.[0]
+
+          return (
+            <Card key={employee.key} className="flex min-h-[320px] flex-col border-slate-200 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-950 text-white">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase ${statusTone}`}>
+                  {employee.status.replace(/_/g, ' ')}
+                </span>
+              </div>
+
+              <div className="mt-3 min-w-0">
+                <h3 className="text-base font-bold leading-5 text-slate-950">{employee.name}</h3>
+                <p className="mt-1 line-clamp-2 text-xs font-semibold uppercase text-slate-500">{employee.role}</p>
+                <p className="mt-3 min-h-[60px] text-sm leading-5 text-slate-600">{employee.summary}</p>
+              </div>
+
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {employee.metrics.slice(0, 3).map((metric) => (
+                  <div key={metric.label} className={`rounded-md px-2 py-2 ${metricTone(metric.tone)}`}>
+                    <p className="truncate text-[11px] font-semibold">{metric.label}</p>
+                    <p className="mt-1 truncate text-sm font-bold">{formatEmployeeMetric(metric)}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 flex-1 space-y-2">
+                {employee.completed_work.slice(0, 2).map((item) => (
+                  <Link
+                    key={`${employee.key}-${item.title}`}
+                    href={item.href ?? '/dashboard'}
+                    className="block rounded-md border border-slate-200 px-3 py-2 hover:bg-slate-50"
+                  >
+                    <p className="truncate text-xs font-bold text-slate-950">{item.title}</p>
+                    <p className="mt-1 line-clamp-2 text-xs leading-4 text-slate-500">{item.detail}</p>
+                  </Link>
+                ))}
+              </div>
+
+              {primaryAction ? (
+                <Button asChild variant="outline" size="sm" className="mt-4 justify-between bg-white">
+                  <Link href={primaryAction.action_href}>
+                    {primaryAction.action_label}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              ) : (
+                <div className="mt-4 rounded-md border border-green-100 bg-green-50 px-3 py-2 text-xs font-semibold text-green-800">
+                  No owner action needed
+                </div>
+              )}
+            </Card>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+function uniqueLeads(primary: SimpleLead[], secondary: SimpleLead[]) {
+  return [...primary, ...secondary]
+    .filter((lead, index, list) => lead.id && list.findIndex((item) => item.id === lead.id) === index)
+}
+
+function firstMetric(employee: AiEmployee | undefined, label: string) {
+  return employee?.metrics.find((metric) => metric.label.toLowerCase() === label.toLowerCase())
+}
+
+function ProductSellerDashboard({
+  businessName,
+  location,
+  todayLeads,
+  needsReplyCount,
+  revenue,
+  aiSuggestions,
+  aiEmployees,
+  aiManagerLoading,
+  attentionLeads,
+  recentLeads,
+  recentWork,
+  leadsLoading,
+  workLoading,
+}: {
+  businessName: string
+  location: string
+  todayLeads: number
+  needsReplyCount: number
+  revenue: number
+  aiSuggestions: AiManagerSuggestion[]
+  aiEmployees: AiEmployee[]
+  aiManagerLoading: boolean
+  attentionLeads: SimpleLead[]
+  recentLeads: SimpleLead[]
+  recentWork: SimpleBooking[]
+  leadsLoading: boolean
+  workLoading: boolean
+}) {
+  const visibleSuggestions = aiSuggestions.filter((item) => item.type !== 'all_clear').slice(0, 3)
+  const primarySuggestion = visibleSuggestions[0]
+  const customers = uniqueLeads(attentionLeads, recentLeads).slice(0, 4)
+  const inventoryEmployee = aiEmployees.find((employee) => employee.key === 'inventory')
+  const salesEmployee = aiEmployees.find((employee) => employee.key === 'sales')
+  const orderEmployee = aiEmployees.find((employee) => employee.key === 'orders')
+  const lowStock = Number(firstMetric(inventoryEmployee, 'Stock issues')?.value ?? 0)
+  const unpaidOrders = Number(firstMetric(orderEmployee, 'Unpaid')?.value ?? 0)
+  const waitingBuyers = Number(firstMetric(salesEmployee, 'Waiting buyers')?.value ?? needsReplyCount)
+  const activeEmployees = aiEmployees.filter((employee) => employee.status !== 'watching').length
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-5 pb-8">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="p-4 sm:p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-slate-950 text-white">
+                    <Bot className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold uppercase text-[#0066FF]">Today&apos;s store desk</p>
+                    <h1 className="truncate text-2xl font-bold text-slate-950">{businessName}</h1>
+                    {location ? <p className="mt-1 truncate text-sm text-slate-500">{location}</p> : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button asChild className="gap-2 bg-[#0066FF] hover:bg-[#0052CC]">
+                  <Link href="/seller-os">
+                    <ShoppingBag className="h-4 w-4" />
+                    Store Desk
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="gap-2 bg-white">
+                  <Link href="/crm/inbox">
+                    <MessageCircle className="h-4 w-4" />
+                    Reply
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="gap-2 bg-white">
+                  <Link href="/orders">
+                    <Truck className="h-4 w-4" />
+                    Orders
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="gap-2 bg-white">
+                  <Link href="/inventory/products">
+                    <Package className="h-4 w-4" />
+                    Stock
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-bold uppercase text-slate-500">Buyers today</p>
+                <p className="mt-2 text-2xl font-bold text-slate-950">{todayLeads}</p>
+              </div>
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-xs font-bold uppercase text-amber-700">Need reply</p>
+                <p className="mt-2 text-2xl font-bold text-amber-950">{waitingBuyers}</p>
+              </div>
+              <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3">
+                <p className="text-xs font-bold uppercase text-rose-700">Stock risk</p>
+                <p className="mt-2 text-2xl font-bold text-rose-950">{lowStock}</p>
+              </div>
+              <div className="rounded-md border border-green-200 bg-green-50 px-4 py-3">
+                <p className="text-xs font-bold uppercase text-green-700">Sales recorded</p>
+                <p className="mt-2 truncate text-2xl font-bold text-green-950">{money(revenue)}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200 bg-slate-950 p-4 text-white sm:p-5 xl:border-l xl:border-t-0">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase text-slate-300">Owner focus</p>
+                <h2 className="mt-2 text-xl font-bold">
+                  {primarySuggestion ? primarySuggestion.title : 'Everything is calm'}
+                </h2>
+              </div>
+              <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white">
+                {visibleSuggestions.length ? `${visibleSuggestions.length} task${visibleSuggestions.length === 1 ? '' : 's'}` : 'Clear'}
+              </span>
+            </div>
+
+            <p className="mt-3 min-h-[48px] text-sm leading-6 text-slate-300">
+              {primarySuggestion
+                ? primarySuggestion.reason
+                : 'No waiting buyers, unpaid order alerts or stock blockers are in the priority queue.'}
+            </p>
+
+            <div className="mt-5 grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-md bg-white/10 px-2 py-3">
+                <p className="text-lg font-bold">{unpaidOrders}</p>
+                <p className="mt-1 text-[11px] font-semibold uppercase text-slate-300">Unpaid</p>
+              </div>
+              <div className="rounded-md bg-white/10 px-2 py-3">
+                <p className="text-lg font-bold">{activeEmployees}</p>
+                <p className="mt-1 text-[11px] font-semibold uppercase text-slate-300">AI active</p>
+              </div>
+              <div className="rounded-md bg-white/10 px-2 py-3">
+                <p className="text-lg font-bold">{lowStock}</p>
+                <p className="mt-1 text-[11px] font-semibold uppercase text-slate-300">Stock</p>
+              </div>
+            </div>
+
+            {primarySuggestion ? (
+              <Button asChild className="mt-5 w-full justify-between bg-white text-slate-950 hover:bg-slate-100">
+                <Link href={primarySuggestion.action_href}>
+                  {primarySuggestion.action_label}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild className="mt-5 w-full justify-between bg-white text-slate-950 hover:bg-slate-100">
+                <Link href="/ai-employees">
+                  See AI employees
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <Card className="border-slate-200 p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-slate-950">Do these first</h2>
+              <p className="mt-1 text-sm text-slate-500">Only the work that needs the owner today.</p>
+            </div>
+            <Button asChild variant="ghost" size="sm" className="text-[#0066FF]">
+              <Link href="/crm/inbox">Inbox</Link>
+            </Button>
+          </div>
+
+          {aiManagerLoading ? (
+            <div className="mt-4 flex items-center justify-center rounded-md border border-slate-200 bg-slate-50 py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-[#0066FF]" />
+            </div>
+          ) : visibleSuggestions.length > 0 ? (
+            <div className="mt-4 divide-y divide-slate-100 rounded-md border border-slate-200">
+              {visibleSuggestions.map((suggestion, index) => {
+                const Icon = suggestionIcon(suggestion.type)
+                return (
+                  <Link key={`${suggestion.type}-${suggestion.title}`} href={suggestion.action_href} className="flex items-start gap-3 p-4 hover:bg-slate-50">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-700">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-bold text-slate-950">{index + 1}. {suggestion.title}</span>
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase ${suggestionTone(suggestion.priority, suggestion.status)}`}>
+                          {suggestion.priority}
+                        </span>
+                      </span>
+                      <span className="mt-1 block line-clamp-2 text-sm leading-5 text-slate-500">{suggestion.reason}</span>
+                    </span>
+                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
+                  </Link>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-md border border-green-100 bg-green-50 p-4">
+              <p className="font-semibold text-green-900">No urgent work right now.</p>
+              <p className="mt-1 text-sm text-green-800">The store desk will light up when a buyer, order or stock item needs attention.</p>
+            </div>
+          )}
+        </Card>
+
+        <Card className="border-slate-200 p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-slate-950">AI team</h2>
+              <p className="mt-1 text-sm text-slate-500">Small status, clear ownership.</p>
+            </div>
+            <Button asChild variant="ghost" size="sm" className="text-[#0066FF]">
+              <Link href="/ai-employees">Open</Link>
+            </Button>
+          </div>
+
+          <div className="mt-4 divide-y divide-slate-100 rounded-md border border-slate-200">
+            {aiEmployees.slice(0, 5).map((employee) => {
+              const Icon = employeeIcon(employee.key)
+              return (
+                <Link key={employee.key} href="/ai-employees" className="flex items-center gap-3 p-3 hover:bg-slate-50">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-950 text-white">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold text-slate-950">{employee.name.replace(/^AI\s/, '')}</span>
+                    <span className="block truncate text-xs text-slate-500">{employee.summary}</span>
+                  </span>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${employeeStatusTone(employee.status)}`}>
+                    {employee.status.replace(/_/g, ' ')}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+        </Card>
+      </section>
+
+      <section className="grid gap-5 lg:grid-cols-3">
+        <Card className="border-slate-200 p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-slate-950">Buyers</h2>
+            <Button asChild variant="ghost" size="sm" className="text-[#0066FF]">
+              <Link href="/crm/leads">All</Link>
+            </Button>
+          </div>
+
+          {leadsLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-5 w-5 animate-spin text-[#0066FF]" />
+            </div>
+          ) : customers.length > 0 ? (
+            <div className="mt-3 divide-y divide-slate-100">
+              {customers.map((lead) => (
+                <div key={lead.id} className="flex items-center justify-between gap-3 py-3">
+                  <Link href={`/crm/leads/${lead.id}`} className="min-w-0">
+                    <p className="truncate text-sm font-bold text-slate-950">{lead.name}</p>
+                    <p className="mt-1 truncate text-xs text-slate-500">{lead.need ? `${lead.need} - ` : ''}{shortTime(lead.created_at)}</p>
+                  </Link>
+                  {lead.phone ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 gap-2 bg-white"
+                      onClick={() => window.open(`https://wa.me/${lead.phone?.replace(/\D/g, '')}`, '_blank')}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">No buyer enquiries yet.</p>
+          )}
+        </Card>
+
+        <Card className="border-slate-200 p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-slate-950">Orders</h2>
+            <Button asChild variant="ghost" size="sm" className="text-[#0066FF]">
+              <Link href="/orders">All</Link>
+            </Button>
+          </div>
+
+          {workLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-5 w-5 animate-spin text-[#0066FF]" />
+            </div>
+          ) : recentWork.length > 0 ? (
+            <div className="mt-3 divide-y divide-slate-100">
+              {recentWork.slice(0, 4).map((item) => (
+                <Link key={item.id} href="/orders" className="flex items-center justify-between gap-3 py-3">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-bold text-slate-950">{item.guest}</span>
+                    <span className="mt-1 block truncate text-xs text-slate-500">{item.item}</span>
+                  </span>
+                  <strong className="shrink-0 text-sm text-slate-950">{money(item.amount)}</strong>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">No orders yet.</p>
+          )}
+        </Card>
+
+        <Card className="border-slate-200 p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-slate-950">Stock guard</h2>
+            <Button asChild variant="ghost" size="sm" className="text-[#0066FF]">
+              <Link href="/inventory/products">Open</Link>
+            </Button>
+          </div>
+
+          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-3">
+                <span className={`flex h-10 w-10 items-center justify-center rounded-md ${lowStock > 0 ? 'bg-rose-100 text-rose-700' : 'bg-green-100 text-green-700'}`}>
+                  <AlertTriangle className="h-5 w-5" />
+                </span>
+                <span>
+                  <span className="block text-sm font-bold text-slate-950">{lowStock > 0 ? 'Needs stock update' : 'Stock looks fine'}</span>
+                  <span className="mt-1 block text-xs text-slate-500">{inventoryEmployee?.summary ?? 'Inventory employee is watching product stock.'}</span>
+                </span>
+              </span>
+              <strong className="text-2xl font-bold text-slate-950">{lowStock}</strong>
+            </div>
+          </div>
+
+          <div className="mt-3 divide-y divide-slate-100 rounded-md border border-slate-200">
+            {(inventoryEmployee?.completed_work ?? []).slice(0, 2).map((item) => (
+              <Link key={item.title} href={item.href ?? '/inventory/products'} className="block p-3 hover:bg-slate-50">
+                <p className="truncate text-sm font-bold text-slate-950">{item.title}</p>
+                <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.detail}</p>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      </section>
+    </div>
+  )
+}
+
 export function DashboardRenderer() {
   const { businessType, isLoading: bizLoading } = useBusinessType()
   const isProductBusiness = businessType === 'products' || businessType === 'retail'
@@ -349,12 +817,33 @@ export function DashboardRenderer() {
   const remindersReady = Number(reminderCounts.ready ?? 0)
   const needsAttentionTotal = pendingToday + needsReplyCount + missedDemand
   const aiSuggestions = aiManagerQuery.data?.suggestions ?? []
+  const aiEmployees = aiManagerQuery.data?.employees ?? []
 
   if (bizLoading || statsLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-[#0066FF]" />
       </div>
+    )
+  }
+
+  if (isProductBusiness) {
+    return (
+      <ProductSellerDashboard
+        businessName={businessName}
+        location={location}
+        todayLeads={todayLeads}
+        needsReplyCount={needsReplyCount}
+        revenue={Number(revenue)}
+        aiSuggestions={aiSuggestions}
+        aiEmployees={aiEmployees}
+        aiManagerLoading={aiManagerQuery.isLoading}
+        attentionLeads={attentionLeads}
+        recentLeads={recentLeads}
+        recentWork={recentWork}
+        leadsLoading={needsAttentionQuery.isLoading || recentLeadsQuery.isLoading}
+        workLoading={recentWorkQuery.isLoading}
+      />
     )
   }
 
@@ -430,6 +919,8 @@ export function DashboardRenderer() {
           />
         </div>
       </section>
+
+      {isProductBusiness ? <ProductAiEmployees employees={aiEmployees} /> : null}
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.75fr)]">
         <Card className="border-slate-200 p-4 sm:p-5">

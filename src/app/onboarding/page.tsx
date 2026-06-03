@@ -287,7 +287,7 @@ export default function OnboardingPage() {
   const progressPercent = Math.round((currentStep / totalSteps) * 100)
   const isProductSeller = formData.businessType === 'products'
   const handleWhatsAppConnected = () => {
-    router.push(isProductSeller ? '/inventory/products' : '/dashboard')
+    router.push(isProductSeller ? '/seller-setup' : '/dashboard')
   }
 
   return (
@@ -851,7 +851,7 @@ export default function OnboardingPage() {
                       <h3 className="text-[19px] font-semibold tracking-tight text-[#4B4B4B] mb-1">Review & Launch Setup</h3>
                       <p className="text-[13px] text-[#6E6E6E]">
                         {isProductSeller
-                          ? 'Confirm the basics. Next, connect WhatsApp and import your existing product catalogue.'
+                          ? 'Confirm the basics. Next, connect WhatsApp and set store rules for products, stock and credit.'
                           : 'Confirm the basics. Next, the dashboard will guide WhatsApp, inventory and booking setup.'}
                       </p>
                     </div>
@@ -976,11 +976,11 @@ export default function OnboardingPage() {
               <div className="space-y-4">
                 <div className="text-center mb-2">
                   <h3 className="text-[19px] font-semibold tracking-tight text-[#4B4B4B] mb-1">
-                    {isProductSeller ? 'Connect WhatsApp and import products' : 'Connect WhatsApp'}
+                    {isProductSeller ? 'Connect WhatsApp and set store rules' : 'Connect WhatsApp'}
                   </h3>
                   <p className="text-[13px] text-[#6E6E6E]">
                     {isProductSeller
-                      ? 'After connection, you will go to Products to import your existing WhatsApp catalogue.'
+                      ? 'After connection, you will set stock holds, payment modes, delivery areas and starter products.'
                       : 'Link your WhatsApp Business account to start messaging customers'}
                   </p>
                 </div>

@@ -9,7 +9,13 @@ export const navigationConfig: NavigationConfig = {
   // ── Quick Links (top of sidebar) ───────────────────────────────────────────
   quickLinks: [
     { href: '/inventory/bookings', label: 'Bookings', icon: 'CalendarCheck', businessTypes: ['hospitality', 'events'] },
+    { href: '/seller-os', label: 'Store Desk', icon: 'ShoppingBag', businessTypes: ['products', 'retail'] },
+    { href: '/seller-os/leads', label: 'Customer Enquiries', icon: 'UserPlus', businessTypes: ['products', 'retail'] },
+    { href: '/seller-os/payments', label: 'Payment Desk', icon: 'CreditCard', businessTypes: ['products', 'retail'] },
+    { href: '/seller-os/credit', label: 'Credit', icon: 'CreditCard', businessTypes: ['products', 'retail'], sellerFeatures: ['credit_sales'] },
+    { href: '/seller-setup', label: 'Store Setup', icon: 'ListChecks', businessTypes: ['products', 'retail'] },
     { href: '/orders', label: 'Orders', icon: 'ShoppingCart', businessTypes: ['products', 'retail'] },
+    { href: '/ai-employees', label: 'AI Employees', icon: 'Bot', businessTypes: ['products', 'retail'] },
     { href: '/crm/contacts', label: 'Contacts', icon: 'Users' },
     { href: '/crm/inbox', label: 'WhatsApp Inbox', icon: 'Inbox' },
     { href: '/crm/handoff', label: 'Owner Replies', icon: 'Phone' },
@@ -45,6 +51,11 @@ export const navigationConfig: NavigationConfig = {
       icon: 'ShoppingCart',
       businessTypes: ['products', 'retail'],
       children: [
+        { name: 'Customer Enquiries', href: '/seller-os/leads', icon: 'UserPlus' },
+        { name: 'Store Desk', href: '/seller-os', icon: 'ShoppingBag' },
+        { name: 'Payment Desk', href: '/seller-os/payments', icon: 'CreditCard' },
+        { name: 'Credit', href: '/seller-os/credit', icon: 'CreditCard', sellerFeatures: ['credit_sales'] },
+        { name: 'Store Setup', href: '/seller-setup', icon: 'ListChecks' },
         { name: 'Customers', href: '/customers', icon: 'Users' },
         { name: 'Orders', href: '/orders', icon: 'ShoppingCart' },
         { name: 'Payments', href: '/payments', icon: 'CreditCard' },
@@ -96,6 +107,13 @@ export const navigationConfig: NavigationConfig = {
           displayName: { hospitality: 'Guest Enquiries', events: 'Event Enquiries', products: 'Customer Enquiries', retail: 'Customer Enquiries' },
           href: '/crm/leads',
           icon: 'UserPlus',
+          businessTypes: ['hospitality', 'events', 'healthcare', 'real_estate', 'professional_services', 'crm_automation', 'education'],
+        },
+        {
+          name: 'Customer Enquiries',
+          href: '/seller-os/leads',
+          icon: 'UserPlus',
+          businessTypes: ['products', 'retail'],
         },
         {
           name: 'Social Inbox',
@@ -144,12 +162,13 @@ export const navigationConfig: NavigationConfig = {
     // ─ AI Tools (hospitality sees it as AI Assistant) ────────────────────────
     {
       name: 'AI Tools',
-      displayName: { hospitality: 'AI Assistant', events: 'AI Assistant', products: 'AI Assistant', retail: 'AI Assistant' },
+      displayName: { hospitality: 'AI Assistant', events: 'AI Assistant', products: 'AI Employees', retail: 'AI Employees' },
       icon: 'Brain',
       children: [
-        { name: 'Campaign Optimizer', href: '/campaigns/optimizer', icon: 'Zap', businessTypes: ['events', 'products', 'retail', 'crm_automation'] },
+        { name: 'AI Employees', href: '/ai-employees', icon: 'Bot', businessTypes: ['products', 'retail'] },
+        { name: 'Campaign Optimizer', displayName: { products: 'Marketing Employee', retail: 'Marketing Employee' }, href: '/campaigns/optimizer', icon: 'Zap', businessTypes: ['events', 'products', 'retail', 'crm_automation'] },
         { name: 'AI Chatbot', displayName: { hospitality: 'Chatbot Settings', events: 'Chatbot Settings', products: 'Chatbot Settings', retail: 'Chatbot Settings' }, href: '/chatbot', icon: 'Bot' },
-        { name: 'Live Monitor', displayName: { hospitality: 'AI Activity', events: 'AI Activity', products: 'AI Activity', retail: 'AI Activity' }, href: '/campaigns/live', icon: 'Activity' },
+        { name: 'Live Monitor', displayName: { hospitality: 'AI Activity', events: 'AI Activity', products: 'Employee Activity', retail: 'Employee Activity' }, href: '/campaigns/live', icon: 'Activity' },
         { name: 'Bot Business Data', href: '/chatbot/data', icon: 'Database', comingSoon: true },
       ],
     },
