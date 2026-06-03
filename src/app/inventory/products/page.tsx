@@ -1,443 +1,623 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { DashboardLayout } from '@/components/layout/dashboard-layout'
-import { apiClient } from '@/lib/api-client'
-import toast from 'react-hot-toast'
+import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import {
-  Plus, Search, Package, AlertTriangle, AlertCircle,
-  Pencil, Trash2, Loader2, RefreshCw, IndianRupee,
-  CheckCircle2, XCircle, Box, Download, MessageSquare,
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  FileUp,
+  Loader2,
+  Package,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+  X,
 } from 'lucide-react'
-import { useImportWhatsAppCatalog, useWhatsAppCatalogPreview } from '@/hooks/use-whatsapp-catalog'
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface Product {
-  product_id?: string
-  id?: string
-  name: string
-  description?: string
-  price: number | string
-  sku?: string
-  brand?: string
-  category?: string
-  condition?: string
-  weight?: number | string
-  dimensions?: string
-  track_inventory?: boolean
-  stock_quantity?: number
-  low_stock_threshold?: number
-  is_active?: boolean
-  primary_image_url?: string
-  images?: string[]
-  metadata?: Record<string, unknown>
-  created_at?: string
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const ACCENT = '#0066FF'
-
-function pid(p: Product) { return p.product_id ?? p.id ?? '' }
-
-function fmt(n: number | string) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(n))
-}
-
-function stockStatus(p: Product): 'out' | 'low' | 'ok' | 'untracked' {
-  if (!p.track_inventory) return 'untracked'
-  const qty = p.stock_quantity ?? 0
-  const threshold = p.low_stock_threshold ?? 10
-  if (qty === 0) return 'out'
-  if (qty <= threshold) return 'low'
-  return 'ok'
-}
-
-
-// ── Skeleton ──────────────────────────────────────────────────────────────────
-
-function SkeletonRow() {
-  return (
-    <div className="animate-pulse flex items-center gap-4 px-5 py-4 border-b border-slate-100 last:border-0">
-      <div className="h-12 w-12 rounded-xl bg-slate-200 shrink-0" />
-      <div className="flex-1 space-y-2">
-        <div className="h-3.5 w-40 rounded bg-slate-200" />
-        <div className="h-3 w-64 rounded bg-slate-100" />
-      </div>
-      <div className="h-6 w-16 rounded-full bg-slate-200" />
-      <div className="h-6 w-20 rounded-full bg-slate-100" />
-    </div>
-  )
-}
-
-// ── Product Row ───────────────────────────────────────────────────────────────
-
-function ProductRow({ product, onDelete }: { product: Product; onDelete: (id: string) => void }) {
-  const [deleting, setDeleting] = useState(false)
-  const stock = stockStatus(product)
-
-  const handleDelete = async () => {
-    if (!confirm(`Delete "${product.name}"?`)) return
-    setDeleting(true)
-    try { await onDelete(pid(product)) } finally { setDeleting(false) }
-  }
-
-  return (
-    <div className="group flex items-center gap-4 px-5 py-4 border-b border-slate-100 last:border-0 hover:bg-slate-50/60 transition-colors">
-
-      {/* Image or placeholder */}
-      <div className="h-12 w-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-        {product.primary_image_url ? (
-          <img src={product.primary_image_url} alt={product.name} className="h-full w-full object-cover" />
-        ) : (
-          <Package className="h-5 w-5 text-slate-400" />
-        )}
-      </div>
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5">
-          <p className="font-bold text-[13px] text-[#4B4B4B] truncate">{product.name}</p>
-          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0 ${product.is_active !== false ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>
-            {product.is_active !== false ? '● Active' : '○ Inactive'}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-[#6E6E6E]">
-          {(product.brand ?? product.metadata?.brand as string) && (
-            <span>{product.brand ?? product.metadata?.brand as string}</span>
-          )}
-          {product.category && <span>{product.category}</span>}
-        </div>
-      </div>
-
-      {/* Price */}
-      <div className="shrink-0 text-right">
-        <p className="font-bold text-[13px] text-[#4B4B4B] flex items-center gap-0.5">
-          <IndianRupee className="h-3 w-3 text-[#0066FF]" />
-          {fmt(product.price).replace('₹', '')}
-        </p>
-      </div>
-
-      {/* Stock badge */}
-      <div className="shrink-0">
-        {stock === 'untracked' ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-slate-500">
-            <Box className="h-3 w-3" /> No tracking
-          </span>
-        ) : stock === 'out' ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2.5 py-1 text-[11px] font-bold text-red-600">
-            <XCircle className="h-3 w-3" /> Out of stock
-          </span>
-        ) : stock === 'low' ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-yellow-50 border border-yellow-200 px-2.5 py-1 text-[11px] font-bold text-yellow-700">
-            <AlertTriangle className="h-3 w-3" /> Low · {product.stock_quantity}
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-full bg-green-50 border border-green-200 px-2.5 py-1 text-[11px] font-bold text-green-700">
-            <CheckCircle2 className="h-3 w-3" /> {product.stock_quantity} in stock
-          </span>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="shrink-0 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <a
-          href={`/inventory/products/${pid(product)}/edit`}
-          className="flex items-center gap-1 rounded-full border border-[#E5E5E5] px-2.5 py-1.5 text-[11px] font-bold text-[#4B4B4B] hover:border-[#0066FF] hover:text-[#0066FF] transition-colors"
-        >
-          <Pencil className="h-3 w-3" /> Edit
-        </a>
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          className="flex items-center gap-1 rounded-full border border-[#E5E5E5] px-2.5 py-1.5 text-[11px] font-bold text-[#4B4B4B] hover:border-red-300 hover:text-red-500 transition-colors disabled:opacity-50"
-        >
-          {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-          Delete
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ── Main Page ─────────────────────────────────────────────────────────────────
+import toast from 'react-hot-toast'
+import { DashboardLayout } from '@/components/layout/dashboard-layout'
+import {
+  SellerProductImportRow,
+  SellerStockProduct,
+  useAdjustSellerProductStock,
+  useImportSellerProductsStock,
+  useSellerProductsStock,
+} from '@/hooks/use-seller-os'
 
 const STATUS_FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'active', label: 'Active' },
-  { key: 'inactive', label: 'Inactive' },
-  { key: 'low_stock', label: 'Low Stock' },
-  { key: 'out_of_stock', label: 'Out of Stock' },
+  { key: 'low_stock', label: 'Low stock' },
+  { key: 'out_of_stock', label: 'Out' },
+] as const
+
+const STOCK_REASONS = [
+  { value: 'new_purchase', label: 'New purchase' },
+  { value: 'sale_correction', label: 'Sale correction' },
+  { value: 'damaged', label: 'Damaged' },
+  { value: 'returned', label: 'Returned' },
+  { value: 'manual_correction', label: 'Correction' },
 ]
 
-export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const { data: catalogPreview, isLoading: checkingCatalog } = useWhatsAppCatalogPreview(true)
-  const importCatalog = useImportWhatsAppCatalog()
+function money(value: number) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0))
+}
 
-  const load = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true)
-    else setRefreshing(true)
-    try {
-      const res = await apiClient.get('/products', { params: { limit: 500 } })
-      const body = (res as any).data?.data ?? (res as any).data
-      const raw: any[] = Array.isArray(body) ? body : (body?.data ?? body?.products ?? [])
-      const list: Product[] = raw.map((item: any) => ({
-        product_id: item.product_id ?? item.item_id ?? item.id ?? '',
-        id: item.product_id ?? item.item_id ?? item.id ?? '',
-        name: item.name,
-        description: item.description,
-        price: typeof (item.price ?? item.base_price) === 'string' ? parseFloat(item.price ?? item.base_price) || 0 : (item.price ?? item.base_price ?? 0),
-        sku: item.sku,
-        brand: item.brand ?? item.attributes?.brand,
-        category: item.category,
-        track_inventory: item.track_inventory ?? (item.stock_quantity != null),
-        stock_quantity: item.stock_quantity ?? 0,
-        low_stock_threshold: item.low_stock_threshold ?? item.attributes?.low_stock_threshold ?? 10,
-        is_active: item.is_active,
-        primary_image_url: item.primary_image_url,
-        images: item.image_urls,
-        created_at: item.created_at,
-      }))
-      setProducts(list)
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || err?.message || 'Failed to load products')
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
+function stockLabel(product: SellerStockProduct) {
+  if (product.stock_status === 'out_of_stock') return 'Out'
+  if (product.stock_status === 'low_stock') return 'Low'
+  if (product.stock_status === 'not_tracked') return 'Not tracked'
+  return 'In stock'
+}
+
+function stockClass(product: SellerStockProduct) {
+  if (product.stock_status === 'out_of_stock') return 'bg-rose-50 text-rose-700 border-rose-200'
+  if (product.stock_status === 'low_stock') return 'bg-amber-50 text-amber-700 border-amber-200'
+  if (product.stock_status === 'not_tracked') return 'bg-slate-50 text-slate-600 border-slate-200'
+  return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+}
+
+function parseDelimited(text: string): SellerProductImportRow[] {
+  const lines = text
+    .replace(/\r/g, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (lines.length < 2) return []
+  const delimiter = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ','
+  const headers = splitLine(lines[0], delimiter).map((header) => normaliseHeader(header))
+
+  return lines.slice(1).map((line) => {
+    const cells = splitLine(line, delimiter)
+    const row: Record<string, string> = {}
+    headers.forEach((header, index) => {
+      row[header] = cells[index]?.trim() ?? ''
+    })
+
+    return {
+      name: row.name || row.product_name || row.product || '',
+      sku: row.sku || row.code || undefined,
+      category: row.category || undefined,
+      description: row.description || undefined,
+      price: toNumber(row.price || row.selling_price || row.rate),
+      cost_price: row.cost_price || row.cost ? toNumber(row.cost_price || row.cost) : undefined,
+      stock_quantity: toInt(row.stock_quantity || row.stock || row.quantity || row.qty),
+      image_url: row.image_url || row.image || undefined,
+      is_active: row.is_active ? !['false', '0', 'no'].includes(row.is_active.toLowerCase()) : true,
     }
-  }, [])
+  })
+}
 
-  useEffect(() => { load() }, [load])
+function splitLine(line: string, delimiter: string) {
+  if (delimiter !== ',') return line.split(delimiter)
+  const cells: string[] = []
+  let current = ''
+  let quoted = false
 
-  const handleDelete = async (id: string) => {
-    try {
-      await apiClient.delete(`/products/${id}`)
-      setProducts(p => p.filter(x => pid(x) !== id))
-      toast.success('Product deleted')
-    } catch {
-      toast.error('Failed to delete product')
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i]
+    if (char === '"') {
+      quoted = !quoted
+    } else if (char === ',' && !quoted) {
+      cells.push(current)
+      current = ''
+    } else {
+      current += char
     }
   }
+  cells.push(current)
+  return cells.map((cell) => cell.replace(/^"|"$/g, ''))
+}
 
-  const handleImportCatalog = () => {
-    importCatalog.mutate(
-      { limit: 100 },
-      { onSuccess: () => load(true) },
+function normaliseHeader(value: string) {
+  return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+}
+
+function toNumber(value: string | number | undefined) {
+  const parsed = Number(String(value ?? 0).replace(/[^\d.-]/g, ''))
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0
+}
+
+function toInt(value: string | number | undefined) {
+  return Math.max(0, Math.floor(toNumber(value)))
+}
+
+function ProductRow({
+  product,
+  onAdjust,
+}: {
+  product: SellerStockProduct
+  onAdjust: (product: SellerStockProduct) => void
+}) {
+  return (
+    <tr className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+      <td className="py-3 pl-4 pr-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+            {product.primary_image_url ? (
+              <img src={product.primary_image_url} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <Package className="h-4 w-4 text-slate-400" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-950">{product.name}</p>
+            <p className="mt-0.5 truncate text-xs text-slate-500">
+              {[product.sku, product.category].filter(Boolean).join(' / ') || 'No SKU'}
+            </p>
+          </div>
+        </div>
+      </td>
+      <td className="px-3 py-3 text-sm font-semibold text-slate-900">{money(product.price)}</td>
+      <td className="px-3 py-3">
+        <span className={`inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold ${stockClass(product)}`}>
+          {stockLabel(product)}
+        </span>
+      </td>
+      <td className="px-3 py-3 text-sm text-slate-700">
+        <span className="font-semibold text-slate-950">{product.available_stock}</span>
+        <span className="text-slate-400"> / {product.stock_quantity}</span>
+      </td>
+      <td className="px-3 py-3 text-sm text-slate-600">{product.reserved_stock}</td>
+      <td className="px-3 py-3 text-right">
+        <div className="inline-flex items-center gap-1">
+          <button
+            onClick={() => onAdjust(product)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700"
+            title="Update stock"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+          </button>
+          <Link
+            href={`/inventory/products/${product.product_id}/edit`}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700"
+            title="Edit product"
+          >
+            <Pencil className="h-4 w-4" />
+          </Link>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+function ImportPanel({
+  open,
+  onClose,
+}: {
+  open: boolean
+  onClose: () => void
+}) {
+  const importProducts = useImportSellerProductsStock()
+  const [rows, setRows] = useState<SellerProductImportRow[]>([])
+  const [paste, setPaste] = useState('')
+
+  if (!open) return null
+
+  const loadText = (text: string) => {
+    const parsed = parseDelimited(text)
+    setRows(parsed)
+    if (!parsed.length) toast.error('No product rows found')
+  }
+
+  const submit = () => {
+    if (!rows.length) {
+      toast.error('Add product rows first')
+      return
+    }
+    importProducts.mutate(
+      { source: 'csv', products: rows },
+      {
+        onSuccess: () => {
+          setRows([])
+          setPaste('')
+          onClose()
+        },
+      },
     )
   }
 
-  // Stats
-  const stats = {
-    total: products.length,
-    active: products.filter(p => p.is_active !== false).length,
-    lowStock: products.filter(p => p.track_inventory && (p.stock_quantity ?? 0) > 0 && (p.stock_quantity ?? 0) <= (p.low_stock_threshold ?? 10)).length,
-    outOfStock: products.filter(p => p.track_inventory && (p.stock_quantity ?? 0) === 0).length,
-  }
-
-  // Filter
-  const filtered = products.filter(p => {
-    const q = search.toLowerCase()
-    const matchSearch = !q ||
-      p.name.toLowerCase().includes(q) ||
-      p.sku?.toLowerCase().includes(q) ||
-      p.brand?.toLowerCase().includes(q) ||
-      p.category?.toLowerCase().includes(q) ||
-      (p.metadata?.brand as string)?.toLowerCase().includes(q)
-
-    const matchStatus =
-      statusFilter === 'all' ? true
-      : statusFilter === 'active' ? p.is_active !== false
-      : statusFilter === 'inactive' ? p.is_active === false
-      : statusFilter === 'low_stock' ? (p.track_inventory && (p.stock_quantity ?? 0) > 0 && (p.stock_quantity ?? 0) <= (p.low_stock_threshold ?? 10))
-      : statusFilter === 'out_of_stock' ? (p.track_inventory && (p.stock_quantity ?? 0) === 0)
-      : true
-
-    return matchSearch && matchStatus
-  })
-
   return (
-    <DashboardLayout>
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.012)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none opacity-70" />
-
-      <div className="relative max-w-5xl mx-auto pb-12 space-y-6">
-
-        {/* ── Header ── */}
-        <div className="flex items-start justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+      <div className="w-full max-w-3xl rounded-lg bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold" style={{ background: `${ACCENT}15`, color: ACCENT }}>
-                <Package className="h-3 w-3" />
-                Inventory
-              </span>
-            </div>
-            <h1 className="text-[26px] font-bold tracking-tight text-[#4B4B4B]">Products</h1>
-            <p className="text-[13px] text-[#6E6E6E] mt-0.5">Manage your physical product inventory</p>
+            <h2 className="text-base font-semibold text-slate-950">Import products</h2>
+            <p className="text-xs text-slate-500">name, sku, category, price, stock_quantity, cost_price, image_url</p>
           </div>
-          <div className="flex items-center gap-2">
+          <button onClick={onClose} className="rounded-md p-2 text-slate-500 hover:bg-slate-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-4 px-5 py-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-slate-950 px-3 py-2 text-sm font-semibold text-white">
+              <FileUp className="h-4 w-4" />
+              CSV file
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (!file) return
+                  file.text().then(loadText)
+                }}
+              />
+            </label>
             <button
-              onClick={() => load(true)}
-              disabled={refreshing}
-              className="flex items-center gap-2 rounded-full border border-[#E5E5E5] bg-white px-4 py-2.5 text-[13px] font-bold text-[#4B4B4B] hover:border-[#0066FF] hover:text-[#0066FF] transition-colors disabled:opacity-50"
+              onClick={() => loadText(paste)}
+              className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+              Paste rows
             </button>
-            <a
-              href="/inventory/add"
-              className="flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-bold text-white shadow-lg transition-all hover:scale-[1.02] active:scale-[0.98]"
-              style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT}cc)`, boxShadow: `0 6px 20px ${ACCENT}40` }}
-            >
-              <Plus className="h-4 w-4" /> Add Product
-            </a>
+          </div>
+          <textarea
+            value={paste}
+            onChange={(event) => setPaste(event.target.value)}
+            rows={6}
+            className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            placeholder="name,sku,category,price,stock_quantity,cost_price"
+          />
+          <div className="rounded-md border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
+              <span className="text-sm font-semibold text-slate-800">{rows.length} rows ready</span>
+              {rows.length > 0 && <button onClick={() => setRows([])} className="text-xs font-semibold text-slate-500">Clear</button>}
+            </div>
+            <div className="max-h-52 overflow-auto">
+              {rows.slice(0, 8).map((row, index) => (
+                <div key={`${row.sku || row.name}-${index}`} className="grid grid-cols-[1fr_90px_80px] gap-3 border-b border-slate-100 px-3 py-2 text-sm last:border-0">
+                  <span className="truncate font-medium text-slate-900">{row.name || 'No name'}</span>
+                  <span className="text-slate-600">{money(row.price || 0)}</span>
+                  <span className="text-right text-slate-600">{row.stock_quantity ?? 0}</span>
+                </div>
+              ))}
+              {!rows.length && <p className="px-3 py-8 text-center text-sm text-slate-500">No rows loaded</p>}
+            </div>
           </div>
         </div>
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4">
+          <button onClick={onClose} className="rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700">Cancel</button>
+          <button
+            onClick={submit}
+            disabled={!rows.length || importProducts.isPending}
+            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {importProducts.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Import
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
-        {/* ── Stats strip ── */}
-        {!loading && (
-          <>
-          <div className="rounded-2xl border border-green-200 bg-white/85 px-5 py-4 shadow-sm">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-50">
-                  <MessageSquare className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-[14px] font-bold text-[#4B4B4B]">Already using WhatsApp catalog?</p>
-                  <p className="mt-0.5 text-[12px] text-[#6E6E6E]">
-                    {checkingCatalog
-                      ? 'Checking connected WhatsApp catalog...'
-                      : catalogPreview?.hasCatalog
-                        ? `${catalogPreview.count} product${catalogPreview.count === 1 ? '' : 's'} found. Import creates missing products and links existing ones.`
-                        : 'Connect WhatsApp catalog or add products manually.'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={handleImportCatalog}
-                  disabled={checkingCatalog || importCatalog.isPending || !catalogPreview?.hasCatalog || catalogPreview.count === 0}
-                  className="inline-flex items-center gap-2 rounded-full bg-green-600 px-4 py-2.5 text-[13px] font-bold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {importCatalog.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                  Import WhatsApp Products
-                </button>
-                <a
-                  href="/inventory/catalog"
-                  className="inline-flex items-center gap-2 rounded-full border border-[#E5E5E5] bg-white px-4 py-2.5 text-[13px] font-bold text-[#4B4B4B] hover:border-green-500 hover:text-green-700"
-                >
-                  View Catalog
-                </a>
-              </div>
-            </div>
+function StockPanel({
+  product,
+  onClose,
+}: {
+  product: SellerStockProduct | null
+  onClose: () => void
+}) {
+  const adjustStock = useAdjustSellerProductStock()
+  const [adjustmentType, setAdjustmentType] = useState<'add' | 'reduce' | 'set'>('add')
+  const [quantity, setQuantity] = useState('')
+  const [reason, setReason] = useState('new_purchase')
+  const [note, setNote] = useState('')
+
+  if (!product) return null
+
+  const submit = () => {
+    const parsedQuantity = Math.max(0, Math.floor(Number(quantity)))
+    if ((adjustmentType !== 'set' && parsedQuantity <= 0) || Number.isNaN(parsedQuantity)) {
+      toast.error('Enter a valid quantity')
+      return
+    }
+    adjustStock.mutate(
+      {
+        product_id: product.product_id,
+        adjustment_type: adjustmentType,
+        quantity: parsedQuantity,
+        reason,
+        note,
+      },
+      {
+        onSuccess: () => {
+          setQuantity('')
+          setNote('')
+          onClose()
+        },
+      },
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
+        <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold text-slate-950">{product.name}</h2>
+            <p className="text-xs text-slate-500">Available {product.available_stock}, held {product.reserved_stock}</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <button onClick={onClose} className="rounded-md p-2 text-slate-500 hover:bg-slate-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-4 px-5 py-4">
+          <div className="grid grid-cols-3 gap-2">
             {[
-              { label: 'Total Products', value: stats.total, color: '#4B4B4B', icon: Package },
-              { label: 'Active', value: stats.active, color: '#16A34A', icon: CheckCircle2 },
-              { label: 'Low Stock', value: stats.lowStock, color: '#D97706', icon: AlertTriangle },
-              { label: 'Out of Stock', value: stats.outOfStock, color: '#DC2626', icon: AlertCircle },
-            ].map(s => {
-              const Icon = s.icon
+              { key: 'add', label: 'Add', icon: ArrowUp },
+              { key: 'reduce', label: 'Reduce', icon: ArrowDown },
+              { key: 'set', label: 'Set exact', icon: CheckCircle2 },
+            ].map((item) => {
+              const Icon = item.icon
+              const active = adjustmentType === item.key
               return (
-                <div key={s.label} className="rounded-2xl border border-slate-200/60 bg-white/80 backdrop-blur-xl px-5 py-4 shadow-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon className="h-3.5 w-3.5" style={{ color: s.color }} />
-                    <p className="text-[12px] text-[#6E6E6E] font-medium">{s.label}</p>
-                  </div>
-                  <p className="text-[22px] font-bold" style={{ color: s.color }}>{s.value}</p>
-                </div>
+                <button
+                  key={item.key}
+                  onClick={() => setAdjustmentType(item.key as any)}
+                  className={`inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold ${
+                    active ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-700 hover:border-blue-300'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </button>
               )
             })}
           </div>
-          </>
-        )}
-
-        {/* ── Search + filters ── */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#989898]" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name, SKU, brand, or category…"
-              className="h-10 w-full rounded-full border border-[#E5E5E5] bg-white pl-9 pr-4 text-[13px] text-[#4B4B4B] placeholder:text-[#989898] focus:outline-none focus:ring-1 focus:ring-[#0066FF] focus:border-[#0066FF] transition-colors"
-            />
-          </div>
-          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-            {STATUS_FILTERS.map(f => (
-              <button
-                key={f.key}
-                onClick={() => setStatusFilter(f.key)}
-                className={`flex-shrink-0 rounded-full px-3.5 py-2 text-[12px] font-bold transition-all ${
-                  statusFilter === f.key
-                    ? 'text-white shadow-sm'
-                    : 'border border-[#E5E5E5] text-[#6E6E6E] bg-white hover:border-[#0066FF] hover:text-[#0066FF]'
-                }`}
-                style={statusFilter === f.key ? { background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT}cc)` } : {}}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-slate-600">Quantity</span>
+              <input
+                value={quantity}
+                onChange={(event) => setQuantity(event.target.value)}
+                type="number"
+                min="0"
+                className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-slate-600">Reason</span>
+              <select
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500"
               >
-                {f.label}
-              </button>
-            ))}
+                {STOCK_REASONS.map((item) => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+            </label>
           </div>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-slate-600">Note</span>
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              rows={3}
+              className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+            />
+          </label>
         </div>
-
-        {/* ── Table ── */}
-        <div className="rounded-2xl border border-slate-200/60 bg-white shadow-sm overflow-hidden">
-
-          {/* Table header */}
-          <div className="hidden md:flex items-center gap-4 px-5 py-3 bg-[#F9F9F9] border-b border-slate-100">
-            <div className="w-12 shrink-0" />
-            <p className="flex-1 text-[11px] font-bold text-[#989898] uppercase tracking-wider">Product</p>
-            <p className="shrink-0 text-[11px] font-bold text-[#989898] uppercase tracking-wider w-24 text-right">Price</p>
-            <p className="shrink-0 text-[11px] font-bold text-[#989898] uppercase tracking-wider w-32">Stock</p>
-            <div className="w-28 shrink-0" />
-          </div>
-
-          {loading ? (
-            <div>{[1,2,3,4,5].map(i => <SkeletonRow key={i} />)}</div>
-          ) : filtered.length === 0 ? (
-            <div className="py-16 text-center space-y-3">
-              <div className="h-14 w-14 rounded-2xl flex items-center justify-center mx-auto" style={{ background: `${ACCENT}10` }}>
-                <Package className="h-7 w-7" style={{ color: ACCENT }} />
-              </div>
-              <p className="font-bold text-[#4B4B4B]">
-                {search || statusFilter !== 'all' ? 'No products match your filter' : 'No products yet'}
-              </p>
-              <p className="text-[13px] text-[#6E6E6E]">
-                {search || statusFilter !== 'all' ? 'Try clearing your search or filter' : 'Click "Add Product" to add your first product'}
-              </p>
-              {!search && statusFilter === 'all' && (
-                <a
-                  href="/inventory/add"
-                  className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-bold text-white mt-2"
-                  style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT}cc)` }}
-                >
-                  <Plus className="h-4 w-4" /> Add Product
-                </a>
-              )}
-            </div>
-          ) : (
-            <div>
-              {filtered.map(p => (
-                <ProductRow key={pid(p)} product={p} onDelete={handleDelete} />
-              ))}
-            </div>
-          )}
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4">
+          <button onClick={onClose} className="rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700">Cancel</button>
+          <button
+            onClick={submit}
+            disabled={adjustStock.isPending}
+            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {adjustStock.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save
+          </button>
         </div>
-
-        {/* Result count */}
-        {!loading && filtered.length > 0 && (
-          <p className="text-[12px] text-[#989898] text-center">
-            Showing {filtered.length} of {products.length} product{products.length !== 1 ? 's' : ''}
-          </p>
-        )}
-
       </div>
+    </div>
+  )
+}
+
+export default function ProductsPage() {
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState<(typeof STATUS_FILTERS)[number]['key']>('all')
+  const [importOpen, setImportOpen] = useState(false)
+  const [stockProduct, setStockProduct] = useState<SellerStockProduct | null>(null)
+  const query = useSellerProductsStock({ page, limit: 50, search, status })
+
+  const data = query.data
+  const products = data?.products ?? []
+  const summary = data?.summary
+  const canPrev = (data?.pagination.page ?? page) > 1
+  const canNext = (data?.pagination.page ?? page) < (data?.pagination.total_pages ?? 1)
+
+  const visibleSummary = useMemo(() => [
+    { label: 'Products', value: summary?.total_products ?? 0, icon: Package, tone: 'text-slate-950' },
+    { label: 'Low stock', value: summary?.low_stock ?? 0, icon: AlertTriangle, tone: 'text-amber-700' },
+    { label: 'Out', value: summary?.out_of_stock ?? 0, icon: X, tone: 'text-rose-700' },
+    { label: 'Held', value: summary?.active_holds ?? 0, icon: CheckCircle2, tone: 'text-blue-700' },
+  ], [summary])
+
+  return (
+    <DashboardLayout>
+      <div className="mx-auto max-w-7xl space-y-5 pb-10">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-950">Products & Stock</h1>
+            <p className="mt-1 text-sm text-slate-500">Live stock used by WhatsApp AI, counter sale and payment desk.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => query.refetch()}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700"
+            >
+              <RefreshCw className={`h-4 w-4 ${query.isRefetching ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={() => setImportOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700"
+            >
+              <FileUp className="h-4 w-4" />
+              Import
+            </button>
+            <Link
+              href="/inventory/add"
+              className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4" />
+              Add product
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {visibleSummary.map((item) => {
+            const Icon = item.icon
+            return (
+              <div key={item.label} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-500">{item.label}</span>
+                  <Icon className={`h-4 w-4 ${item.tone}`} />
+                </div>
+                <p className={`mt-2 text-2xl font-bold ${item.tone}`}>{item.value}</p>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white">
+          <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative max-w-xl flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(event) => {
+                  setPage(1)
+                  setSearch(event.target.value)
+                }}
+                className="h-10 w-full rounded-md border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-blue-500"
+                placeholder="Search product, SKU or category"
+              />
+            </div>
+            <div className="flex gap-1 overflow-x-auto">
+              {STATUS_FILTERS.map((filter) => {
+                const active = status === filter.key
+                return (
+                  <button
+                    key={filter.key}
+                    onClick={() => {
+                      setPage(1)
+                      setStatus(filter.key)
+                    }}
+                    className={`rounded-md px-3 py-2 text-sm font-semibold ${
+                      active ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px] text-left">
+              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="py-3 pl-4 pr-3 font-semibold">Product</th>
+                  <th className="px-3 py-3 font-semibold">Price</th>
+                  <th className="px-3 py-3 font-semibold">Status</th>
+                  <th className="px-3 py-3 font-semibold">Available / total</th>
+                  <th className="px-3 py-3 font-semibold">Held</th>
+                  <th className="px-3 py-3 text-right font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {query.isLoading ? (
+                  Array.from({ length: 8 }).map((_, index) => (
+                    <tr key={index} className="border-b border-slate-100">
+                      <td className="py-4 pl-4 pr-3" colSpan={6}>
+                        <div className="h-5 w-full animate-pulse rounded bg-slate-100" />
+                      </td>
+                    </tr>
+                  ))
+                ) : products.length ? (
+                  products.map((product) => (
+                    <ProductRow key={product.product_id} product={product} onAdjust={setStockProduct} />
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-16 text-center">
+                      <Package className="mx-auto h-8 w-8 text-slate-300" />
+                      <p className="mt-3 text-sm font-semibold text-slate-800">No products found</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+            <p className="text-sm text-slate-500">
+              Page {data?.pagination.page ?? page} of {data?.pagination.total_pages ?? 1}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={!canPrev}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setPage((current) => current + 1)}
+                disabled={!canNext}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-600 disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <h2 className="text-sm font-semibold text-slate-950">Recent stock changes</h2>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {(data?.recent_adjustments ?? []).length ? (
+              data!.recent_adjustments.map((item) => (
+                <div key={item.adjustment_id} className="flex items-center justify-between gap-4 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">{item.product_name}</p>
+                    <p className="text-xs text-slate-500">{item.reason.replace(/_/g, ' ')} / {item.source}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-bold ${item.quantity_change >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {item.quantity_change >= 0 ? '+' : ''}{item.quantity_change}
+                    </p>
+                    <p className="text-xs text-slate-500">{item.quantity_before} to {item.quantity_after}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="px-4 py-8 text-center text-sm text-slate-500">No stock changes yet</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <ImportPanel open={importOpen} onClose={() => setImportOpen(false)} />
+      <StockPanel product={stockProduct} onClose={() => setStockProduct(null)} />
     </DashboardLayout>
   )
 }

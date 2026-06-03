@@ -280,6 +280,90 @@ export interface SellerSetupPayload {
   products: SellerSetupProductPayload[]
 }
 
+export interface SellerStockProduct {
+  product_id: string
+  id: string
+  name: string
+  description?: string
+  category?: string
+  sku?: string
+  price: number
+  cost_price?: number
+  margin_percent?: number
+  currency?: string
+  track_inventory?: boolean
+  stock_quantity: number
+  reserved_stock: number
+  available_stock: number
+  low_stock_threshold: number
+  stock_status: 'in_stock' | 'low_stock' | 'out_of_stock' | 'not_tracked' | string
+  in_stock: boolean
+  is_active?: boolean
+  primary_image_url?: string
+  updated_at?: string
+  created_at?: string
+}
+
+export interface SellerProductsStockResponse {
+  summary: {
+    total_products: number
+    active_products: number
+    low_stock: number
+    out_of_stock: number
+    active_holds: number
+    total_stock_units: number
+  }
+  products: SellerStockProduct[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    total_pages: number
+  }
+  categories: string[]
+  recent_adjustments: SellerStockAdjustment[]
+}
+
+export interface SellerStockAdjustment {
+  adjustment_id: string
+  product_id: string
+  product_name?: string
+  product_sku?: string
+  adjustment_type: 'add' | 'reduce' | 'set' | string
+  quantity_change: number
+  quantity_before: number
+  quantity_after: number
+  reserved_before: number
+  available_after: number
+  reason: string
+  source: string
+  reference?: string
+  note?: string
+  created_at: string
+}
+
+export interface SellerProductImportRow {
+  product_id?: string
+  name: string
+  description?: string
+  category?: string
+  price: number
+  cost_price?: number
+  stock_quantity?: number
+  sku?: string
+  image_url?: string
+  is_active?: boolean
+}
+
+export interface SellerStockAdjustmentPayload {
+  product_id: string
+  adjustment_type: 'add' | 'reduce' | 'set'
+  quantity: number
+  reason: string
+  reference?: string
+  note?: string
+}
+
 function unwrap<T>(response: any): T {
   const raw = response?.data?.data ?? response?.data ?? response
   return (raw?.data ?? raw) as T
@@ -322,6 +406,65 @@ export function useSellerSetup(options?: { enabled?: boolean }) {
     queryFn: async () => unwrap<any>(await apiClient.get('/seller-os/setup')),
     enabled: options?.enabled ?? true,
     staleTime: 30000,
+    retry: 1,
+  })
+}
+
+export function useSellerProductsStock(params?: {
+  page?: number
+  limit?: number
+  search?: string
+  category?: string
+  status?: 'all' | 'active' | 'inactive' | 'low_stock' | 'out_of_stock'
+}) {
+  return useQuery({
+    queryKey: ['seller-products-stock', params],
+    queryFn: async () => unwrap<SellerProductsStockResponse>(await apiClient.get('/seller-os/products-stock', { params })),
+    staleTime: 15000,
+    retry: 1,
+  })
+}
+
+export function useImportSellerProductsStock() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { products: SellerProductImportRow[]; source?: 'csv' | 'excel' | 'manual' }) => {
+      return unwrap<any>(await apiClient.post('/seller-os/products-stock/import', payload))
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['seller-products-stock'] })
+      queryClient.invalidateQueries({ queryKey: ['seller-os-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      const created = result?.created_count ?? 0
+      const updated = result?.updated_count ?? 0
+      const failed = result?.failed_count ?? 0
+      toast.success(`Import done: ${created} new, ${updated} updated${failed ? `, ${failed} failed` : ''}`)
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || err?.message || 'Could not import products'),
+  })
+}
+
+export function useAdjustSellerProductStock() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: SellerStockAdjustmentPayload) => {
+      return unwrap<SellerStockAdjustment>(await apiClient.post('/seller-os/products-stock/adjustments', payload))
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['seller-products-stock'] })
+      queryClient.invalidateQueries({ queryKey: ['seller-os-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      toast.success('Stock updated')
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || err?.message || 'Could not update stock'),
+  })
+}
+
+export function useSellerStockAdjustments(params?: { page?: number; limit?: number; search?: string }) {
+  return useQuery({
+    queryKey: ['seller-stock-adjustments', params],
+    queryFn: async () => unwrap<any>(await apiClient.get('/seller-os/products-stock/adjustments', { params })),
+    staleTime: 15000,
     retry: 1,
   })
 }
