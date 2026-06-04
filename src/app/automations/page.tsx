@@ -25,6 +25,9 @@ import {
   XCircle,
   UserMinus,
   Clock,
+  Boxes,
+  PackagePlus,
+  Car,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -97,8 +100,62 @@ function describeTrigger(triggerType: string | undefined | null, triggerParams: 
   if (triggerType === 'trigger.event.booking_cancelled') {
     return { label: 'On booking cancelled', icon: XCircle, color: 'text-rose-700' }
   }
+  if (triggerType === 'trigger.event.booking_link_sent') {
+    return { label: 'On booking link sent', icon: CalendarClock, color: 'text-sky-700' }
+  }
+  if (triggerType === 'trigger.event.room_available') {
+    return { label: 'On room available', icon: CalendarClock, color: 'text-emerald-700' }
+  }
+  if (triggerType === 'trigger.event.booking_followup_due') {
+    return { label: 'On booking follow-up due', icon: Clock, color: 'text-slate-700' }
+  }
+  if (triggerType === 'trigger.event.booking_checkin_reminder_due') {
+    return { label: 'On check-in reminder due', icon: CalendarClock, color: 'text-sky-700' }
+  }
+  if (triggerType === 'trigger.event.booking_review_request_due') {
+    return { label: 'On review request due', icon: MessageSquare, color: 'text-violet-700' }
+  }
   if (triggerType === 'trigger.event.payment_captured') {
     return { label: 'On payment received', icon: CircleDollarSign, color: 'text-amber-700' }
+  }
+  if (triggerType === 'trigger.event.payment_received') {
+    return { label: 'On payment received', icon: CircleDollarSign, color: 'text-amber-700' }
+  }
+  if (triggerType === 'trigger.event.payment_waiting') {
+    return { label: 'On payment waiting', icon: CircleDollarSign, color: 'text-amber-700' }
+  }
+  if (triggerType === 'trigger.event.order_placed') {
+    return { label: 'On order placed', icon: PackagePlus, color: 'text-emerald-700' }
+  }
+  if (triggerType === 'trigger.event.order_status_changed') {
+    return { label: 'On order status change', icon: WorkflowIcon, color: 'text-indigo-700' }
+  }
+  if (triggerType === 'trigger.event.inventory_price_changed') {
+    return { label: 'On inventory price change', icon: CircleDollarSign, color: 'text-amber-700' }
+  }
+  if (triggerType === 'trigger.event.inventory_item_added') {
+    return { label: 'On inventory item added', icon: Boxes, color: 'text-emerald-700' }
+  }
+  if (triggerType === 'trigger.event.inventory_restocked') {
+    return { label: 'On inventory restocked', icon: Boxes, color: 'text-emerald-700' }
+  }
+  if (triggerType === 'trigger.event.stock_held') {
+    return { label: 'On stock held', icon: Boxes, color: 'text-emerald-700' }
+  }
+  if (triggerType === 'trigger.event.slot_opened') {
+    return { label: 'On slot opened', icon: CalendarClock, color: 'text-sky-700' }
+  }
+  if (triggerType === 'trigger.event.credit_due') {
+    return { label: 'On credit due', icon: CircleDollarSign, color: 'text-amber-700' }
+  }
+  if (triggerType === 'trigger.event.dead_stock_offer') {
+    return { label: 'On dead-stock offer', icon: Boxes, color: 'text-emerald-700' }
+  }
+  if (triggerType === 'trigger.event.vehicle_details_shared') {
+    return { label: 'On vehicle details shared', icon: Car, color: 'text-indigo-700' }
+  }
+  if (triggerType === 'trigger.event.vehicle_visit_slots_available') {
+    return { label: 'On visit slots available', icon: CalendarClock, color: 'text-sky-700' }
   }
   if (triggerType === 'trigger.event.lead_inactive') {
     const days = triggerParams?.days
@@ -144,8 +201,6 @@ export default function AutomationsPage() {
     total: workflows.length,
     active: workflows.filter((w) => w.is_active).length,
   }
-
-  console.log("workflowa", workflows)
 
   return (
     <DashboardLayout>
@@ -302,6 +357,12 @@ export default function AutomationsPage() {
                               <StatusIcon className="h-3 w-3 mr-1" />
                               {statusCfg.label}
                             </Badge>
+                            {workflow.blueprint_key && (
+                              <Badge variant="outline" className="gap-1.5 border-indigo-200 text-xs text-indigo-700">
+                                <WorkflowIcon className="h-3 w-3" />
+                                Business blueprint
+                              </Badge>
+                            )}
                           </div>
 
                           {(workflow.description ?? workflow.workflow_definitions?.description) && (
@@ -322,7 +383,7 @@ export default function AutomationsPage() {
                           <Link href={`/automations/builder/${workflow.workflow_id}`}>
                             <Button variant="outline" size="sm">
                               <Edit className="h-4 w-4 mr-1.5" />
-                              Edit
+                              {workflow.blueprint_key ? 'Edit blueprint' : 'Edit'}
                             </Button>
                           </Link>
 

@@ -9,10 +9,10 @@ export const navigationConfig: NavigationConfig = {
   // ── Quick Links (top of sidebar) ───────────────────────────────────────────
   quickLinks: [
     { href: '/inventory/bookings', label: 'Bookings', icon: 'CalendarCheck', businessTypes: ['hospitality', 'events'] },
-    { href: '/orders', label: 'Orders', icon: 'ShoppingCart', businessTypes: ['products'] },
+    { href: '/orders', label: 'Orders', icon: 'ShoppingCart', businessTypes: ['products', 'used_cars'] },
     { href: '/crm/contacts', label: 'Contacts', icon: 'Users' },
     { href: '/crm/inbox', label: 'Live Chat', icon: 'Inbox' },
-    { href: '/crm/campaigns', label: 'Campaigns', icon: 'TrendingUp', businessTypes: ['events', 'products', 'crm_automation'] },
+    { href: '/crm/campaigns', label: 'Campaigns', icon: 'TrendingUp', businessTypes: ['events', 'products', 'used_cars', 'crm_automation'] },
   ],
 
   // ── Sidebar Groups ─────────────────────────────────────────────────────────
@@ -40,9 +40,9 @@ export const navigationConfig: NavigationConfig = {
     // ─ Sales & Orders (products only) ────────────────────────────────────────
     {
       name: 'Sales & Orders',
-      displayName: { products: 'Orders & Sales' },
+      displayName: { products: 'Orders & Sales', used_cars: 'Vehicle Sales' },
       icon: 'ShoppingCart',
-      businessTypes: ['products'],
+      businessTypes: ['products', 'used_cars'],
       children: [
         { name: 'Customers', href: '/customers', icon: 'Users' },
         { name: 'Orders', href: '/orders', icon: 'ShoppingCart' },
@@ -54,7 +54,7 @@ export const navigationConfig: NavigationConfig = {
     // ─ Inventory (visible to all, items vary) ────────────────────────────────
     {
       name: 'Inventory',
-      displayName: { hospitality: 'Rooms & Properties', events: 'My Events', products: 'My Products' },
+      displayName: { hospitality: 'Rooms & Properties', events: 'My Events', products: 'My Products', used_cars: 'My Vehicles' },
       icon: 'Package',
       children: [
         {
@@ -71,34 +71,34 @@ export const navigationConfig: NavigationConfig = {
           icon: 'Ticket',
           businessTypes: ['events'],
         },
-        { name: 'Products', href: '/inventory/products', icon: 'Package', businessTypes: ['products'] },
+        { name: 'Products', displayName: { used_cars: 'Vehicles' }, href: '/inventory/products', icon: 'Package', businessTypes: ['products', 'used_cars'] },
         {
           name: 'Categories',
-          displayName: { hospitality: 'Room Categories', events: 'Event Categories', products: 'Product Categories' },
+          displayName: { hospitality: 'Room Categories', events: 'Event Categories', products: 'Product Categories', used_cars: 'Vehicle Categories' },
           href: '/inventory/categories',
           icon: 'Layers',
-          businessTypes: ['hospitality', 'events', 'products'],
+          businessTypes: ['hospitality', 'events', 'products', 'used_cars'],
         },
-        { name: 'WhatsApp Catalog', href: '/inventory/catalog', icon: 'MessageSquare', businessTypes: ['products'] },
-        { name: 'Stock Movements', href: '/inventory/stock-movements', icon: 'ArrowLeftRight', businessTypes: ['products'] },
+        { name: 'WhatsApp Catalog', href: '/inventory/catalog', icon: 'MessageSquare', businessTypes: ['products', 'used_cars'] },
+        { name: 'Stock Movements', href: '/inventory/stock-movements', icon: 'ArrowLeftRight', businessTypes: ['products', 'used_cars'] },
       ],
     },
 
     // ─ CRM (all types, label changes per type) ───────────────────────────────
     {
       name: 'CRM',
-      displayName: { hospitality: 'Enquiries', events: 'Enquiries', products: 'Customers' },
+      displayName: { hospitality: 'Enquiries', events: 'Enquiries', products: 'Customers', used_cars: 'Buyers' },
       icon: 'Users',
       children: [
         {
           name: 'Leads',
-          displayName: { hospitality: 'Guest Enquiries', events: 'Event Enquiries', products: 'Customer Enquiries' },
+          displayName: { hospitality: 'Guest Enquiries', events: 'Event Enquiries', products: 'Customer Enquiries', used_cars: 'Buyer Enquiries' },
           href: '/crm/leads',
           icon: 'UserPlus',
         },
         {
           name: 'Social Inbox',
-          displayName: { hospitality: 'WhatsApp Inbox', events: 'WhatsApp Inbox', products: 'WhatsApp Inbox' },
+          displayName: { hospitality: 'WhatsApp Inbox', events: 'WhatsApp Inbox', products: 'WhatsApp Inbox', used_cars: 'WhatsApp Inbox' },
           href: '/crm/inbox',
           icon: 'Inbox',
         },
@@ -140,7 +140,7 @@ export const navigationConfig: NavigationConfig = {
       displayName: { hospitality: 'AI Assistant', events: 'AI Assistant', products: 'AI Assistant' },
       icon: 'Brain',
       children: [
-        { name: 'Campaign Optimizer', href: '/campaigns/optimizer', icon: 'Zap', businessTypes: ['events', 'products', 'crm_automation'] },
+        { name: 'Campaign Optimizer', href: '/campaigns/optimizer', icon: 'Zap', businessTypes: ['events', 'products', 'used_cars', 'crm_automation'] },
         { name: 'AI Chatbot', displayName: { hospitality: 'Chatbot Settings', events: 'Chatbot Settings', products: 'Chatbot Settings' }, href: '/chatbot', icon: 'Bot' },
         { name: 'Live Monitor', displayName: { hospitality: 'AI Activity', events: 'AI Activity', products: 'AI Activity' }, href: '/campaigns/live', icon: 'Activity' },
         { name: 'Bot Business Data', href: '/chatbot/data', icon: 'Database', comingSoon: true },

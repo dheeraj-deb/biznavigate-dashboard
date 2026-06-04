@@ -23,6 +23,7 @@ const profileSchema = z.object({
     'education',
     'healthcare',
     'real_estate',
+    'used_cars',
     'hospitality',
     'consulting',
     'technology',
@@ -225,6 +226,7 @@ export function ProfileCompletionModal({ open, onClose }: ProfileCompletionModal
               <option value="education">Education</option>
               <option value="healthcare">Healthcare</option>
               <option value="real_estate">Real Estate</option>
+              <option value="used_cars">Used Cars</option>
               <option value="hospitality">Hospitality</option>
               <option value="consulting">Consulting</option>
               <option value="technology">Technology</option>

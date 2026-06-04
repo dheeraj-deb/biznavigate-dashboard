@@ -127,6 +127,22 @@ export const businessTypeRegistry: Record<BusinessType, BusinessTypeConfig> = {
     navigation: navigationConfig.groups,
     dashboard: genericDashboard,
   },
+  used_cars: {
+    type: 'used_cars',
+    label: 'Used Cars',
+    modules: ['crm', 'whatsapp', 'automations', 'catalog', 'inventory', 'payments', 'analytics', 'campaigns'],
+    terminology: {
+      ...sharedTerminology,
+      customer: 'Buyer',
+      customers: 'Buyers',
+      order: 'Deal',
+      orders: 'Deals',
+      item: 'Vehicle',
+      items: 'Vehicles',
+    },
+    navigation: navigationConfig.groups,
+    dashboard: dashboardConfig.used_cars ?? dashboardConfig.real_estate ?? genericDashboard,
+  },
   professional_services: {
     type: 'professional_services',
     label: 'Professional Services',

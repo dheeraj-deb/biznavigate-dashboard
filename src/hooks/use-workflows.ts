@@ -5,8 +5,9 @@ import { toast } from 'sonner'
 export interface WorkflowDefinitionMeta {
   workflow_id: string
   workflow_name: string
-  workflow_key: string
-  intent_name: string
+  workflow_key?: string
+  intent_name?: string
+  blueprint_key?: string
   description: string | null
   version: string
   is_active: boolean
@@ -18,11 +19,12 @@ export interface WorkflowDefinitionMeta {
 
 export interface WorkflowDetail {
   workflow_id: string
-  workflow_key: string
+  workflow_key?: string
   workflow_name: string
   version: string
   business_type: string
-  intent_name: string
+  intent_name?: string
+  blueprint_key?: string
   description: string | null
   is_active: boolean
   created_at: string
@@ -35,16 +37,37 @@ export interface WorkflowDetail {
 
 export interface WorkflowSummary {
   id: string
+  _id?: string
   workflow_id: string
-  workflow_name: string
+  workflow_name?: string
   description: string | null
   business_id: string
   tenant_id: string
-  intent_name: string
+  intent_name?: string
   is_active: boolean
   created_at: string
   updated_at: string
+  blueprint_key?: string
+  workflow_definition?: WorkflowDefinitionMeta | null
   workflow_definitions: WorkflowDefinitionMeta
+}
+
+function normalizeWorkflowSummary(row: any): WorkflowSummary {
+  const definition = row.workflow_definitions ?? row.workflow_definition ?? null
+  return {
+    ...row,
+    id: row.id ?? row._id,
+    workflow_id: row.workflow_id,
+    workflow_name: row.workflow_name ?? definition?.workflow_name,
+    description: row.description ?? definition?.description ?? null,
+    intent_name: row.intent_name ?? definition?.intent_name,
+    is_active: row.is_active ?? definition?.is_active ?? false,
+    created_at: row.created_at ?? definition?.created_at,
+    updated_at: row.updated_at ?? definition?.updated_at,
+    blueprint_key: row.blueprint_key ?? definition?.blueprint_key,
+    workflow_definition: definition,
+    workflow_definitions: definition,
+  }
 }
 
 export function useWorkflows(businessId: string) {
@@ -52,7 +75,7 @@ export function useWorkflows(businessId: string) {
     queryKey: ['workflows', businessId],
     queryFn: async () => {
       const response = await apiClient.get(`/workflows/business/${businessId}`)
-      return (response.data ?? []) as WorkflowSummary[]
+      return ((response.data ?? []) as any[]).map(normalizeWorkflowSummary)
     },
     enabled: !!businessId,
   })

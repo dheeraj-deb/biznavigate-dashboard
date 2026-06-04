@@ -178,12 +178,16 @@ function shortDate(value?: string) {
   return parsed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 }
 
+function isSalesBusinessType(businessType: string) {
+  return ['products', 'retail', 'used_cars'].includes(businessType)
+}
+
 function useRecentWork(businessType: string) {
   return useQuery({
     queryKey: ['dashboard-simple-recent-work', businessType],
     queryFn: async () => {
-      const endpoint = businessType === 'products' ? '/orders' : '/orders'
-      const params = businessType === 'products'
+      const endpoint = '/orders'
+      const params = isSalesBusinessType(businessType)
         ? { limit: 4, sort: '-created_at' }
         : { order_type: 'accommodation', limit: 4, sort: '-created_at' }
       const response = await apiClient.get(endpoint, { params })
@@ -286,9 +290,18 @@ export function DashboardRenderer() {
   const resortRemindersQuery = useResortReminderReadiness(14)
   const aiManagerQuery = useAiManagerToday()
 
-  const bookingLabel = businessType === 'products' ? 'orders' : 'bookings'
+  const isSalesBusiness = isSalesBusinessType(businessType)
+  const isUsedCars = businessType === 'used_cars'
+  const bookingLabel = isUsedCars ? 'deals' : isSalesBusiness ? 'orders' : 'bookings'
+  const enquiryLabel = isUsedCars ? 'Buyer enquiries' : isSalesBusiness ? 'Customer enquiries' : 'Guest enquiries'
+  const managerLabel = isUsedCars ? 'AI Vehicle Sales Manager' : isSalesBusiness ? 'AI Sales Manager' : 'AI Resort Manager'
+  const ownerDescription = isUsedCars
+    ? 'Today\'s owner view. See what needs action first, then check buyers, vehicle enquiries and WhatsApp in one place.'
+    : isSalesBusiness
+      ? 'Today\'s owner view. See what needs action first, then check orders, customer enquiries and WhatsApp in one place.'
+      : 'Today\'s owner view. See what needs action first, then check bookings, enquiries and WhatsApp in one place.'
   const businessName = businessSettings?.business_name?.trim()
-    || (businessType === 'products' ? 'Your Store' : businessType === 'events' ? 'Your Event Venue' : 'Your Resort')
+    || (isUsedCars ? 'Your Showroom' : isSalesBusiness ? 'Your Store' : businessType === 'events' ? 'Your Event Venue' : 'Your Resort')
   const location = [businessSettings?.city, businessSettings?.state].filter(Boolean).join(', ')
 
   const attentionLeads: SimpleLead[] = (needsAttentionQuery.data ?? [])
@@ -348,12 +361,12 @@ export function DashboardRenderer() {
                 <Bot className="h-5 w-5" />
               </span>
               <div className="min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wide text-[#0066FF]">AI Resort Manager</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-[#0066FF]">{managerLabel}</p>
                 <h1 className="truncate text-2xl font-bold text-slate-950">{businessName}</h1>
               </div>
             </div>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Today&apos;s owner view. See what needs action first, then check bookings, enquiries and WhatsApp in one place.
+              {ownerDescription}
             </p>
           </div>
 
@@ -367,11 +380,11 @@ export function DashboardRenderer() {
             <Button asChild variant="outline" className="gap-2 bg-white">
               <Link href="/crm/leads">
                 <Users className="h-4 w-4" />
-                Guest enquiries
+                {enquiryLabel}
               </Link>
             </Button>
             <Button asChild variant="outline" className="gap-2 bg-white">
-              <Link href={businessType === 'products' ? '/inventory/products' : '/inventory/rooms'}>
+              <Link href={isSalesBusiness ? '/inventory/products' : '/inventory/rooms'}>
                 <Package className="h-4 w-4" />
                 Inventory
               </Link>
@@ -472,7 +485,7 @@ export function DashboardRenderer() {
               <strong className="shrink-0 text-sm text-slate-950">{needsReplyCount}</strong>
             </Link>
 
-            {businessType !== 'products' ? (
+            {!isSalesBusiness ? (
               <>
                 <Link href="/crm/leads" className="flex items-center justify-between gap-3 p-3 hover:bg-slate-50">
                   <span className="flex min-w-0 items-center gap-3">
@@ -516,7 +529,7 @@ export function DashboardRenderer() {
         <Card className="border-slate-200 p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-slate-950">Guest enquiries</h2>
+              <h2 className="text-lg font-bold text-slate-950">{enquiryLabel}</h2>
               <p className="mt-1 text-sm text-slate-500">New and warm leads, kept simple.</p>
             </div>
             <Button asChild variant="ghost" size="sm" className="gap-1 text-[#0066FF]">
@@ -567,12 +580,14 @@ export function DashboardRenderer() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-slate-950">
-                {businessType === 'products' ? `Latest ${bookingLabel}` : 'Bookings and stays'}
+                {isSalesBusiness ? `Latest ${bookingLabel}` : 'Bookings and stays'}
               </h2>
-              <p className="mt-1 text-sm text-slate-500">Recent bookings with the next arrival checks.</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {isSalesBusiness ? `Recent ${bookingLabel} and buyer activity.` : 'Recent bookings with the next arrival checks.'}
+              </p>
             </div>
             <Button asChild variant="ghost" size="sm" className="gap-1 text-[#0066FF]">
-              <Link href={businessType === 'products' ? '/orders' : '/inventory/bookings'}>
+              <Link href={isSalesBusiness ? '/orders' : '/inventory/bookings'}>
                 View
                 <ArrowRight className="h-4 w-4" />
               </Link>

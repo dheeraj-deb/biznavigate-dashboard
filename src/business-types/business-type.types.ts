@@ -5,6 +5,7 @@ export type BusinessType =
   | 'healthcare'
   | 'retail'
   | 'real_estate'
+  | 'used_cars'
   | 'professional_services'
   | 'crm_automation'
   | 'education'
@@ -64,6 +65,13 @@ export const BUSINESS_TYPE_ALIASES: Record<string, BusinessType> = {
   realestate: 'real_estate',
   real_estate: 'real_estate',
   property: 'real_estate',
+  used_cars: 'used_cars',
+  used_car: 'used_cars',
+  second_hand_car: 'used_cars',
+  second_hand_cars: 'used_cars',
+  automotive: 'used_cars',
+  vehicle: 'used_cars',
+  car_dealer: 'used_cars',
   education: 'education',
   school: 'education',
   institute: 'education',
