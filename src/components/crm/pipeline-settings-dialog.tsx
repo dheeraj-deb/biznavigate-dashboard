@@ -51,7 +51,7 @@ export function PipelineSettingsDialog({ open, onOpenChange, initialPipelineId }
 
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
-  const [newTemplate, setNewTemplate] = useState<'hospitality' | 'commerce' | 'generic' | 'real_estate' | 'service'>('generic')
+  const [newTemplate, setNewTemplate] = useState<'hospitality' | 'commerce' | 'generic' | 'real_estate' | 'service' | 'automotive'>('generic')
 
   const createPipeline = useCreatePipeline()
   const renamePipeline = useRenamePipeline()
@@ -117,6 +117,7 @@ export function PipelineSettingsDialog({ open, onOpenChange, initialPipelineId }
                       <SelectItem value="hospitality">Hospitality template</SelectItem>
                       <SelectItem value="commerce">Commerce template</SelectItem>
                       <SelectItem value="real_estate">Real Estate template</SelectItem>
+                      <SelectItem value="automotive">Used Car template</SelectItem>
                       <SelectItem value="service">Service / Agency template</SelectItem>
                       <SelectItem value="generic">Generic template</SelectItem>
                     </SelectContent>

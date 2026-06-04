@@ -58,6 +58,16 @@ export interface OnboardingEmployeeResult {
 export interface OnboardingResult {
   business: OnboardingBusiness
   employees_created: OnboardingEmployeeResult[]
+  business_blueprints?: {
+    status: string
+    group?: string
+    pipeline_id?: string
+    workflows?: unknown
+    blueprint_seeded_at?: string
+  } | {
+    status: 'skipped'
+    reason: string
+  } | null
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────

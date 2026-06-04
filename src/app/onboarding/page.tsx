@@ -285,7 +285,7 @@ export default function OnboardingPage() {
 
   const selectedBusinessType = onboardingBusinessTypes.find((type) => type.value === formData.businessType) ?? onboardingBusinessTypes[0]
   const progressPercent = Math.round((currentStep / totalSteps) * 100)
-  const isProductSeller = formData.businessType === 'products'
+  const isProductSeller = formData.businessType === 'products' || formData.businessType === 'retail'
   const handleWhatsAppConnected = () => {
     router.push(isProductSeller ? '/seller-setup' : '/dashboard')
   }

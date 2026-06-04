@@ -477,17 +477,19 @@ export default function InventoryServicesPage() {
   }
 
   // ── Products redirect ──
-  if (['products', 'retail'].includes(bizType)) {
+  if (['products', 'retail', 'used_cars'].includes(bizType)) {
+    const inventoryLabel = bizType === 'used_cars' ? 'Vehicle Inventory' : 'Product Inventory'
+    const sectionLabel = bizType === 'used_cars' ? 'Vehicles' : 'Products'
     return (
       <DashboardLayout>
         <div className="max-w-xl mx-auto mt-20 text-center space-y-4">
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[#0066FF]/10 mx-auto">
             <Package className="h-8 w-8 text-[#0066FF]" />
           </div>
-          <h2 className="text-xl font-bold text-[#4B4B4B]">Product Inventory is Managed Separately</h2>
-          <p className="text-[14px] text-[#6E6E6E]">Manage your inventory in the <strong>Products</strong> section.</p>
+          <h2 className="text-xl font-bold text-[#4B4B4B]">{inventoryLabel} is Managed Separately</h2>
+          <p className="text-[14px] text-[#6E6E6E]">Manage your inventory in the <strong>{sectionLabel}</strong> section.</p>
           <a href="/inventory/products" className="inline-flex items-center gap-2 rounded-full bg-[#0066FF] px-6 py-2.5 text-[13px] font-bold text-white hover:bg-[#0052CC] transition-colors">
-            Go to Products →
+            Go to {sectionLabel} →
           </a>
         </div>
       </DashboardLayout>

@@ -38,18 +38,17 @@ export function StepReview({
     return new Map<string, NodeDefinition>(all.map((d: NodeDefinition) => [d.type, d]))
   }, [nodeDefsResult])
 
-  // Detect trigger collision: another ACTIVE workflow with the same intent.
-  // The runtime resolves "active workflow for (business, intent)" deterministically,
-  // so a silent collision can mean the new automation never runs.
+  // Detect trigger collision: another ACTIVE workflow with the same actual
+  // trigger signature. Event and schedule triggers commonly have no intent, so
+  // comparing only intent would mark unrelated blueprints as duplicates.
   const collisionWith = useMemo(() => {
     if (!triggerNode || !existingWorkflows.length) return null
-    const triggerIntent =
-      triggerNode.type === 'trigger.whatsapp.intent' ? triggerNode.params?.intent : 'default'
+    const triggerSignature = signatureForTrigger(triggerNode)
     return existingWorkflows.find((w) => {
       if (w.workflow_id === workflowId) return false
       if (!w.is_active) return false
-      const otherIntent = w.workflow_definitions?.intent_name ?? 'default'
-      return otherIntent === (triggerIntent ?? 'default')
+      const otherTrigger = w.workflow_definitions?.nodes?.find((node: WizardNode) => node.type?.startsWith('trigger.'))
+      return otherTrigger ? signatureForTrigger(otherTrigger) === triggerSignature : false
     })
   }, [existingWorkflows, triggerNode, workflowId])
 
@@ -262,7 +261,7 @@ function collectValidationIssues(
     const stack = [trigger.id]
     while (stack.length) {
       const cur = stack.pop()!
-      for (const e of connections[cur]?.main ?? []) {
+      for (const e of connectionEdges(connections[cur])) {
         if (e.node && !reachable.has(e.node)) {
           reachable.add(e.node)
           stack.push(e.node)
@@ -277,4 +276,39 @@ function collectValidationIssues(
   }
 
   return issues
+}
+
+function connectionEdges(value: any): Array<{ node: string; condition?: any }> {
+  if (Array.isArray(value)) return value
+  if (Array.isArray(value?.main)) return value.main
+  return []
+}
+
+function signatureForTrigger(node: WizardNode): string {
+  const params = node.params ?? {}
+  if (node.type === 'trigger.whatsapp.intent') {
+    return `${node.type}:${String(params.intent ?? '').trim().toLowerCase()}`
+  }
+  if (node.type === 'trigger.event.lead_status_changed') {
+    return `${node.type}:${stableString({
+      event: params.event ?? 'lead.status_changed',
+      to_status: params.to_status ?? [],
+      from_status: params.from_status ?? [],
+    })}`
+  }
+  if (node.type.startsWith('trigger.event.')) {
+    return `${node.type}:${params.event ?? node.type}`
+  }
+  if (node.type === 'trigger.schedule') {
+    return `${node.type}:${stableString(params.schedule ?? params)}`
+  }
+  return `${node.type}:${stableString(params)}`
+}
+
+function stableString(value: any): string {
+  if (Array.isArray(value)) return `[${value.map(stableString).join(',')}]`
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${key}:${stableString(value[key])}`).join(',')}}`
+  }
+  return String(value ?? '')
 }

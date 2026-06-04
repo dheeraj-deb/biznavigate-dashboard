@@ -184,13 +184,16 @@ function shortDate(value?: string) {
   return parsed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 }
 
+function isSalesBusinessType(businessType: string) {
+  return ['products', 'retail', 'used_cars'].includes(businessType)
+}
+
 function useRecentWork(businessType: string) {
   return useQuery({
     queryKey: ['dashboard-simple-recent-work', businessType],
     queryFn: async () => {
-      const productBusiness = businessType === 'products' || businessType === 'retail'
-      const endpoint = productBusiness ? '/orders' : '/orders'
-      const params = productBusiness
+      const endpoint = '/orders'
+      const params = isSalesBusinessType(businessType)
         ? { limit: 4, sort: '-created_at' }
         : { order_type: 'accommodation', limit: 4, sort: '-created_at' }
       const response = await apiClient.get(endpoint, { params })
@@ -753,6 +756,8 @@ function ProductSellerDashboard({
 export function DashboardRenderer() {
   const { businessType, isLoading: bizLoading } = useBusinessType()
   const isProductBusiness = businessType === 'products' || businessType === 'retail'
+  const isSalesBusiness = isSalesBusinessType(businessType)
+  const isUsedCars = businessType === 'used_cars'
   const { data: statsData, isLoading: statsLoading } = useDashboardStats()
   const { data: businessSettings } = useBusinessSettings()
   const dailyOverviewQuery = useDailyOverview()
@@ -760,21 +765,24 @@ export function DashboardRenderer() {
   const recentLeadsQuery = useLeads({ limit: 5, sort: '-created_at' } as any)
   const recentWorkQuery = useRecentWork(businessType)
   const inboxQuery = useConversations({ channel: 'whatsapp', limit: 5 } as any)
-  const resortWorklistQuery = useResortWorklist(14, !isProductBusiness)
-  const resortRemindersQuery = useResortReminderReadiness(14, !isProductBusiness)
+  const resortWorklistQuery = useResortWorklist(14, !isSalesBusiness)
+  const resortRemindersQuery = useResortReminderReadiness(14, !isSalesBusiness)
   const aiManagerQuery = useAiManagerToday()
 
-  const bookingLabel = isProductBusiness ? 'orders' : 'bookings'
-  const enquiryTitle = isProductBusiness ? 'Product enquiries' : 'Guest enquiries'
-  const inventoryHref = isProductBusiness ? '/inventory/products' : '/inventory/rooms'
-  const ordersHref = isProductBusiness ? '/orders' : '/inventory/bookings'
-  const aiTitle = aiManagerQuery.data?.title ?? (isProductBusiness ? 'AI Store Manager' : 'AI Resort Manager')
+  const bookingLabel = isUsedCars ? 'deals' : isSalesBusiness ? 'orders' : 'bookings'
+  const enquiryLabel = isUsedCars ? 'Buyer enquiries' : isSalesBusiness ? 'Customer enquiries' : 'Guest enquiries'
+  const enquiryTitle = isUsedCars ? 'Buyer enquiries' : isProductBusiness ? 'Product enquiries' : 'Guest enquiries'
+  const inventoryHref = isSalesBusiness ? '/inventory/products' : '/inventory/rooms'
+  const ordersHref = isSalesBusiness ? '/orders' : '/inventory/bookings'
+  const aiTitle = aiManagerQuery.data?.title ?? (isUsedCars ? 'AI Vehicle Sales Manager' : isProductBusiness ? 'AI Store Manager' : 'AI Resort Manager')
   const aiSubtitle = aiManagerQuery.data?.subtitle
-    ?? (isProductBusiness
+    ?? (isUsedCars
+      ? 'What to do today to convert buyer enquiries into vehicle deals.'
+      : isProductBusiness
       ? 'What to do today to convert product enquiries into orders.'
       : 'What to do today to get bookings and avoid mistakes.')
   const businessName = businessSettings?.business_name?.trim()
-    || (isProductBusiness ? 'Your Store' : businessType === 'events' ? 'Your Event Venue' : 'Your Resort')
+    || (isUsedCars ? 'Your Showroom' : isProductBusiness ? 'Your Store' : businessType === 'events' ? 'Your Event Venue' : 'Your Resort')
   const location = [businessSettings?.city, businessSettings?.state].filter(Boolean).join(', ')
 
   const attentionLeads: SimpleLead[] = (needsAttentionQuery.data ?? [])
@@ -812,7 +820,7 @@ export function DashboardRenderer() {
     ?? dailyOverviewQuery.data?.by_status?.find((item: any) => ['won', 'booked', 'converted'].includes(item.status))?.count
     ?? 0
   const revenue = (statsData as any)?.totalRevenue ?? (statsData as any)?.revenue ?? 0
-  const missedDemand = isProductBusiness ? 0 : Number(resortCounts.demand_missed ?? 0)
+  const missedDemand = isSalesBusiness ? 0 : Number(resortCounts.demand_missed ?? 0)
   const reminderCounts = resortRemindersQuery.data?.counts ?? {}
   const remindersReady = Number(reminderCounts.ready ?? 0)
   const needsAttentionTotal = pendingToday + needsReplyCount + missedDemand
@@ -987,13 +995,13 @@ export function DashboardRenderer() {
               <strong className="shrink-0 text-sm text-slate-950">{needsReplyCount}</strong>
             </Link>
 
-            {isProductBusiness ? (
+            {isSalesBusiness ? (
               <>
                 <Link href="/orders" className="flex items-center justify-between gap-3 p-3 hover:bg-slate-50">
                   <span className="flex min-w-0 items-center gap-3">
                     <IndianRupee className="h-4 w-4 shrink-0 text-amber-600" />
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-slate-950">Unpaid orders</span>
+                      <span className="block truncate text-sm font-semibold text-slate-950">{isUsedCars ? 'Pending deal payments' : 'Unpaid orders'}</span>
                       <span className="block truncate text-xs text-slate-500">Collect payment or confirm customer interest</span>
                     </span>
                   </span>
@@ -1004,8 +1012,8 @@ export function DashboardRenderer() {
                   <span className="flex min-w-0 items-center gap-3">
                     <ShoppingCart className="h-4 w-4 shrink-0 text-blue-600" />
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-slate-950">Active carts</span>
-                      <span className="block truncate text-xs text-slate-500">Customers selected products but may need help</span>
+                      <span className="block truncate text-sm font-semibold text-slate-950">{isUsedCars ? 'Warm buyers' : 'Active carts'}</span>
+                      <span className="block truncate text-xs text-slate-500">{isUsedCars ? 'Buyers may need test-drive or availability help' : 'Customers selected products but may need help'}</span>
                     </span>
                   </span>
                   <strong className="shrink-0 text-sm text-slate-950">{aiManagerQuery.data?.counts?.active_carts ?? 0}</strong>
@@ -1015,8 +1023,8 @@ export function DashboardRenderer() {
                   <span className="flex min-w-0 items-center gap-3">
                     <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-slate-950">Stock issues</span>
-                      <span className="block truncate text-xs text-slate-500">Low or out-of-stock products</span>
+                      <span className="block truncate text-sm font-semibold text-slate-950">{isUsedCars ? 'Vehicle availability' : 'Stock issues'}</span>
+                      <span className="block truncate text-xs text-slate-500">{isUsedCars ? 'Keep vehicle listings and status current' : 'Low or out-of-stock products'}</span>
                     </span>
                   </span>
                   <strong className="shrink-0 text-sm text-slate-950">{aiManagerQuery.data?.counts?.low_stock ?? 0}</strong>
@@ -1068,7 +1076,11 @@ export function DashboardRenderer() {
             <div>
               <h2 className="text-lg font-bold text-slate-950">{enquiryTitle}</h2>
               <p className="mt-1 text-sm text-slate-500">
-                {isProductBusiness ? 'Customers asking about products, price, delivery or payment.' : 'New and warm leads, kept simple.'}
+                {isUsedCars
+                  ? 'Buyers asking about vehicles, price, availability or visits.'
+                  : isProductBusiness
+                    ? 'Customers asking about products, price, delivery or payment.'
+                    : 'New and warm leads, kept simple.'}
               </p>
             </div>
             <Button asChild variant="ghost" size="sm" className="gap-1 text-[#0066FF]">
@@ -1119,10 +1131,14 @@ export function DashboardRenderer() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-slate-950">
-                {isProductBusiness ? `Latest ${bookingLabel}` : 'Bookings and stays'}
+                {isSalesBusiness ? `Latest ${bookingLabel}` : 'Bookings and stays'}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                {isProductBusiness ? 'Recent customer orders and payment value.' : 'Recent bookings with the next arrival checks.'}
+                {isUsedCars
+                  ? 'Recent deals and buyer activity.'
+                  : isProductBusiness
+                    ? 'Recent customer orders and payment value.'
+                    : 'Recent bookings with the next arrival checks.'}
               </p>
             </div>
             <Button asChild variant="ghost" size="sm" className="gap-1 text-[#0066FF]">

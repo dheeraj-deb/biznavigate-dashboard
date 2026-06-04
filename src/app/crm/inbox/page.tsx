@@ -1,21 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react'
+import { useState, useEffect, useRef, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,16 +22,29 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
-import { Plus, Search, MessageSquare, Phone, Video, MoreVertical, Paperclip, Send, Check, CheckCheck, Info, RefreshCw, X, Link as LinkIcon, Image as ImageIcon, FileText, Smile, Star, Trash2, UserPlus, Tag, Filter, Instagram, Archive, AlertCircle, Clock, Bot } from 'lucide-react'
+import { Search, MessageSquare, Phone, MoreVertical, Paperclip, Send, Check, CheckCheck, RefreshCw, X, Image as ImageIcon, UserPlus, AlertCircle, Bot, UserCheck, Inbox } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { format, formatDistanceToNow } from 'date-fns'
-import { useConversations, useCustomerConversations, useSendMessage, useUpdateConversationStatus, useInboxWebSocket, useTakeoverConversation, useResolveConversation, ConversationListItem, MessageData, Channel as Platform, ConversationStatus as MessageStatus, GroupedCustomer, AggregatedCustomerDetail } from '@/hooks/use-inbox'
+import { formatDistanceToNow } from 'date-fns'
+import { useConversations, useCustomerConversations, useSendMessage, useUpdateConversationStatus, useInboxWebSocket, useTakeoverConversation, useResolveConversation, Channel as Platform, GroupedCustomer } from '@/hooks/use-inbox'
 import { isToday, isYesterday, format as formatDate } from 'date-fns'
+import { useAuthStore } from '@/store/auth-store'
 
-// Define platform type based on what we use in UI
-type UIPlatform = 'whatsapp' | 'instagram' | 'comment'
+type InboxTab = 'needs' | 'mine' | 'ai' | 'resolved' | 'all'
+
+const queueLabels: Record<InboxTab, { label: string; description: string }> = {
+  all: { label: 'All conversations', description: 'Everything in one place' },
+  needs: { label: 'Needs attention', description: 'AI or bot asked for help' },
+  mine: { label: 'Assigned to me', description: 'Chats owned by you' },
+  ai: { label: 'AI handled', description: 'Bot is still replying' },
+  resolved: { label: 'Resolved', description: 'Closed conversations' },
+}
+
+function getInboxTabFromParam(value: string | null): InboxTab {
+  if (value === 'needs' || value === 'priority') return 'needs'
+  if (value === 'mine' || value === 'ai' || value === 'resolved' || value === 'all') return value
+  return 'all'
+}
 
 interface TemplateButton { type: string; text: string }
 interface TemplateHeader { type: string; text?: string }
@@ -123,12 +128,14 @@ export default function SocialInboxPageWrapper() {
 function SocialInboxPage() {
   const searchParams = useSearchParams()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { user } = useAuthStore()
+  const currentUserId = user?.user_id || user?.id || ''
 
   // Socket
   useInboxWebSocket()
 
   // Queries & Mutations
-  const { data: convData, isLoading: isLoadingList } = useConversations({ limit: 100 })
+  const { data: convData, isLoading: isLoadingList, isFetching: isRefreshingList, refetch: refetchConversations } = useConversations({ limit: 100 })
   const messages = convData?.data || []
 
   const { mutateAsync: sendMessageAsync } = useSendMessage()
@@ -153,7 +160,7 @@ function SocialInboxPage() {
     return all.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
   }, [detailData])
 
-  const [activeTab, setActiveTab] = useState<'all' | 'escalated' | 'resolved' | 'bot'>('all')
+  const [activeTab, setActiveTab] = useState<InboxTab>(() => getInboxTabFromParam(searchParams.get('tab') || searchParams.get('queue')))
   const [searchQuery, setSearchQuery] = useState('')
   const [replyText, setReplyText] = useState('')
 
@@ -161,7 +168,6 @@ function SocialInboxPage() {
   const [newConversationData, setNewConversationData] = useState({
     name: '',
     phone: '',
-    platform: 'whatsapp' as Platform,
   })
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
 
@@ -217,6 +223,10 @@ function SocialInboxPage() {
     return () => window.removeEventListener('resize', handleResize)
   }, [selectedCustomerId])
 
+  useEffect(() => {
+    setActiveTab(getInboxTabFromParam(searchParams.get('tab') || searchParams.get('queue')))
+  }, [searchParams])
+
   // Handle opening specific chat from URL parameters
   useEffect(() => {
     const contactName = searchParams.get('contact')
@@ -246,45 +256,6 @@ function SocialInboxPage() {
     }
   }, [searchParams, messages, selectedCustomerId]) // removed handleSelectCustomer to prevent infinite loop
 
-
-  const getPlatformIcon = (platform: Platform) => {
-    switch (platform) {
-      case 'whatsapp':
-        return <MessageSquare className="h-4 w-4 text-green-600" />
-      case 'instagram':
-        return <Instagram className="h-4 w-4 text-purple-600" />
-      case 'comment':
-        return <MessageSquare className="h-4 w-4 text-blue-600" />
-    }
-  }
-
-  const getPlatformBadge = (platform: Platform) => {
-    const configs = {
-      whatsapp: { label: 'WhatsApp', className: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400' },
-      instagram: { label: 'Instagram', className: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400' },
-      comment: { label: 'Comment', className: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400' },
-    }
-    const config = configs[platform]
-    return (
-      <Badge variant="secondary" className={cn('text-xs', config.className)}>
-        {config.label}
-      </Badge>
-    )
-  }
-
-  const getStatusBadge = (status: MessageStatus) => {
-    const configs = {
-      active: { label: 'Active', className: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400' },
-      waiting: { label: 'Waiting', className: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
-      ended: { label: 'Ended', className: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400' },
-    }
-    const config = configs[status]
-    return (
-      <Badge variant="secondary" className={cn('text-xs', config?.className)}>
-        {config?.label || status}
-      </Badge>
-    )
-  }
 
   // ── Group Conversations by Customer ──
   const groupedCustomers = messages.reduce<GroupedCustomer[]>((acc, msg) => {
@@ -336,25 +307,81 @@ function SocialInboxPage() {
     return acc
   }, [])
 
+  const inboxStats = groupedCustomers.reduce(
+    (acc, customer) => {
+      const needsAttention = !!customer.needs_attention && !customer.is_resolved
+      const isMine = !!currentUserId && customer.agent_id === currentUserId && !customer.is_resolved
+      const isAI = !!customer.is_ai_handled && !customer.is_resolved
+
+      if (needsAttention) acc.needs += 1
+      if (isMine) acc.mine += 1
+      if (isAI) acc.ai += 1
+      if (customer.is_resolved) acc.resolved += 1
+      acc.unread += customer.unreadCount || 0
+      return acc
+    },
+    { needs: 0, mine: 0, ai: 0, resolved: 0, unread: 0 }
+  )
+
+  const queueTabs = [
+    {
+      key: 'all',
+      icon: Inbox,
+      count: groupedCustomers.length,
+      tone: 'text-slate-500 bg-slate-100 dark:bg-slate-800 dark:text-slate-300',
+    },
+    {
+      key: 'needs',
+      icon: AlertCircle,
+      count: inboxStats.needs,
+      tone: 'text-orange-600 bg-orange-100 dark:bg-orange-950/50 dark:text-orange-300',
+    },
+    {
+      key: 'mine',
+      icon: UserCheck,
+      count: inboxStats.mine,
+      tone: 'text-blue-600 bg-blue-100 dark:bg-blue-950/50 dark:text-blue-300',
+    },
+    {
+      key: 'ai',
+      icon: Bot,
+      count: inboxStats.ai,
+      tone: 'text-violet-600 bg-violet-100 dark:bg-violet-950/50 dark:text-violet-300',
+    },
+    {
+      key: 'resolved',
+      icon: CheckCheck,
+      count: inboxStats.resolved,
+      tone: 'text-emerald-600 bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300',
+    },
+  ] as const
+
   const filteredCustomers = groupedCustomers.filter((cust) => {
     const matchesSearch = (cust.sender_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (cust.latest_message || '').toLowerCase().includes(searchQuery.toLowerCase())
 
-    const isEscalated = !cust.is_ai_handled && !cust.is_resolved
+    const needsAttention = !!cust.needs_attention && !cust.is_resolved
+    const isMine = !!currentUserId && cust.agent_id === currentUserId && !cust.is_resolved
     const isResolved = !!cust.is_resolved
-    const isBot = !!cust.is_ai_handled && !cust.is_resolved
+    const isAI = !!cust.is_ai_handled && !cust.is_resolved
 
     const matchesTab =
-      activeTab === 'all' ||
-      (activeTab === 'escalated' && isEscalated && !!cust.needs_attention) ||
+      (activeTab === 'needs' && needsAttention) ||
+      (activeTab === 'mine' && isMine) ||
+      (activeTab === 'ai' && isAI) ||
       (activeTab === 'resolved' && isResolved) ||
-      (activeTab === 'bot' && isBot)
+      activeTab === 'all'
 
     return matchesSearch && matchesTab
   })
 
-  // Sort by most recent
-  filteredCustomers.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+  // Sort work that needs a person first, then by recency.
+  filteredCustomers.sort((a, b) => {
+    const aPriority = a.needs_attention && !a.is_resolved ? 1 : 0
+    const bPriority = b.needs_attention && !b.is_resolved ? 1 : 0
+    if (aPriority !== bPriority) return bPriority - aPriority
+    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  })
 
   // Derive selectedCustomer from live query data so real-time cache updates (is_resolved, needs_attention etc.) are always reflected
   const selectedCustomer = selectedCustomerId
@@ -400,7 +427,7 @@ function SocialInboxPage() {
     const newCust: GroupedCustomer = {
       customer_id: newConversationData.phone,
       sender_name: newConversationData.name,
-      channels: [newConversationData.platform as Platform],
+      channels: ['whatsapp'],
       conversation_ids: [`temp_${Date.now()}`],
       latest_message: 'Start a conversation...',
       updated_at: new Date().toISOString(),
@@ -415,38 +442,49 @@ function SocialInboxPage() {
     setNewConversationData({
       name: '',
       phone: '',
-      platform: 'whatsapp',
     })
     setShowNewConversationDialog(false)
   }
 
   return (
     <DashboardLayout>
-      {/* Container simulating a native app window */}
-      <div className="flex h-[calc(100vh-6rem)] flex-col bg-white dark:bg-slate-950 overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm shadow-slate-200/20">
+      <div className="flex h-[calc(100vh-6rem)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950">
 
         {/* Main Interface */}
         <div className="flex flex-1 overflow-hidden relative">
 
           {/* Conversation List Sidebar */}
           <div className={cn(
-            "flex flex-col border-r border-slate-200/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 transition-all duration-300 absolute inset-y-0 left-0 z-20 lg:relative",
-            isSidebarOpen ? "w-full sm:w-96 translate-x-0" : "-translate-x-full lg:translate-x-0 lg:w-96"
+            "flex flex-col border-r border-slate-200 bg-white transition-all duration-300 absolute inset-y-0 left-0 z-20 dark:border-slate-800 dark:bg-slate-950 lg:relative",
+            isSidebarOpen ? "w-full sm:w-80 translate-x-0" : "-translate-x-full lg:translate-x-0 lg:w-80"
           )}>
 
             {/* Sidebar Header */}
-            <div className="p-4 border-b border-slate-200/60 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl z-10 space-y-4">
+            <div className="z-10 space-y-2.5 border-b border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-slate-100 dark:to-slate-400 tracking-tight">
-                  Inbox
-                </h2>
+                <div className="min-w-0">
+                  <h2 className="text-base font-semibold tracking-tight text-slate-950 dark:text-slate-50">Inbox</h2>
+                  <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                    {queueLabels[activeTab].label} · {filteredCustomers.length} shown
+                  </p>
+                </div>
                 <div className="flex items-center gap-1.5">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">
-                    <Filter className="h-4 w-4" />
+                  <span className="hidden items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300 sm:flex">
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    WhatsApp
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+                    onClick={() => refetchConversations()}
+                    disabled={isRefreshingList}
+                  >
+                    <RefreshCw className={cn('h-4 w-4', isRefreshingList && 'animate-spin')} />
                   </Button>
                   <Button
-                    size="icon"
-                    className="h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-all hover:shadow"
+                    size="sm"
+                    className="h-8 w-8 rounded-lg bg-blue-600 p-0 text-white shadow-sm hover:bg-blue-700"
                     onClick={() => setShowNewConversationDialog(true)}
                   >
                     <UserPlus className="h-4 w-4" />
@@ -461,80 +499,104 @@ function SocialInboxPage() {
                   placeholder="Search messages..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-10 bg-slate-100/50 dark:bg-slate-800/50 border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500/50 focus:ring-blue-500/20 transition-all rounded-xl shadow-none"
+                  className="h-9 rounded-lg border-slate-200 bg-slate-50 pl-9 text-sm shadow-none transition-all focus:bg-white focus-visible:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-900 dark:focus:bg-slate-950"
                 />
               </div>
 
-              {/* Tabs */}
-              <div className="flex gap-1 p-1 bg-slate-100/70 dark:bg-slate-800/50 rounded-xl">
-                {([
-                  { key: 'all', label: 'All' },
-                  { key: 'escalated', label: 'Escalated' },
-                  { key: 'resolved', label: 'Resolved' },
-                  { key: 'bot', label: 'Bot' },
-                ] as const).map(tab => (
+              <div>
+                <div className="flex flex-wrap gap-1.5">
+                  {queueTabs.map((tab) => {
+                    const Icon = tab.icon
+                    const isActive = activeTab === tab.key
+                    const meta = queueLabels[tab.key]
+                    return (
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
                     className={cn(
-                      'flex-1 text-[12px] font-medium py-1.5 rounded-lg transition-all',
-                      activeTab === tab.key
-                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                      'flex min-w-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition-colors',
+                      isActive
+                        ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900'
                     )}
+                    title={meta.description}
                   >
-                    {tab.label}
+                        <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span className="truncate">
+                          {tab.key === 'all' ? 'All' : tab.key === 'needs' ? 'Needs' : tab.key === 'mine' ? 'Mine' : tab.key === 'resolved' ? 'Done' : 'AI'}
+                        </span>
+                        <span className={cn('tabular-nums', isActive ? 'text-blue-600 dark:text-blue-200' : 'text-slate-400')}>
+                          {tab.count}
+                        </span>
                   </button>
-                ))}
+                    )
+                  })}
+                </div>
+                {inboxStats.unread > 0 && (
+                  <p className="mt-1.5 px-1 text-[11px] font-medium text-blue-600 dark:text-blue-400">{inboxStats.unread} unread messages</p>
+                )}
               </div>
             </div>
 
             {/* List */}
-            <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
+            <div className="flex-1 overflow-y-auto bg-slate-50/60 px-1.5 py-1.5 dark:bg-slate-900/30">
+              {isLoadingList && (
+                <div className="space-y-2 p-2">
+                  {[1, 2, 3, 4, 5].map((item) => (
+                    <div key={item} className="flex items-center gap-3 rounded-xl p-3">
+                      <div className="h-12 w-12 rounded-full bg-slate-200/70 dark:bg-slate-800 animate-pulse" />
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="h-3 w-2/3 rounded bg-slate-200/70 dark:bg-slate-800 animate-pulse" />
+                        <div className="h-3 w-full rounded bg-slate-200/70 dark:bg-slate-800 animate-pulse" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {filteredCustomers.map((customer) => (
                 <div
                   key={customer.customer_id}
                   className={cn(
-                    'group relative flex cursor-pointer items-start gap-3 rounded-xl p-3 transition-all duration-200 ease-out',
+                    'group relative mb-1 flex cursor-pointer items-start gap-2.5 rounded-lg border px-2.5 py-2 transition-colors',
                     selectedCustomer?.customer_id === customer.customer_id
-                      ? 'bg-blue-50 dark:bg-blue-500/10 shadow-sm shadow-blue-500/5'
-                      : 'hover:bg-slate-100/80 dark:hover:bg-slate-800/80 active:scale-[0.98]'
+                      ? 'border-blue-200 bg-white shadow-sm dark:border-blue-900/60 dark:bg-slate-950'
+                      : 'border-transparent bg-transparent hover:border-slate-200 hover:bg-white dark:hover:border-slate-800 dark:hover:bg-slate-950'
                   )}
                   onClick={() => handleSelectCustomer(customer)}
                 >
                   {/* Selection Indicator Line */}
                   <div className={cn(
                     "absolute left-0 top-1/2 -translate-y-1/2 w-1 rounded-r-full transition-all duration-300",
-                    selectedCustomer?.customer_id === customer.customer_id ? "h-8 bg-blue-500" : "h-0 bg-transparent"
+                    selectedCustomer?.customer_id === customer.customer_id ? "h-7 bg-blue-500" : "h-0 bg-transparent"
                   )} />
 
                   <div className="relative flex-shrink-0">
                     <Avatar className={cn(
-                      "h-12 w-12 border-2 transition-all duration-300",
-                      selectedCustomer?.customer_id === customer.customer_id ? "border-blue-100 dark:border-blue-900/50 shadow-md shadow-blue-500/20" : "border-transparent"
+                      "h-9 w-9 border transition-all duration-300",
+                      selectedCustomer?.customer_id === customer.customer_id ? "border-blue-100 dark:border-blue-900/50" : "border-transparent"
                     )}>
                       <AvatarImage src={customer.contactAvatar} alt={customer.sender_name} />
-                      <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 text-slate-600 dark:text-slate-300 font-medium">
+                      <AvatarFallback className="bg-gradient-to-br from-slate-100 to-slate-200 text-xs font-medium text-slate-600 dark:from-slate-800 dark:to-slate-900 dark:text-slate-300">
                         {customer.contactAvatar ? null : (customer.sender_name || 'U').substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
 
                     {/* Platform Icon Badge */}
                     <div className={cn(
-                      "absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white dark:border-slate-950 shadow-sm transition-transform group-hover:scale-110",
-                      customer.channels.includes('whatsapp') ? 'bg-emerald-100 dark:bg-emerald-950/50' :
-                        customer.channels.includes('instagram') ? 'bg-pink-100 dark:bg-pink-950/50' : 'bg-blue-100 dark:bg-blue-950/50'
+                      "absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white dark:border-slate-950 shadow-sm [&_svg]:h-3 [&_svg]:w-3",
+                      'bg-emerald-100 dark:bg-emerald-950/50'
                     )}>
-                      {getPlatformIcon(customer.channels[0])}
+                      <MessageSquare className="h-3 w-3 text-emerald-600" />
                     </div>
                   </div>
 
-                  <div className="flex flex-1 flex-col overflow-hidden min-w-0 py-0.5">
+                  <div className="flex flex-1 flex-col overflow-hidden min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className={cn(
-                        "truncate text-[15px] font-medium transition-colors",
+                        "truncate text-[13px] font-semibold transition-colors",
                         selectedCustomer?.customer_id === customer.customer_id
-                          ? "text-blue-900 dark:text-blue-100"
+                          ? "text-slate-950 dark:text-slate-50"
                           : "text-slate-900 dark:text-slate-100"
                       )}>
                         {customer.sender_name}
@@ -547,38 +609,38 @@ function SocialInboxPage() {
                     </div>
 
                     <p className={cn(
-                      "mt-1 truncate text-[13px] leading-relaxed transition-colors",
-                      selectedCustomer?.customer_id === customer.customer_id ? "text-blue-800 dark:text-blue-200" : "text-slate-500 dark:text-slate-400"
+                      "mt-0.5 truncate text-xs leading-relaxed transition-colors",
+                      selectedCustomer?.customer_id === customer.customer_id ? "text-slate-600 dark:text-slate-300" : "text-slate-500 dark:text-slate-400"
                     )}>
                       {customer.latest_message}
                     </p>
 
-                    <div className="mt-2.5 flex items-center gap-1.5 min-w-0">
-                      <div className="flex gap-1 overflow-hidden">
-                        {customer.channels.map(ch => getPlatformBadge(ch))}
-                      </div>
+                    <div className="mt-1.5 flex items-center gap-1.5 min-w-0">
+                      <span className="truncate text-[11px] font-medium capitalize text-slate-400">
+                        WhatsApp
+                      </span>
 
                       <div className="ml-auto flex items-center gap-1 flex-shrink-0">
                         {customer.is_resolved && (
-                          <Badge className="flex items-center gap-0.5 h-4 px-1.5 text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 rounded-full">
+                          <Badge className="flex h-4 items-center gap-1 rounded-full bg-emerald-100 px-1.5 text-[9px] font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                             <CheckCheck className="h-2.5 w-2.5" />
                             Resolved
                           </Badge>
                         )}
                         {!customer.is_resolved && customer.needs_attention && (
-                          <Badge className="flex items-center gap-0.5 h-4 px-1.5 text-[10px] font-bold bg-orange-500 text-white rounded-full shadow-sm shadow-orange-500/30">
+                          <Badge className="flex h-4 items-center gap-1 rounded-full bg-orange-500 px-1.5 text-[9px] font-semibold text-white">
                             <AlertCircle className="h-2.5 w-2.5" />
-                            Escalated
+                            Needs
                           </Badge>
                         )}
                         {!customer.is_resolved && !customer.needs_attention && customer.is_ai_handled && (
-                          <Badge className="flex items-center gap-0.5 h-4 px-1.5 text-[10px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300 rounded-full">
+                          <Badge className="flex h-4 items-center gap-1 rounded-full bg-violet-100 px-1.5 text-[9px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
                             <Bot className="h-2.5 w-2.5" />
                             AI
                           </Badge>
                         )}
                         {customer.unreadCount > 0 && (
-                          <Badge className="ml-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-blue-500 px-1 text-[10px] font-bold text-white shadow-sm shadow-blue-500/20">
+                          <Badge className="ml-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-bold text-white">
                             {customer.unreadCount}
                           </Badge>
                         )}
@@ -588,14 +650,14 @@ function SocialInboxPage() {
                 </div>
               ))}
 
-              {filteredCustomers.length === 0 && (
+              {!isLoadingList && filteredCustomers.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8">
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/50 mb-4">
-                    <MessageSquare className="h-8 w-8 text-slate-400" />
+                    <Inbox className="h-8 w-8 text-slate-400" />
                   </div>
                   <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">No conversations</p>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-[200px]">
-                    Try adjusting your search or start a new conversation.
+                    Try another queue, search by customer name, or start a new WhatsApp conversation.
                   </p>
                 </div>
               )}
@@ -605,15 +667,12 @@ function SocialInboxPage() {
           {/* Conversation View Area */}
           {selectedCustomer ? (
             <div className={cn(
-              "flex flex-1 flex-col bg-[#F9FAFB] dark:bg-[#0B1120] relative w-full h-full",
+              "flex flex-1 flex-col bg-slate-50 dark:bg-slate-950 relative w-full h-full",
               !isSidebarOpen && "fixed inset-0 z-30 lg:relative"
             )}>
-              {/* Optional Subtle Pattern Background for Chat Area */}
-              <div className="absolute inset-0 z-0 opacity-[0.03] dark:opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)', backgroundSize: '24px 24px' }} />
-
               {/* Chat Header */}
-              <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/80 bg-white/95 dark:bg-slate-950/95 px-4 py-3 sm:px-6 backdrop-blur-xl z-10 sticky top-0 shadow-sm shadow-slate-200/5 dark:shadow-none">
-                <div className="flex items-center gap-3">
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-950 sm:px-4">
+                <div className="flex min-w-0 items-center gap-3">
                   {/* Mobile Back Button */}
                   <Button
                     variant="ghost"
@@ -628,40 +687,54 @@ function SocialInboxPage() {
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
                   </Button>
 
-                  <Avatar className="h-10 w-10 border border-slate-100 dark:border-slate-800 shadow-sm">
+                  <Avatar className="h-9 w-9 flex-shrink-0 border border-slate-100 dark:border-slate-800">
                     <AvatarImage src={selectedCustomer.contactAvatar} alt={selectedCustomer.sender_name} />
                     <AvatarFallback className="bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 text-blue-700 dark:text-blue-300 font-medium">
                       {(selectedCustomer.sender_name || 'U')[0]}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col justify-center">
-                    <h2 className="text-[15px] font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                  <div className="flex min-w-0 flex-col justify-center">
+                    <h2 className="truncate text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-50">
                       {selectedCustomer.sender_name}
                     </h2>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <div className="flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-1.5 py-0.5 rounded-sm">
-                        {getPlatformIcon(selectedCustomer.channels[0] as Platform)}
-                        <span className="capitalize">{selectedCustomer.channels[0]}</span>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                      <div className="flex items-center gap-1 rounded-sm bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800/50 dark:text-slate-400 [&_svg]:h-3 [&_svg]:w-3">
+                        <MessageSquare className="h-3 w-3 text-emerald-600" />
+                        <span>WhatsApp</span>
                       </div>
-                      <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                        Online
-                      </div>
+                      {selectedCustomer.is_resolved ? (
+                        <div className="flex items-center gap-1 rounded-sm bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400">
+                          <CheckCheck className="h-3 w-3" />
+                          Resolved
+                        </div>
+                      ) : selectedCustomer.needs_attention ? (
+                        <div className="flex items-center gap-1 rounded-sm bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-950/30 dark:text-orange-300">
+                          <AlertCircle className="h-3 w-3" />
+                          Needs attention
+                        </div>
+                      ) : selectedCustomer.is_ai_handled ? (
+                        <div className="flex items-center gap-1 rounded-sm bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">
+                          <Bot className="h-3 w-3" />
+                          AI handling
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 rounded-sm bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-950/30 dark:text-blue-400">
+                          <UserCheck className="h-3 w-3" />
+                          Human inbox
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 sm:gap-2">
+                <div className="flex flex-shrink-0 items-center gap-1 sm:gap-2">
                   {/* Escalation action buttons */}
                   {selectedCustomer.needs_attention && !selectedCustomer.is_resolved && (
                     <Button
                       size="sm"
                       onClick={handleTakeover}
                       disabled={isTakingOver}
-                      className="h-8 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-3 shadow-sm shadow-orange-500/20 hidden sm:flex items-center gap-1.5"
+                      className="hidden h-8 items-center gap-1.5 rounded-lg bg-orange-500 px-3 text-xs font-semibold text-white shadow-sm shadow-orange-500/20 hover:bg-orange-600 sm:flex"
                     >
                       <UserPlus className="h-3.5 w-3.5" />
                       Take Over
@@ -672,7 +745,7 @@ function SocialInboxPage() {
                       size="sm"
                       onClick={handleResolve}
                       disabled={isResolving}
-                      className="h-8 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold px-3 shadow-sm shadow-emerald-500/20 hidden sm:flex items-center gap-1.5"
+                      className="hidden h-8 items-center gap-1.5 rounded-lg bg-emerald-500 px-3 text-xs font-semibold text-white shadow-sm shadow-emerald-500/20 hover:bg-emerald-600 sm:flex"
                     >
                       <Check className="h-3.5 w-3.5" />
                       Resolve
@@ -684,34 +757,31 @@ function SocialInboxPage() {
                       Resolved
                     </span>
                   )}
-                  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hidden sm:flex">
-                    <Video className="h-[18px] w-[18px]" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                     <Phone className="h-[18px] w-[18px]" />
                   </Button>
                   <div className="w-px h-5 bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block" />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                         <MoreVertical className="h-[18px] w-[18px]" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48 p-2 rounded-xl border-slate-200/60 dark:border-slate-800 shadow-xl shadow-slate-200/10 dark:shadow-none">
+                    <DropdownMenuContent align="end" className="w-52 p-2 rounded-xl border-slate-200/60 dark:border-slate-800 shadow-xl shadow-slate-200/10 dark:shadow-none">
                       <DropdownMenuLabel className="text-xs text-slate-500 font-medium px-2">Manage Chat</DropdownMenuLabel>
                       <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
-                      <DropdownMenuItem className="rounded-lg cursor-pointer focus:bg-slate-50 dark:focus:bg-slate-800/50">
-                        <UserPlus className="mr-2 h-4 w-4 text-slate-400" /> Convert to Lead
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="rounded-lg cursor-pointer focus:bg-slate-50 dark:focus:bg-slate-800/50">
-                        <Star className="mr-2 h-4 w-4 text-slate-400" /> Star Conversation
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="rounded-lg cursor-pointer focus:bg-slate-50 dark:focus:bg-slate-800/50">
-                        <Tag className="mr-2 h-4 w-4 text-slate-400" /> Add Tags
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
-                      <DropdownMenuItem className="rounded-lg cursor-pointer text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/30 focus:text-rose-700">
-                        <Trash2 className="mr-2 h-4 w-4 text-rose-500" /> Delete Chat
+                      {selectedCustomer.needs_attention && !selectedCustomer.is_resolved && (
+                        <DropdownMenuItem onClick={handleTakeover} className="rounded-lg cursor-pointer focus:bg-orange-50 dark:focus:bg-orange-950/30">
+                          <UserPlus className="mr-2 h-4 w-4 text-orange-500" /> Take over
+                        </DropdownMenuItem>
+                      )}
+                      {!selectedCustomer.is_resolved && !selectedCustomer.is_ai_handled && (
+                        <DropdownMenuItem onClick={handleResolve} className="rounded-lg cursor-pointer focus:bg-emerald-50 dark:focus:bg-emerald-950/30">
+                          <Check className="mr-2 h-4 w-4 text-emerald-500" /> Mark resolved
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => refetchConversations()} className="rounded-lg cursor-pointer focus:bg-slate-50 dark:focus:bg-slate-800/50">
+                        <RefreshCw className="mr-2 h-4 w-4 text-slate-400" /> Refresh thread
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -719,8 +789,19 @@ function SocialInboxPage() {
               </div>
 
               {/* Chat Messages Area */}
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 z-10 relative">
-                <div className="mx-auto max-w-4xl space-y-6">
+              <div className="relative z-10 flex-1 overflow-y-auto p-3 sm:p-4">
+                <div className="mx-auto max-w-4xl space-y-4">
+                  {selectedCustomer.needs_attention && !selectedCustomer.is_resolved && selectedCustomer.human_takeover_reason && (
+                    <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800 shadow-sm dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-orange-500" />
+                        <div className="min-w-0">
+                          <p className="font-semibold">Why this needs a person</p>
+                          <p className="mt-1 leading-relaxed">{selectedCustomer.human_takeover_reason}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Infinite Scroll Observer / Loader */}
                   {(hasNextPage || isFetchingNextPage) && (
@@ -866,21 +947,21 @@ function SocialInboxPage() {
 
 
               {/* Input Area */}
-              <div className="mt-auto bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-200/60 dark:border-slate-800 z-10 px-4 py-3 sm:px-6">
+              <div className="z-10 mt-auto border-t border-slate-200/60 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-950 sm:px-4">
                 {selectedCustomer?.is_resolved && !selectedCustomer?.needs_attention && (
-                  <div className="mx-auto max-w-4xl mb-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                  <div className="mx-auto mb-2 flex max-w-4xl items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 dark:border-emerald-800 dark:bg-emerald-950/30">
                     <CheckCheck className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                     <span className="text-[13px] text-emerald-700 dark:text-emerald-300">This conversation has been resolved</span>
                   </div>
                 )}
                 {!selectedCustomer?.is_resolved && selectedCustomer?.is_ai_handled && (
-                  <div className="mx-auto max-w-4xl mb-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800">
+                  <div className="mx-auto mb-2 flex max-w-4xl items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 dark:border-violet-800 dark:bg-violet-950/30">
                     <Bot className="h-4 w-4 text-violet-500 flex-shrink-0" />
                     <span className="text-[13px] text-violet-700 dark:text-violet-300">AI is handling this conversation</span>
                   </div>
                 )}
                 {!selectedCustomer?.is_resolved && selectedCustomer?.needs_attention && !selectedCustomer?.is_ai_handled && (
-                  <div className="mx-auto max-w-4xl mb-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
+                  <div className="mx-auto mb-2 flex max-w-4xl items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 dark:border-orange-800 dark:bg-orange-950/30">
                     <AlertCircle className="h-4 w-4 text-orange-500 flex-shrink-0" />
                     <span className="text-[13px] text-orange-700 dark:text-orange-300 flex-1">Escalated — customer needs human support</span>
                     <Button size="sm" onClick={handleTakeover} disabled={isTakingOver} className="h-6 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-semibold px-2.5 sm:hidden">
@@ -891,11 +972,11 @@ function SocialInboxPage() {
                 <div className="mx-auto max-w-4xl relative flex items-end gap-2 sm:gap-3">
 
                   {/* Attachment Menus */}
-                  <div className="flex gap-1 mb-1 sm:mb-1.5">
-                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors hidden sm:flex">
+                  <div className="mb-1 flex gap-1">
+                    <Button variant="ghost" size="icon" className="hidden h-8 w-8 rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300 sm:flex">
                       <Paperclip className="h-[18px] w-[18px]" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-slate-300 transition-colors hidden sm:flex">
+                    <Button variant="ghost" size="icon" className="hidden h-8 w-8 rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300 sm:flex">
                       <ImageIcon className="h-[18px] w-[18px]" />
                     </Button>
 
@@ -914,7 +995,7 @@ function SocialInboxPage() {
                   </div>
 
                   {/* Input Box */}
-                  <div className="flex-1 relative group bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all flex items-center pr-2">
+                  <div className="group relative flex flex-1 items-center rounded-xl border border-slate-200 bg-white pr-2 shadow-sm transition-all focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500/50 dark:border-slate-700 dark:bg-slate-900">
                     <Textarea
                       placeholder={selectedCustomer?.is_resolved && !selectedCustomer?.needs_attention ? 'Conversation resolved' : selectedCustomer?.is_ai_handled ? 'AI is responding…' : `Draft a message to ${(selectedCustomer.sender_name || 'Customer').split(' ')[0]}...`}
                       value={replyText}
@@ -926,7 +1007,7 @@ function SocialInboxPage() {
                           handleSendMessage()
                         }
                       }}
-                      className="min-h-[44px] max-h-[120px] w-full resize-none bg-transparent border-0 focus-visible:ring-0 px-4 py-3 text-[14.5px] scrollbar-hide disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="min-h-10 max-h-[100px] w-full resize-none border-0 bg-transparent px-3 py-2.5 text-sm scrollbar-hide focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
                       rows={1}
                     />
 
@@ -937,7 +1018,7 @@ function SocialInboxPage() {
                     onClick={handleSendMessage}
                     disabled={!replyText.trim() || !!selectedCustomer?.is_ai_handled || (!!selectedCustomer?.is_resolved && !selectedCustomer?.needs_attention)}
                     className={cn(
-                      "mb-1 sm:mb-1.5 h-10 w-10 sm:h-11 sm:w-11 rounded-full p-0 flex items-center justify-center transition-all shadow-sm shadow-blue-500/20",
+                      "mb-1 flex h-10 w-10 items-center justify-center rounded-xl p-0 shadow-sm shadow-blue-500/20 transition-all",
                       replyText.trim()
                         ? "bg-blue-600 hover:bg-blue-700 text-white hover:scale-105 active:scale-95"
                         : "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 border border-slate-200 dark:border-slate-700"
@@ -951,29 +1032,26 @@ function SocialInboxPage() {
           ) : (
             /* Empty State Area */
             <div className={cn(
-              "flex-1 items-center justify-center bg-slate-50/50 dark:bg-slate-900/30",
-              !isSidebarOpen ? "hidden lg:flex" : "hidden"
+              "hidden flex-1 items-center justify-center bg-slate-50 dark:bg-slate-950 lg:flex",
+              !isSidebarOpen && "lg:flex"
             )}>
-              <div className="flex flex-col items-center justify-center max-w-md text-center animate-in fade-in duration-700">
-                <div className="relative mb-6">
-                  <div className="absolute inset-0 rounded-full bg-blue-100/50 dark:bg-blue-900/20 blur-2xl transform scale-150 animate-pulse"></div>
-                  <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/20 dark:shadow-none border border-slate-100 dark:border-slate-800/50 rotate-3 transition-transform hover:rotate-6">
-                    <MessageSquare className="h-10 w-10 text-blue-500" />
-                  </div>
+              <div className="flex max-w-sm flex-col items-center justify-center text-center">
+                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                  <MessageSquare className="h-8 w-8 text-blue-500" />
                 </div>
-                <h3 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600 dark:from-slate-100 dark:to-slate-400 tracking-tight">
-                  No Conversation Selected
+                <h3 className="text-lg font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                  Pick a conversation
                 </h3>
-                <p className="mt-3 text-[14.5px] leading-relaxed text-slate-500 dark:text-slate-400">
-                  Choose a contact from the sidebar to view your message history, draft replies, and use AI-assisted responses.
+                <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                  Select a customer on the left to read the thread, take over from AI, or reply.
                 </p>
                 <Button
                   onClick={() => setShowNewConversationDialog(true)}
                   variant="outline"
-                  className="mt-8 rounded-full px-6 font-medium border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:border-blue-500/50 hover:bg-blue-50 dark:hover:bg-blue-900/10 text-slate-700 dark:text-slate-300"
+                  className="mt-6 rounded-lg border-slate-200 px-4 font-medium text-slate-700 shadow-sm transition-all hover:border-blue-500/50 hover:bg-blue-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-blue-900/10"
                 >
-                  <UserPlus className="mr-2 h-4 w-4 text-blue-500 text-blue-600 dark:text-blue-400" />
-                  Start a new chat instead
+                  <UserPlus className="mr-2 h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  New conversation
                 </Button>
               </div>
             </div>
@@ -1023,38 +1101,12 @@ function SocialInboxPage() {
 
             <div className="space-y-2">
               <label className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
-                Platform
+                Channel
               </label>
-              <Select
-                value={newConversationData.platform}
-                onValueChange={(value: Platform) =>
-                  setNewConversationData(prev => ({ ...prev, platform: value }))
-                }
-              >
-                <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 focus:ring-blue-500/50">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
-                  <SelectItem value="whatsapp" className="rounded-lg focus:bg-emerald-50 dark:focus:bg-emerald-950/30">
-                    <div className="flex items-center gap-2.5 font-medium">
-                      <div className="bg-emerald-100 p-1 rounded-md dark:bg-emerald-950/50"><MessageSquare className="h-3.5 w-3.5 text-emerald-600" /></div>
-                      WhatsApp
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="instagram" className="rounded-lg focus:bg-pink-50 dark:focus:bg-pink-950/30">
-                    <div className="flex items-center gap-2.5 font-medium">
-                      <div className="bg-pink-100 p-1 rounded-md dark:bg-pink-950/50"><Instagram className="h-3.5 w-3.5 text-pink-600" /></div>
-                      Instagram
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="comment" className="rounded-lg focus:bg-blue-50 dark:focus:bg-blue-950/30">
-                    <div className="flex items-center gap-2.5 font-medium">
-                      <div className="bg-blue-100 p-1 rounded-md dark:bg-blue-950/50"><MessageSquare className="h-3.5 w-3.5 text-blue-600" /></div>
-                      Post Comment
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex h-11 items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-sm font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
+                <MessageSquare className="h-4 w-4" />
+                WhatsApp
+              </div>
             </div>
 
             <div className="pt-2">
@@ -1072,5 +1124,3 @@ function SocialInboxPage() {
     </DashboardLayout >
   );
 }
-
-

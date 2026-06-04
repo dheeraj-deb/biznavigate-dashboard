@@ -5,8 +5,9 @@ import { toast } from 'sonner'
 export interface WorkflowDefinitionMeta {
   workflow_id: string
   workflow_name: string
-  workflow_key: string
-  intent_name: string
+  workflow_key?: string
+  intent_name?: string
+  blueprint_key?: string
   description: string | null
   version: string
   is_active: boolean
@@ -18,11 +19,12 @@ export interface WorkflowDefinitionMeta {
 
 export interface WorkflowDetail {
   workflow_id: string
-  workflow_key: string
+  workflow_key?: string
   workflow_name: string
   version: string
   business_type: string
-  intent_name: string
+  intent_name?: string
+  blueprint_key?: string
   description: string | null
   is_active: boolean
   created_at: string
@@ -35,16 +37,58 @@ export interface WorkflowDetail {
 
 export interface WorkflowSummary {
   id: string
+  _id?: string
   workflow_id: string
-  workflow_name: string
+  workflow_name?: string
   description: string | null
   business_id: string
   tenant_id: string
-  intent_name: string
+  intent_name?: string
   is_active: boolean
   created_at: string
   updated_at: string
+  blueprint_key?: string
+  workflow_definition?: WorkflowDefinitionMeta | null
   workflow_definitions: WorkflowDefinitionMeta
+}
+
+export function normalizeWorkflowConnections(connections?: Record<string, any> | null): Record<string, any> {
+  if (!connections || typeof connections !== 'object') return {}
+  return Object.fromEntries(
+    Object.entries(connections).map(([source, value]) => {
+      if (Array.isArray(value)) return [source, { main: value }]
+      if (Array.isArray(value?.main)) return [source, value]
+      return [source, { main: [] }]
+    }),
+  )
+}
+
+function normalizeWorkflowDefinition(definition: any): WorkflowDefinitionMeta | null {
+  if (!definition) return null
+  const workflowDefinition = definition.workflow_definition ?? definition
+  return {
+    ...definition,
+    nodes: workflowDefinition.nodes ?? definition.nodes ?? [],
+    connections: normalizeWorkflowConnections(workflowDefinition.connections ?? definition.connections),
+  }
+}
+
+function normalizeWorkflowSummary(row: any): WorkflowSummary {
+  const definition = normalizeWorkflowDefinition(row.workflow_definitions ?? row.workflow_definition ?? null)
+  return {
+    ...row,
+    id: row.id ?? row._id,
+    workflow_id: row.workflow_id,
+    workflow_name: row.workflow_name ?? definition?.workflow_name,
+    description: row.description ?? definition?.description ?? null,
+    intent_name: row.intent_name ?? definition?.intent_name,
+    is_active: row.is_active ?? definition?.is_active ?? false,
+    created_at: row.created_at ?? definition?.created_at,
+    updated_at: row.updated_at ?? definition?.updated_at,
+    blueprint_key: row.blueprint_key ?? definition?.blueprint_key,
+    workflow_definition: definition,
+    workflow_definitions: definition,
+  }
 }
 
 export function useWorkflows(businessId: string) {
@@ -52,7 +96,7 @@ export function useWorkflows(businessId: string) {
     queryKey: ['workflows', businessId],
     queryFn: async () => {
       const response = await apiClient.get(`/workflows/business/${businessId}`)
-      return (response.data ?? []) as WorkflowSummary[]
+      return ((response.data ?? []) as any[]).map(normalizeWorkflowSummary)
     },
     enabled: !!businessId,
   })
@@ -80,49 +124,16 @@ export function useWorkflow(workflowId: string) {
     queryKey: ['workflow', workflowId],
     queryFn: async () => {
       const response = await apiClient.get(`/workflows/${workflowId}`)
-      return response.data as WorkflowDetail
+      const detail = response.data as WorkflowDetail
+      return {
+        ...detail,
+        workflow_definition: {
+          nodes: detail.workflow_definition?.nodes ?? [],
+          connections: normalizeWorkflowConnections(detail.workflow_definition?.connections),
+        },
+      } as WorkflowDetail
     },
     enabled: !!workflowId && workflowId !== 'new',
-  })
-}
-
-// ─── Wizard-specific hooks ──────────────────────────────────────────────────
-
-export interface WorkflowTemplateSummary {
-  id: string
-  name: string
-  description: string
-  icon: string
-  category: 'engagement' | 'commerce' | 'support' | 'reactivation'
-  business_types: string[]
-}
-
-export function useWorkflowTemplates(businessType?: string) {
-  return useQuery({
-    queryKey: ['workflow-templates', businessType ?? null],
-    queryFn: async () => {
-      const params = businessType ? { businessType } : undefined
-      const response = await apiClient.get('/workflows/templates', { params })
-      return (response.data ?? []) as WorkflowTemplateSummary[]
-    },
-    staleTime: 5 * 60 * 1000,
-  })
-}
-
-export function useCloneTemplate() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (data: { templateId: string; business_id: string; workflow_name?: string }) => {
-      const { templateId, ...body } = data
-      const response = await apiClient.post(`/workflows/templates/${templateId}/clone`, body)
-      return (response.data?.data || response.data) as { workflow_id: string }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workflows'] })
-    },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || error.message || 'Could not clone template')
-    },
   })
 }
 
