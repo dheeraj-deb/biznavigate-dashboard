@@ -603,10 +603,11 @@ export default function AddInventoryPage() {
         router.push('/inventory/services')
       } else {
         // ── Products → POST /products ──
+        const sellingPrice = Number(price.trim().replace(/[₹,\s]/g, ''))
         const payload: Record<string, unknown> = {
           name,
           description: description || null,
-          base_price: parseFloat(price),
+          price: sellingPrice,
           brand: brand || null,
           category: category || null,
           track_inventory: trackInventory,

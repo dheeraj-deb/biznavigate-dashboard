@@ -45,6 +45,12 @@ const LOCAL_SELLER_GROUPS: NavGroup[] = [
     businessTypes: ['products', 'retail'],
   },
   {
+    name: 'Orders',
+    icon: 'ShoppingCart',
+    href: '/orders',
+    businessTypes: ['products', 'retail'],
+  },
+  {
     name: 'Payments',
     icon: 'CreditCard',
     href: '/seller-os/payments',
@@ -75,6 +81,7 @@ const LOCAL_SELLER_QUICK_LINKS: QuickLink[] = [
   { href: '/seller-os', label: 'Store Desk', icon: 'ShoppingBag', businessTypes: ['products', 'retail'] },
   { href: '/seller-os/leads', label: 'Enquiries', icon: 'UserPlus', businessTypes: ['products', 'retail'] },
   { href: '/inventory/products', label: 'Products', icon: 'Package', businessTypes: ['products', 'retail'] },
+  { href: '/orders', label: 'Orders', icon: 'ShoppingCart', businessTypes: ['products', 'retail'] },
   { href: '/seller-os/payments', label: 'Payments', icon: 'CreditCard', businessTypes: ['products', 'retail'] },
   { href: '/seller-os/credit', label: 'Credit', icon: 'IndianRupee', businessTypes: ['products', 'retail'], sellerFeatures: ['credit_sales'] },
 ]

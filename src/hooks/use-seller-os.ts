@@ -721,6 +721,7 @@ export function useMarkSellerOrderPaid() {
       queryClient.invalidateQueries({ queryKey: ['seller-os-overview'] })
       queryClient.invalidateQueries({ queryKey: ['seller-os-leads'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['payments'] })
       toast.success('Payment marked paid')
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || err?.message || 'Could not mark payment paid'),

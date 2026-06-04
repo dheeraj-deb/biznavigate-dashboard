@@ -24,14 +24,70 @@ interface OrderStats {
   average_order_value: number
 }
 
+function normalizeOrder(raw: any) {
+  const customer = raw?.customer || raw?.customers
+  const customerName =
+    raw?.customer_name ||
+    customer?.name ||
+    [customer?.firstName, customer?.lastName].filter(Boolean).join(' ') ||
+    undefined
+  const customerPhone =
+    raw?.customer_phone ||
+    customer?.phone ||
+    customer?.whatsapp_number ||
+    raw?.shipping_phone ||
+    undefined
+
+  return {
+    ...raw,
+    id: raw?.id || raw?.order_id || raw?.product_order_id,
+    orderNumber: raw?.orderNumber || raw?.order_number,
+    total: raw?.total ?? raw?.total_amount,
+    customer_name: customerName,
+    customer_phone: customerPhone,
+    customer: customer || customerName || customerPhone
+      ? {
+          ...customer,
+          name: customerName,
+          firstName: customer?.firstName || customerName || customerPhone || 'Customer',
+          lastName: customer?.lastName || '',
+          phone: customerPhone,
+        }
+      : undefined,
+  }
+}
+
+function normalizeOrdersResponse(response: any, filters?: OrderFilters) {
+  const payload = response?.data ?? response
+  const rows = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload?.orders)
+        ? payload.orders
+        : []
+  const meta = response?.meta ?? payload?.meta ?? {}
+  const pagination = meta?.pagination ?? {}
+  const total = Number(meta.total ?? pagination.total ?? payload?.total ?? rows.length)
+  const limit = Number(meta.limit ?? pagination.limit ?? payload?.limit ?? filters?.limit ?? 20)
+  const page = Number(meta.page ?? pagination.page ?? payload?.page ?? filters?.page ?? 1)
+
+  return {
+    data: rows.map(normalizeOrder),
+    total,
+    page,
+    limit,
+    totalPages: Number(meta.totalPages ?? meta.total_pages ?? pagination.total_pages ?? Math.max(1, Math.ceil(total / Math.max(1, limit)))),
+  }
+}
+
 // Get all orders with filters
 export function useOrders(filters?: OrderFilters) {
   return useQuery({
     queryKey: ['orders', filters],
     queryFn: async () => {
       const response = await apiClient.get('/orders', { params: filters })
-      console.log('Fetched Orders:', response)
-      return response || { data: [], total: 0, page: 1, limit: 20 }
+      return normalizeOrdersResponse(response, filters)
     },
     retry: 1,
     retryDelay: 1000,
@@ -133,13 +189,31 @@ export function useUpdateOrderPayment() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, payment_status, payment_method }: { id: string; payment_status: string; payment_method: string }) => {
-      const response = await apiClient.patch(`/orders/${id}/payment`, { payment_status, payment_method })
+    mutationFn: async ({
+      id,
+      payment_method,
+      payment_reference,
+      notes,
+    }: {
+      id: string
+      payment_status?: string
+      payment_method: string
+      payment_reference?: string
+      notes?: string
+    }) => {
+      const response = await apiClient.patch(`/orders/${id}/payment`, {
+        payment_method,
+        payment_reference,
+        notes,
+      })
       return response.data
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       queryClient.invalidateQueries({ queryKey: ['order', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['seller-os-payment-desk'] })
+      queryClient.invalidateQueries({ queryKey: ['seller-os-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['payments'] })
       toast.success('Payment status updated')
     },
     onError: (error: any) => {

@@ -105,16 +105,13 @@ export default function OrdersPage() {
   const deleteOrderMutation = useDeleteOrder()
 
   const ordersData: any[] = Array.isArray(ordersResponse?.data) ? ordersResponse.data : []
-  const totalPages = Math.ceil(((ordersResponse as any)?.total || 0) / 20)
-
-  console.log('Orders Data:', ordersResponse)
-  console.log('Order Stats:', orderStats)
+  const totalPages = (ordersResponse as any)?.totalPages || Math.ceil(((ordersResponse as any)?.total || 0) / 20)
 
   // Use statistics from backend API
   // Note: Backend doesn't have "in_transit" count, so we need to fetch all orders to calculate it
   // For now, we'll use total_orders minus pending and completed as a rough estimate
   const stats = {
-    total: orderStats?.total_orders || 0,
+    total: orderStats?.total_orders || (ordersResponse as any)?.total || ordersData.length,
     pending: orderStats?.pending_orders || 0,
     inTransit: (orderStats?.total_orders || 0) - (orderStats?.pending_orders || 0) - (orderStats?.completed_orders || 0),
     delivered: orderStats?.completed_orders || 0,
@@ -126,7 +123,9 @@ export default function OrdersPage() {
       await updatePaymentMutation.mutateAsync({
         id: orderId,
         payment_status: PaymentStatus.PAID,
-        payment_method: 'manual',
+        payment_method: 'cod',
+        payment_reference: 'COD collected from dashboard',
+        notes: 'Owner confirmed payment from Orders desk',
       })
       refetch()
     } catch (error) {
@@ -308,9 +307,18 @@ export default function OrdersPage() {
           <CardContent>
             <div className="space-y-3">
               {ordersData.map((order: any) => {
-                const customerName = order.customer
-                  ? `${order.customer.firstName || ''} ${order.customer.lastName || ''}`.trim()
-                  : 'N/A'
+                const customerName =
+                  order.customer_name ||
+                  order.customer?.name ||
+                  `${order.customer?.firstName || ''} ${order.customer?.lastName || ''}`.trim() ||
+                  order.customer_phone ||
+                  order.shipping_phone ||
+                  'Customer'
+                const customerPhone =
+                  order.customer_phone ||
+                  order.customer?.phone ||
+                  order.customer?.whatsapp_number ||
+                  order.shipping_phone
 
                 return (
                   <div
@@ -345,7 +353,7 @@ export default function OrdersPage() {
                           <div className="mt-2 flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                             <div className="flex items-center gap-1.5">
                               <Users className="h-4 w-4 text-blue-500" />
-                              <span>{customerName}</span>
+                              <span>{customerPhone ? `${customerName} - ${customerPhone}` : customerName}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <span className="font-semibold text-gray-900 dark:text-gray-100">

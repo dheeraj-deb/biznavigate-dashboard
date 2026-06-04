@@ -79,13 +79,18 @@ const PRODUCT_TYPES = {
   }
 }
 
+function parseMoneyInput(value: string): number {
+  const parsed = Number(String(value ?? '').trim().replace(/[₹,\s]/g, ''))
+  return Number.isFinite(parsed) ? parsed : NaN
+}
+
 // Form schema
 const productSchema = z.object({
   product_type: z.string().min(1, 'Product type is required'),
   name: z.string().min(1, 'Product name is required'),
   description: z.string().optional(),
   category: z.string().optional(),
-  price: z.string().min(1, 'Price is required'),
+  price: z.string().min(1, 'Price is required').refine((value) => parseMoneyInput(value) >= 0, 'Enter a valid price'),
   sku: z.string().optional(),
   stock_quantity: z.string().optional(),
   track_inventory: z.boolean().default(true),
@@ -286,7 +291,7 @@ export default function EditProductPage() {
         name: data.name,
         description: data.description || null,
         category: data.category || null,
-        price: parseFloat(data.price),
+        price: parseMoneyInput(data.price),
         sku: data.sku || null,
         track_inventory: data.track_inventory,
         is_active: data.is_active,

@@ -439,13 +439,13 @@ function ProductSellerDashboard({
 }) {
   const visibleSuggestions = aiSuggestions.filter((item) => item.type !== 'all_clear').slice(0, 3)
   const primarySuggestion = visibleSuggestions[0]
-  const customers = uniqueLeads(attentionLeads, recentLeads).slice(0, 4)
+  const customerEnquiries = uniqueLeads(attentionLeads, recentLeads).slice(0, 4)
   const inventoryEmployee = aiEmployees.find((employee) => employee.key === 'inventory')
   const salesEmployee = aiEmployees.find((employee) => employee.key === 'sales')
   const orderEmployee = aiEmployees.find((employee) => employee.key === 'orders')
   const lowStock = Number(firstMetric(inventoryEmployee, 'Stock issues')?.value ?? 0)
   const unpaidOrders = Number(firstMetric(orderEmployee, 'Unpaid')?.value ?? 0)
-  const waitingBuyers = Number(firstMetric(salesEmployee, 'Waiting buyers')?.value ?? needsReplyCount)
+  const waitingEnquiries = Number(firstMetric(salesEmployee, 'Waiting buyers')?.value ?? needsReplyCount)
   const activeEmployees = aiEmployees.filter((employee) => employee.status !== 'watching').length
 
   return (
@@ -497,12 +497,12 @@ function ProductSellerDashboard({
 
             <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-xs font-bold uppercase text-slate-500">Buyers today</p>
+                <p className="text-xs font-bold uppercase text-slate-500">Enquiries today</p>
                 <p className="mt-2 text-2xl font-bold text-slate-950">{todayLeads}</p>
               </div>
               <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
                 <p className="text-xs font-bold uppercase text-amber-700">Need reply</p>
-                <p className="mt-2 text-2xl font-bold text-amber-950">{waitingBuyers}</p>
+                <p className="mt-2 text-2xl font-bold text-amber-950">{waitingEnquiries}</p>
               </div>
               <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3">
                 <p className="text-xs font-bold uppercase text-rose-700">Stock risk</p>
@@ -531,7 +531,7 @@ function ProductSellerDashboard({
             <p className="mt-3 min-h-[48px] text-sm leading-6 text-slate-300">
               {primarySuggestion
                 ? primarySuggestion.reason
-                : 'No waiting buyers, unpaid order alerts or stock blockers are in the priority queue.'}
+                : 'No waiting enquiries, unpaid order alerts or stock blockers are in the priority queue.'}
             </p>
 
             <div className="mt-5 grid grid-cols-3 gap-2 text-center">
@@ -610,7 +610,7 @@ function ProductSellerDashboard({
           ) : (
             <div className="mt-4 rounded-md border border-green-100 bg-green-50 p-4">
               <p className="font-semibold text-green-900">No urgent work right now.</p>
-              <p className="mt-1 text-sm text-green-800">The store desk will light up when a buyer, order or stock item needs attention.</p>
+              <p className="mt-1 text-sm text-green-800">The store desk will light up when an enquiry, order or stock item needs attention.</p>
             </div>
           )}
         </Card>
@@ -651,7 +651,7 @@ function ProductSellerDashboard({
       <section className="grid gap-5 lg:grid-cols-3">
         <Card className="border-slate-200 p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-slate-950">Buyers</h2>
+            <h2 className="text-lg font-bold text-slate-950">Enquiries</h2>
             <Button asChild variant="ghost" size="sm" className="text-[#0066FF]">
               <Link href="/crm/leads">All</Link>
             </Button>
@@ -661,9 +661,9 @@ function ProductSellerDashboard({
             <div className="flex items-center justify-center py-10">
               <Loader2 className="h-5 w-5 animate-spin text-[#0066FF]" />
             </div>
-          ) : customers.length > 0 ? (
+          ) : customerEnquiries.length > 0 ? (
             <div className="mt-3 divide-y divide-slate-100">
-              {customers.map((lead) => (
+              {customerEnquiries.map((lead) => (
                 <div key={lead.id} className="flex items-center justify-between gap-3 py-3">
                   <Link href={`/crm/leads/${lead.id}`} className="min-w-0">
                     <p className="truncate text-sm font-bold text-slate-950">{lead.name}</p>
@@ -683,7 +683,7 @@ function ProductSellerDashboard({
               ))}
             </div>
           ) : (
-            <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">No buyer enquiries yet.</p>
+            <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">No product enquiries yet.</p>
           )}
         </Card>
 

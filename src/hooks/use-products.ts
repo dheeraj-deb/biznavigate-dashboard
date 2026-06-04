@@ -44,6 +44,14 @@ function normalise(raw: any): Product {
   }
 }
 
+function toPayloadNumber(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
+
+  const parsed = Number(String(value).trim().replace(/[^\d.-]/g, ''))
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
 export function useProducts(page = 1, pageSize = 20, businessId?: string) {
   return useQuery({
     queryKey: ['products', page, pageSize, businessId],
@@ -82,7 +90,13 @@ export function useCreateProduct() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (data: Partial<Product> & Record<string, unknown>) => {
-      const payload = { ...data, price: data.price ?? data.base_price }
+      const payload: Record<string, unknown> = {
+        ...data,
+        price: toPayloadNumber(data.price ?? data.base_price),
+      }
+      if (payload.stock_quantity !== undefined) payload.stock_quantity = toPayloadNumber(payload.stock_quantity) ?? 0
+      if (payload.low_stock_threshold !== undefined) payload.low_stock_threshold = toPayloadNumber(payload.low_stock_threshold) ?? 0
+      if (payload.compare_price !== undefined) payload.compare_price = toPayloadNumber(payload.compare_price)
       delete payload.base_price
       const res = await apiClient.post('/products', payload)
       return normalise((res as any).data?.data ?? (res as any).data)
