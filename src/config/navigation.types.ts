@@ -34,6 +34,7 @@ export interface NavItem {
   icon?: string                        // Lucide icon name (resolved at render)
   businessTypes?: BusinessType[]       // omit → visible to ALL types
   displayName?: Partial<Record<BusinessType, string>>  // override label per business type
+  sellerFeatures?: string[]       // product-seller setup feature flags
   minTier?: SubscriptionTier           // future: subscription gating
   comingSoon?: boolean                 // renders disabled with badge
 }
@@ -45,6 +46,7 @@ export interface NavGroup {
   children?: NavItem[]
   businessTypes?: BusinessType[]       // omit → visible to ALL types
   displayName?: Partial<Record<BusinessType, string>>  // override label per business type
+  sellerFeatures?: string[]
   minTier?: SubscriptionTier
   comingSoon?: boolean
 }
@@ -54,6 +56,7 @@ export interface QuickLink {
   label: string
   icon: string
   businessTypes?: BusinessType[]
+  sellerFeatures?: string[]
 }
 
 export interface NavigationConfig {

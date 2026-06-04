@@ -74,9 +74,10 @@ type ConnectionStep = 'intro' | 'connecting' | 'provisioning' | 'stuck' | 'succe
 interface SimpleWhatsAppConnectProps {
   onComplete?: () => void
   businessId: string
+  businessType?: string
 }
 
-export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsAppConnectProps) {
+export function SimpleWhatsAppConnect({ onComplete, businessId, businessType }: SimpleWhatsAppConnectProps) {
   const queryClient = useQueryClient()
   const applyWhatsappTemplates = useApplyRecommendedStarterTemplates()
   const { data, refetch } = useWhatsAppAccounts(businessId)
@@ -295,6 +296,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
   const verificationStatus = account?.business_verification_status ?? 'UNKNOWN'
   const isBusinessVerified = account?.onboarding_status === 'verified' || verificationStatus === 'APPROVED'
   const verificationChecklist = account?.verification_checklist ?? []
+  const isProductSeller = businessType === 'products' || businessType === 'retail'
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -306,10 +308,12 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                 <MessageSquare className="h-10 w-10 text-white" />
               </div>
               <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">
-                Connect WhatsApp in 2 Clicks
+                {isProductSeller ? 'Connect WhatsApp Store' : 'Connect WhatsApp'}
               </h2>
               <p className="text-lg text-gray-600 dark:text-gray-400 max-w-xl mx-auto">
-                Automate your customer conversations with WhatsApp Business. No technical setup required.
+                {isProductSeller
+                  ? 'Use your existing WhatsApp Business number, then import catalogue products if Meta gives catalogue access.'
+                  : 'Automate your customer conversations with WhatsApp Business. No technical setup required.'}
               </p>
             </div>
 
@@ -318,24 +322,32 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-950 mb-3">
                   <Zap className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </div>
-                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Instant Setup</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Connect in under 60 seconds</p>
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                  {isProductSeller ? 'Existing Number' : 'Quick Setup'}
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {isProductSeller ? 'Select or create your WABA' : 'Connect through Meta signup'}
+                </p>
               </div>
 
               <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border-2 border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 dark:bg-green-950 mb-3">
                   <Sparkles className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
-                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Auto-Configure</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">We handle all the technical stuff</p>
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                  {isProductSeller ? 'Catalog Check' : 'Auto-Configure'}
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {isProductSeller ? 'We check for products after connect' : 'We handle the technical stuff'}
+                </p>
               </div>
 
               <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border-2 border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-950 mb-3">
                   <Shield className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                 </div>
-                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">100% Secure</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Bank-level encryption</p>
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">Meta Approved</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Official embedded signup flow</p>
               </div>
             </div>
 
@@ -348,7 +360,9 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                 {[
                   'Click "Connect with Meta" below',
                   'A Meta popup opens — authorize BizNavigate and select your WhatsApp Business Account',
-                  'Done! Start messaging customers instantly',
+                  isProductSeller
+                    ? 'After connection, import catalogue products or start with empty inventory'
+                    : 'Done. Start messaging customers after provisioning is complete',
                 ].map((step, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white text-sm font-bold flex-shrink-0">
@@ -363,7 +377,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
             <Alert className="border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 mb-6">
               <CheckCircle2 className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-900 dark:text-green-100">
-                <strong>Don't have WhatsApp Business yet?</strong> No problem! You can create one directly in the popup.
+                <strong>New to WhatsApp Business?</strong> You can create a new setup in the Meta popup.
               </AlertDescription>
             </Alert>
 
@@ -373,6 +387,15 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                 <strong>Already using the WhatsApp Business app?</strong> Select that existing business and number in the Meta popup if it is eligible. Meta may keep the app connected through coexistence, or ask you to migrate the number depending on the account.
               </AlertDescription>
             </Alert>
+
+            {isProductSeller && (
+              <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 mb-6">
+                <Info className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-900 dark:text-amber-100">
+                  <strong>Catalogue note:</strong> If Meta returns an existing catalogue, BizNavigo will show an import option on the Products page. If no catalogue is returned, you can still add products manually.
+                </AlertDescription>
+              </Alert>
+            )}
 
             {error && (
               <Alert className="border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 mb-6">
@@ -555,7 +578,9 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
               </div>
               <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3">You're All Set!</h2>
               <p className="text-lg text-gray-600 dark:text-gray-400 max-w-xl mx-auto">
-                Your WhatsApp Business is now connected and ready to automate customer conversations.
+                {isProductSeller
+                  ? 'Your WhatsApp Business is connected. Next, check whether Meta returned a catalogue for import.'
+                  : 'Your WhatsApp Business is now connected and ready to automate customer conversations.'}
               </p>
             </div>
 
@@ -572,16 +597,24 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                 <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-950 mb-3">
                   <Sparkles className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </div>
-                <p className="font-bold text-gray-900 dark:text-gray-100 mb-1">AI Enabled</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Auto-replies active</p>
+                <p className="font-bold text-gray-900 dark:text-gray-100 mb-1">
+                  {isProductSeller ? 'Store AI Ready' : 'AI Enabled'}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {isProductSeller ? 'Product replies ready' : 'Auto-replies active'}
+                </p>
               </div>
 
               <div className="bg-white dark:bg-gray-900 p-5 rounded-xl border border-green-200 dark:border-green-800 text-center">
                 <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-950 mb-3">
                   <MessageSquare className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                 </div>
-                <p className="font-bold text-gray-900 dark:text-gray-100 mb-1">Ready to Go</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Start messaging now</p>
+                <p className="font-bold text-gray-900 dark:text-gray-100 mb-1">
+                  {isProductSeller ? 'Inventory Next' : 'Ready to Go'}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {isProductSeller ? 'Import or add products' : 'Start messaging now'}
+                </p>
               </div>
             </div>
 
@@ -592,18 +625,33 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
               </h4>
               <div className="space-y-3">
                 {[
-                  {
-                    title: 'Customers can message you',
-                    desc: 'Anyone who messages your WhatsApp number will get instant AI-powered responses',
-                  },
-                  {
-                    title: 'Leads are captured automatically',
-                    desc: 'Customer details are saved to your dashboard for follow-up',
-                  },
-                  {
-                    title: 'You stay in control',
-                    desc: 'View all conversations, take over chats, and customize responses anytime',
-                  },
+                  isProductSeller
+                    ? {
+                      title: 'Import products if available',
+                      desc: 'If Meta exposes your WhatsApp catalogue, the Products page will show an import button.',
+                    }
+                    : {
+                      title: 'Customers can message you',
+                      desc: 'Anyone who messages your WhatsApp number will get AI-powered responses',
+                    },
+                  isProductSeller
+                    ? {
+                      title: 'No catalogue is still valid',
+                      desc: 'You can add products manually and start handling product enquiries.',
+                    }
+                    : {
+                      title: 'Leads are captured automatically',
+                      desc: 'Customer details are saved to your dashboard for follow-up',
+                    },
+                  isProductSeller
+                    ? {
+                      title: 'Orders stay visible',
+                      desc: 'Product enquiries, orders, payments and stock issues are tracked in BizNavigo.',
+                    }
+                    : {
+                      title: 'You stay in control',
+                      desc: 'View all conversations, take over chats, and customize responses anytime',
+                    },
                 ].map((item) => (
                   <div key={item.title} className="flex items-start gap-3 bg-white dark:bg-gray-900 p-4 rounded-lg">
                     <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
@@ -678,7 +726,7 @@ export function SimpleWhatsAppConnect({ onComplete, businessId }: SimpleWhatsApp
                   </>
                 ) : (
                   <>
-                    Go to Dashboard
+                    {isProductSeller ? 'Go to Products' : 'Go to Dashboard'}
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </>
                 )}

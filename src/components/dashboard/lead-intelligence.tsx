@@ -104,10 +104,12 @@ export function LeadIntelligenceSection() {
   const { businessType } = useBusinessType()
   const { user } = useAuthStore()
   const businessId = user?.business_id
+  const isProductBusiness = businessType === 'products' || businessType === 'retail'
 
   const intentType = businessType === 'hospitality' ? 'resort' : businessType === 'events' ? 'camping' : 'product'
   const sectionTitle = businessType === 'hospitality' ? 'Resort Enquiries' : businessType === 'events' ? 'Camping Enquiries' : 'Product Enquiries'
-  const enquiryLabel = businessType === 'products' ? 'Orders' : 'Bookings'
+  const enquiryLabel = isProductBusiness ? 'Orders' : 'Bookings'
+  const customerLabel = isProductBusiness ? 'Customer' : 'Guest'
 
   // ── Data fetching via dedicated dashboard endpoints ──
   // businessId is passed as a hint; server also infers it from the Bearer token
@@ -276,7 +278,7 @@ export function LeadIntelligenceSection() {
                       <Button size="sm"
                         className="h-6 text-[10px] bg-[#25D366] hover:bg-[#1dbd5a] text-white px-2"
                         onClick={(e) => { e.stopPropagation(); window.open(`https://wa.me/${lead.phone.replace(/\D/g, '')}`, '_blank') }}>
-                        <MessageCircle className="h-3 w-3 mr-1" />Call
+                        <MessageCircle className="h-3 w-3 mr-1" />WhatsApp
                       </Button>
                     </div>
                   </div>
@@ -357,7 +359,7 @@ export function LeadIntelligenceSection() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-900/50">
-                <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase">Guest</th>
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase">{customerLabel}</th>
                 <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase">Phone</th>
                 <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase">Category</th>
                 <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase">What They Want</th>

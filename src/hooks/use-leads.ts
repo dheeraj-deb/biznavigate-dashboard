@@ -258,7 +258,7 @@ export function useMarkFollowupDone() {
   })
 }
 
-export function useResortWorklist(days = 14) {
+export function useResortWorklist(days = 14, enabled = true) {
   return useQuery({
     queryKey: ['dashboard-resort-worklist', days],
     queryFn: async () => {
@@ -272,6 +272,7 @@ export function useResortWorklist(days = 14) {
         counts: { booking_link_sent: 0, demand_missed: 0, upcoming_bookings: 0 },
       }
     },
+    enabled,
     staleTime: 60000,
     retry: 1,
   })
@@ -279,7 +280,7 @@ export function useResortWorklist(days = 14) {
 
 // ── Dashboard sub-hooks ───────────────────────────────────────────────────────
 
-export function useResortReminderReadiness(days = 14) {
+export function useResortReminderReadiness(days = 14, enabled = true) {
   return useQuery({
     queryKey: ['dashboard-resort-reminders', days],
     queryFn: async () => {
@@ -294,6 +295,7 @@ export function useResortReminderReadiness(days = 14) {
         checked_at: null,
       }
     },
+    enabled,
     staleTime: 30000,
     retry: 1,
   })

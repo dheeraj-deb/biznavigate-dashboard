@@ -48,7 +48,7 @@ export function useProducts(page = 1, pageSize = 20, businessId?: string) {
   return useQuery({
     queryKey: ['products', page, pageSize, businessId],
     queryFn: async () => {
-      const res = await apiClient.get('/products', { params: { page, limit: pageSize, businessId } })
+      const res = await apiClient.get('/products', { params: { page, limit: pageSize, business_id: businessId } })
       const body = (res as any).data?.data ?? (res as any).data
       const items: any[] = Array.isArray(body) ? body : (body?.data ?? body?.products ?? [])
       const meta = Array.isArray(body) ? {} : (body?.meta ?? {})

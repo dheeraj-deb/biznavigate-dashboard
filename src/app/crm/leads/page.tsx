@@ -7,6 +7,7 @@ import { DashboardLayout } from '@/components/layout/dashboard-layout'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { useCurrentBusiness } from '@/hooks/use-current-business'
 import toast from 'react-hot-toast'
 import {
   AlertTriangle,
@@ -352,6 +353,8 @@ function LeadCard({ lead }: { lead: Lead }) {
 }
 
 export default function LeadsPage() {
+  const router = useRouter()
+  const { businessType } = useCurrentBusiness()
   const [activeTab, setActiveTab] = useState<LeadTab>('all')
   const [leads, setLeads] = useState<Lead[]>([])
   const [stats, setStats] = useState<LeadStats | null>(null)
@@ -364,6 +367,12 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
   const searchTimer = useRef<ReturnType<typeof setTimeout>>()
+
+  useEffect(() => {
+    if (businessType === 'products' || businessType === 'retail') {
+      router.replace('/seller-os/leads')
+    }
+  }, [businessType, router])
 
   useEffect(() => {
     clearTimeout(searchTimer.current)
@@ -439,6 +448,16 @@ export default function LeadsPage() {
   const reminderCounts = reminderReadiness?.counts ?? {}
   const propertyOptions = worklist?.property_options ?? []
   const hasFilters = Boolean(propertyFilter || dateFilter)
+
+  if (businessType === 'products' || businessType === 'retail') {
+    return (
+      <DashboardLayout>
+        <div className="flex h-64 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#0066FF]" />
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   return (
     <DashboardLayout>
