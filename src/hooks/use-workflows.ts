@@ -52,8 +52,29 @@ export interface WorkflowSummary {
   workflow_definitions: WorkflowDefinitionMeta
 }
 
+export function normalizeWorkflowConnections(connections?: Record<string, any> | null): Record<string, any> {
+  if (!connections || typeof connections !== 'object') return {}
+  return Object.fromEntries(
+    Object.entries(connections).map(([source, value]) => {
+      if (Array.isArray(value)) return [source, { main: value }]
+      if (Array.isArray(value?.main)) return [source, value]
+      return [source, { main: [] }]
+    }),
+  )
+}
+
+function normalizeWorkflowDefinition(definition: any): WorkflowDefinitionMeta | null {
+  if (!definition) return null
+  const workflowDefinition = definition.workflow_definition ?? definition
+  return {
+    ...definition,
+    nodes: workflowDefinition.nodes ?? definition.nodes ?? [],
+    connections: normalizeWorkflowConnections(workflowDefinition.connections ?? definition.connections),
+  }
+}
+
 function normalizeWorkflowSummary(row: any): WorkflowSummary {
-  const definition = row.workflow_definitions ?? row.workflow_definition ?? null
+  const definition = normalizeWorkflowDefinition(row.workflow_definitions ?? row.workflow_definition ?? null)
   return {
     ...row,
     id: row.id ?? row._id,
@@ -103,49 +124,16 @@ export function useWorkflow(workflowId: string) {
     queryKey: ['workflow', workflowId],
     queryFn: async () => {
       const response = await apiClient.get(`/workflows/${workflowId}`)
-      return response.data as WorkflowDetail
+      const detail = response.data as WorkflowDetail
+      return {
+        ...detail,
+        workflow_definition: {
+          nodes: detail.workflow_definition?.nodes ?? [],
+          connections: normalizeWorkflowConnections(detail.workflow_definition?.connections),
+        },
+      } as WorkflowDetail
     },
     enabled: !!workflowId && workflowId !== 'new',
-  })
-}
-
-// ─── Wizard-specific hooks ──────────────────────────────────────────────────
-
-export interface WorkflowTemplateSummary {
-  id: string
-  name: string
-  description: string
-  icon: string
-  category: 'engagement' | 'commerce' | 'support' | 'reactivation'
-  business_types: string[]
-}
-
-export function useWorkflowTemplates(businessType?: string) {
-  return useQuery({
-    queryKey: ['workflow-templates', businessType ?? null],
-    queryFn: async () => {
-      const params = businessType ? { businessType } : undefined
-      const response = await apiClient.get('/workflows/templates', { params })
-      return (response.data ?? []) as WorkflowTemplateSummary[]
-    },
-    staleTime: 5 * 60 * 1000,
-  })
-}
-
-export function useCloneTemplate() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (data: { templateId: string; business_id: string; workflow_name?: string }) => {
-      const { templateId, ...body } = data
-      const response = await apiClient.post(`/workflows/templates/${templateId}/clone`, body)
-      return (response.data?.data || response.data) as { workflow_id: string }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workflows'] })
-    },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || error.message || 'Could not clone template')
-    },
   })
 }
 
