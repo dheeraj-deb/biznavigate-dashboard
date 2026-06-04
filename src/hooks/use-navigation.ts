@@ -7,6 +7,24 @@ import { useCurrentBusiness } from './use-current-business'
 import { useSellerSetup } from './use-seller-os'
 import type { BusinessType, NavGroup, NavItem, QuickLink } from '@/config/navigation.types'
 
+const sharedSettingsGroup = navigationConfig.groups.find((group) => group.name === 'Settings')
+const sellerSettingsChildren: NavItem[] = [
+  { name: 'Store Setup', href: '/seller-setup', icon: 'ListChecks' },
+  ...(sharedSettingsGroup?.children ?? []).map((child) => ({
+    ...child,
+    businessTypes: undefined,
+    displayName: {
+      ...child.displayName,
+      ...(child.href === '/settings/booking-methods'
+        ? { products: 'Selling Methods', retail: 'Selling Methods' }
+        : {}),
+      ...(child.href === '/settings/booking-link'
+        ? { products: 'Store Link', retail: 'Store Link' }
+        : {}),
+    },
+  })),
+]
+
 const LOCAL_SELLER_GROUPS: NavGroup[] = [
   {
     name: 'Store Desk',
@@ -49,12 +67,7 @@ const LOCAL_SELLER_GROUPS: NavGroup[] = [
     name: 'Settings',
     icon: 'Settings',
     businessTypes: ['products', 'retail'],
-    children: [
-      { name: 'Store Setup', href: '/seller-setup', icon: 'ListChecks' },
-      { name: 'WhatsApp', href: '/settings/whatsapp', icon: 'MessageSquare' },
-      { name: 'Business Profile', href: '/settings/business', icon: 'Building' },
-      { name: 'Billing', href: '/billing', icon: 'CreditCard' },
-    ],
+    children: sellerSettingsChildren,
   },
 ]
 

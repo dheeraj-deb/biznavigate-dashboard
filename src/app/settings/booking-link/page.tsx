@@ -17,6 +17,7 @@ import {
   useBookingLink,
   useUpdateBookingLink,
 } from '@/hooks/use-booking-link'
+import { useBusinessType } from '@/hooks/use-business-type'
 
 const experiences = [
   ['hospitality', 'Hospitality'],
@@ -40,8 +41,15 @@ function slugify(value: string) {
 
 export default function BookingLinkSettingsPage() {
   const { data, isLoading } = useBookingLink()
+  const { businessType } = useBusinessType()
   const updateBookingLink = useUpdateBookingLink()
   const [config, setConfig] = useState<BookingLinkConfig>(defaultBookingLink)
+  const isProductBusiness = businessType === 'products' || businessType === 'retail'
+  const pageLabel = isProductBusiness ? 'Store Link' : 'Booking Link'
+  const eyebrowLabel = isProductBusiness ? 'Website Store Link' : 'Website Booking Link'
+  const publicLinkDescription = isProductBusiness
+    ? 'Use this link in WhatsApp, Instagram, ads, or your website for product enquiries and orders.'
+    : 'Use this link in WhatsApp, Instagram, ads, or your website.'
 
   useEffect(() => {
     if (data) setConfig(normalizeBookingLink(data))
@@ -74,10 +82,10 @@ export default function BookingLinkSettingsPage() {
           <div>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
               <Link className="h-3.5 w-3.5" />
-              Website Booking Link
+              {eyebrowLabel}
             </span>
-            <h1 className="mt-2 text-2xl font-bold text-gray-900">Booking Link</h1>
-            <p className="text-sm text-gray-500">Configure your public customer booking/request page.</p>
+            <h1 className="mt-2 text-2xl font-bold text-gray-900">{pageLabel}</h1>
+            <p className="text-sm text-gray-500">Configure your public customer request page.</p>
           </div>
           <Button onClick={() => updateBookingLink.mutate(config)} disabled={updateBookingLink.isPending}>
             {updateBookingLink.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -88,12 +96,12 @@ export default function BookingLinkSettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Public Link</CardTitle>
-            <CardDescription>Use this link in WhatsApp, Instagram, ads, or your website.</CardDescription>
+            <CardDescription>{publicLinkDescription}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div>
-                <p className="font-semibold">Enable public booking link</p>
+                <p className="font-semibold">Enable public {isProductBusiness ? 'store link' : 'booking link'}</p>
                 <p className="text-sm text-gray-500">Disabled links return a not-found response.</p>
               </div>
               <Switch checked={config.enabled} onCheckedChange={(checked) => set('enabled', checked)} />
@@ -102,7 +110,7 @@ export default function BookingLinkSettingsPage() {
             <div className="grid gap-4 md:grid-cols-[1fr_auto_auto] md:items-end">
               <div className="space-y-1.5">
                 <Label>Slug</Label>
-                <Input value={config.slug} onChange={(e) => set('slug', slugify(e.target.value))} placeholder="aslam-resort" />
+                <Input value={config.slug} onChange={(e) => set('slug', slugify(e.target.value))} placeholder={isProductBusiness ? 'my-store' : 'aslam-resort'} />
               </div>
               <Button
                 type="button"

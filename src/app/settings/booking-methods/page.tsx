@@ -37,12 +37,12 @@ type AvailabilityResponseMode = BookingMethodsConfig['availability_response']['m
 const methodCards = [
   {
     key: 'ai_chat' as const,
-    title: 'AI Chat Booking',
-    description: 'The agent collects booking details in normal WhatsApp conversation.',
+    title: 'AI Chat',
+    description: 'The agent collects customer details in normal WhatsApp conversation.',
     icon: Bot,
     items: [
-      { key: 'collect_guest_details', label: 'Collect guest/customer details before booking' },
-      { key: 'require_confirmation', label: 'Confirm final details before creating booking' },
+      { key: 'collect_guest_details', label: 'Collect customer details before confirming' },
+      { key: 'require_confirmation', label: 'Confirm final details before creating work' },
     ],
   },
   {
@@ -51,14 +51,14 @@ const methodCards = [
     description: 'Guide customers with WhatsApp buttons and list choices.',
     icon: ListChecks,
     items: [
-      { key: 'send_entry_buttons', label: 'Use booking entry buttons' },
-      { key: 'send_room_or_service_list', label: 'Use room/service list messages' },
+      { key: 'send_entry_buttons', label: 'Use entry buttons' },
+      { key: 'send_room_or_service_list', label: 'Use item/service list messages' },
     ],
   },
   {
     key: 'catalog' as const,
     title: 'Catalog / Product Messages',
-    description: 'Show room categories, packages, services, or add-ons from catalog.',
+    description: 'Show rooms, products, packages, services, or add-ons from catalog.',
     icon: Package,
     items: [
       { key: 'send_product_messages', label: 'Send product and product-list messages' },
@@ -67,10 +67,10 @@ const methodCards = [
   {
     key: 'human_handoff' as const,
     title: 'Human Handoff',
-    description: 'Move complex or risky booking cases to staff.',
+    description: 'Move complex or risky cases to staff.',
     icon: Handshake,
     items: [
-      { key: 'on_unavailable', label: 'Handoff when availability is not found' },
+      { key: 'on_unavailable', label: 'Handoff when item or availability is not found' },
       { key: 'on_low_confidence', label: 'Handoff when AI confidence is low' },
       { key: 'on_payment_issue', label: 'Handoff for payment issues' },
     ],
@@ -86,7 +86,7 @@ const responseModes: Array<{
   {
     value: 'interactive',
     title: 'Interactive List',
-    description: 'Send available rooms/services as a WhatsApp list message.',
+    description: 'Send available items or services as a WhatsApp list message.',
     icon: ListChecks,
   },
   {
@@ -104,7 +104,7 @@ const responseModes: Array<{
   {
     value: 'website_link',
     title: 'Website Link',
-    description: 'Send a public booking link with known dates and guest details prefilled.',
+    description: 'Send a public link with known customer details prefilled.',
     icon: Link,
   },
 ]
