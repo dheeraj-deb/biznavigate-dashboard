@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 import { toast } from 'react-hot-toast'
+import type { RecommendedStarterTemplateResult } from './use-starter-templates'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,10 @@ export interface OnboardingEmployeeResult {
 export interface OnboardingResult {
   business: OnboardingBusiness
   employees_created: OnboardingEmployeeResult[]
+  starter_templates?: RecommendedStarterTemplateResult | {
+    status: 'skipped'
+    reason: string
+  } | null
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────

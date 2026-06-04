@@ -62,6 +62,16 @@ export const onboardingBusinessTypes: OnboardingBusinessTypeOption[] = [
     industries: ['Agencies', 'Developers', 'Property consultants', 'Rental teams', 'Broker networks'],
   },
   {
+    value: 'used_cars',
+    label: 'Used Cars',
+    icon: 'Car',
+    description: 'Second hand car sales, enquiries and showroom visits',
+    explanation:
+      'Used Cars is for second hand car sellers who manage vehicle enquiries, availability checks, price sharing, test-drive or showroom visit slots, and buyer follow-ups from WhatsApp.',
+    features: ['Vehicle catalogue', 'Buyer CRM', 'Visit slot follow-ups', 'Availability-aware replies'],
+    industries: ['Used car dealers', 'Pre-owned car showrooms', 'Vehicle brokers', 'Certified resale teams'],
+  },
+  {
     value: 'professional_services',
     label: 'Services',
     icon: 'BriefcaseBusiness',

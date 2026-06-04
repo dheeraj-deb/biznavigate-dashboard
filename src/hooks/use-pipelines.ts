@@ -109,7 +109,7 @@ export function useEnsureDefaultPipeline() {
 export function useCreatePipeline() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (data: { name: string; fromTemplate?: 'hospitality' | 'commerce' | 'generic' | 'real_estate' | 'service' }) => {
+    mutationFn: async (data: { name: string; fromTemplate?: 'hospitality' | 'commerce' | 'generic' | 'real_estate' | 'service' | 'automotive' }) => {
       const res = await apiClient.post('/pipelines', data)
       return unwrap<Pipeline>(res.data)
     },

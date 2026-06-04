@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { User, Bell, Lock, Palette, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { User, Bell, Lock, Palette, Loader2, AlertCircle, CheckCircle2, Workflow } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
+import Link from 'next/link'
 import {
   useUserProfile,
   useUpdateUserProfile,
@@ -186,6 +187,21 @@ export default function SettingsPage() {
         )}
 
         <div className="grid gap-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Workflow className="h-5 w-5" />
+                <CardTitle>Business Blueprints</CardTitle>
+              </div>
+              <CardDescription>Edit the pipeline and workflow automations connected to your business type.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline">
+                <Link href="/settings/business-blueprints">Open blueprints</Link>
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Profile Settings */}
           <Card>
             <CardHeader>
