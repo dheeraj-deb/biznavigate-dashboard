@@ -17,7 +17,6 @@ import {
   Phone,
 } from 'lucide-react'
 import { useWhatsAppAccounts, useGupshupPipelineStatus, whatsappKeys } from '@/hooks/use-whatsapp-account'
-import { useApplyRecommendedStarterTemplates } from '@/hooks/use-starter-templates'
 import { useQueryClient } from '@tanstack/react-query'
 
 // Extend window with FB SDK type
@@ -79,7 +78,6 @@ interface SimpleWhatsAppConnectProps {
 
 export function SimpleWhatsAppConnect({ onComplete, businessId, businessType }: SimpleWhatsAppConnectProps) {
   const queryClient = useQueryClient()
-  const applyWhatsappTemplates = useApplyRecommendedStarterTemplates()
   const { data, refetch } = useWhatsAppAccounts(businessId)
   const { account, isConnected, isPending, isStuck, hasError } = data || { account: null, isConnected: false, isPending: false, isStuck: false, hasError: false }
 
@@ -285,12 +283,8 @@ export function SimpleWhatsAppConnect({ onComplete, businessId, businessType }: 
     setIsLoading(false)
   }
 
-  const handleFinish = async () => {
-    try {
-      await applyWhatsappTemplates.mutateAsync({ phase: 'whatsapp_connected' })
-    } finally {
-      onComplete?.()
-    }
+  const handleFinish = () => {
+    onComplete?.()
   }
 
   const verificationStatus = account?.business_verification_status ?? 'UNKNOWN'
@@ -717,19 +711,9 @@ export function SimpleWhatsAppConnect({ onComplete, businessId, businessType }: 
                 size="lg"
                 className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-6 text-lg shadow-lg hover:shadow-xl transition-all"
                 onClick={handleFinish}
-                disabled={applyWhatsappTemplates.isPending}
               >
-                {applyWhatsappTemplates.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Finalizing...
-                  </>
-                ) : (
-                  <>
-                    {isProductSeller ? 'Go to Products' : 'Go to Dashboard'}
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </>
-                )}
+                {isProductSeller ? 'Go to Products' : 'Go to Dashboard'}
+                <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </div>
           </CardContent>

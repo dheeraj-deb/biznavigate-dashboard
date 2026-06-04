@@ -180,7 +180,6 @@ export const navigationConfig: NavigationConfig = {
       children: [
         { name: 'General', href: '/settings', icon: 'Settings' },
         { name: 'Business Profile', href: '/settings/business', icon: 'Building' },
-        { name: 'Starter Templates', href: '/settings/starter-templates', icon: 'PackageCheck' },
         { name: 'WhatsApp', href: '/settings/whatsapp', icon: 'MessageSquare' },
         { name: 'Booking Methods', href: '/settings/booking-methods', icon: 'ListChecks', businessTypes: ['hospitality', 'events'] },
         { name: 'Booking Link', href: '/settings/booking-link', icon: 'Link', businessTypes: ['hospitality', 'events'] },

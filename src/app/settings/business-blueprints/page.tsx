@@ -8,6 +8,7 @@ import {
   CalendarClock,
   Edit,
   Loader2,
+  MessageSquareText,
   Network,
   PencilRuler,
   Workflow,
@@ -121,6 +122,28 @@ export default function BusinessBlueprintsPage() {
       toast.error(error?.message || 'Could not seed blueprints')
     },
   })
+  const applyTemplateBlueprints = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.post('/whatsapp/templates/apply-system-blueprints')
+      return response.data
+    },
+    onSuccess: (result: any) => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-templates'] })
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-template-stats'] })
+      const submitted = Number(result?.submitted ?? 0)
+      const skipped = Number(result?.skipped ?? 0)
+      toast.success(
+        submitted
+          ? `${submitted} WhatsApp templates submitted to Meta`
+          : skipped
+            ? 'Blueprint WhatsApp templates are already in sync'
+            : 'Blueprint WhatsApp templates checked',
+      )
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Could not apply WhatsApp template blueprints')
+    },
+  })
 
   const defaultPipeline = useMemo(
     () => pipelines.data?.find((pipeline) => pipeline.is_default) ?? pipelines.data?.[0],
@@ -160,6 +183,15 @@ export default function BusinessBlueprintsPage() {
             >
               {seedBlueprints.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Seed blueprints
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={applyTemplateBlueprints.isPending}
+              onClick={() => applyTemplateBlueprints.mutate()}
+            >
+              {applyTemplateBlueprints.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Sync WhatsApp templates
             </Button>
           </div>
         </div>
@@ -264,6 +296,30 @@ export default function BusinessBlueprintsPage() {
                     No workflow blueprints are available yet. Complete onboarding with MongoDB connected to seed workflow blueprints.
                   </div>
                 )}
+              </CardContent>
+            </Card>
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquareText className="h-5 w-5" />
+                  WhatsApp Template Blueprints
+                </CardTitle>
+                <CardDescription>
+                  Default Meta templates matched to this business type for campaign and reminder workflows.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Workflow template nodes only send after Meta approval. Re-sync after connecting WhatsApp or changing business type.
+                </div>
+                <Button
+                  variant="outline"
+                  disabled={applyTemplateBlueprints.isPending}
+                  onClick={() => applyTemplateBlueprints.mutate()}
+                >
+                  {applyTemplateBlueprints.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Apply templates
+                </Button>
               </CardContent>
             </Card>
           </div>
