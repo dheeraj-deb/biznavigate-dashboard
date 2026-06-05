@@ -286,8 +286,9 @@ export default function OnboardingPage() {
   const selectedBusinessType = onboardingBusinessTypes.find((type) => type.value === formData.businessType) ?? onboardingBusinessTypes[0]
   const progressPercent = Math.round((currentStep / totalSteps) * 100)
   const isProductSeller = formData.businessType === 'products' || formData.businessType === 'retail'
+  const isAppointmentSeller = formData.businessType === 'used_cars' || formData.businessType === 'real_estate'
   const handleWhatsAppConnected = () => {
-    router.push(isProductSeller ? '/seller-setup' : '/dashboard')
+    router.push(isProductSeller ? '/seller-setup' : isAppointmentSeller ? '/appointment-sales-setup' : '/dashboard')
   }
 
   return (
@@ -643,8 +644,8 @@ export default function OnboardingPage() {
 
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-bold text-[#4B4B4B]">Business Type*</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {onboardingBusinessTypes.filter((t) => ['hospitality', 'events', 'products'].includes(t.value)).map((t) => {
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {onboardingBusinessTypes.filter((t) => ['hospitality', 'events', 'products', 'used_cars', 'real_estate'].includes(t.value)).map((t) => {
                       const Icon = resolveIcon(t.icon)
                       const active = formData.businessType === t.value
                       return (
@@ -852,7 +853,9 @@ export default function OnboardingPage() {
                       <p className="text-[13px] text-[#6E6E6E]">
                         {isProductSeller
                           ? 'Confirm the basics. Next, connect WhatsApp and set store rules for products, stock and credit.'
-                          : 'Confirm the basics. Next, the dashboard will guide WhatsApp, inventory and booking setup.'}
+                          : isAppointmentSeller
+                            ? 'Confirm the basics. Next, connect WhatsApp and add listings, staff and visit timings.'
+                            : 'Confirm the basics. Next, the dashboard will guide WhatsApp, inventory and booking setup.'}
                       </p>
                     </div>
 
@@ -896,7 +899,11 @@ export default function OnboardingPage() {
                           <MessageCircle className="mb-2 h-4 w-4 text-green-600" />
                           <p className="text-[13px] font-bold text-[#4B4B4B]">Connect WhatsApp</p>
                           <p className="mt-1 text-[12px] text-[#6E6E6E]">
-                            {isProductSeller ? 'Receive product enquiries and order chats.' : 'Receive enquiries and AI replies.'}
+                            {isProductSeller
+                              ? 'Receive product enquiries and order chats.'
+                              : isAppointmentSeller
+                                ? 'Receive buyer enquiries and visit chats.'
+                                : 'Receive enquiries and AI replies.'}
                           </p>
                         </div>
                         <div className="rounded-md bg-white p-3">
@@ -904,25 +911,33 @@ export default function OnboardingPage() {
                           <p className="text-[13px] font-bold text-[#4B4B4B]">
                             {formData.businessType === 'hospitality'
                               ? 'Add rooms & villas'
-                              : isProductSeller
-                                ? 'Import catalogue'
-                                : 'Add inventory'}
+                              : isAppointmentSeller
+                                ? formData.businessType === 'real_estate'
+                                  ? 'Add properties'
+                                  : 'Add vehicles'
+                                : isProductSeller
+                                  ? 'Import catalogue'
+                                  : 'Add inventory'}
                           </p>
                           <p className="mt-1 text-[12px] text-[#6E6E6E]">
                             {isProductSeller
                               ? 'Bring WhatsApp products into BizNavigo or add manually.'
-                              : 'Set what customers can book or buy.'}
+                              : isAppointmentSeller
+                                ? 'Save listings, salesperson details and available visit timings.'
+                                : 'Set what customers can book or buy.'}
                           </p>
                         </div>
                         <div className="rounded-md bg-white p-3">
                           <CheckCircle2 className="mb-2 h-4 w-4 text-amber-600" />
                           <p className="text-[13px] font-bold text-[#4B4B4B]">
-                            {isProductSeller ? 'Review orders' : 'Review AI work'}
+                            {isProductSeller ? 'Review orders' : isAppointmentSeller ? 'Review visits' : 'Review AI work'}
                           </p>
                           <p className="mt-1 text-[12px] text-[#6E6E6E]">
                             {isProductSeller
                               ? 'Track payments, stock issues and follow-ups.'
-                              : 'See replies, follow-ups and approvals.'}
+                              : isAppointmentSeller
+                                ? 'Track booked visits, assigned staff and customer follow-up.'
+                                : 'See replies, follow-ups and approvals.'}
                           </p>
                         </div>
                       </div>
@@ -976,11 +991,17 @@ export default function OnboardingPage() {
               <div className="space-y-4">
                 <div className="text-center mb-2">
                   <h3 className="text-[19px] font-semibold tracking-tight text-[#4B4B4B] mb-1">
-                    {isProductSeller ? 'Connect WhatsApp and set store rules' : 'Connect WhatsApp'}
+                    {isProductSeller
+                      ? 'Connect WhatsApp and set store rules'
+                      : isAppointmentSeller
+                        ? 'Connect WhatsApp and set visits'
+                        : 'Connect WhatsApp'}
                   </h3>
                   <p className="text-[13px] text-[#6E6E6E]">
                     {isProductSeller
                       ? 'After connection, you will set stock holds, payment modes, delivery areas and starter products.'
+                      : isAppointmentSeller
+                        ? 'After connection, you will add listings, sales staff and available visit timings.'
                       : 'Link your WhatsApp Business account to start messaging customers'}
                   </p>
                 </div>

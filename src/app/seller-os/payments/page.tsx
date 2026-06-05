@@ -105,7 +105,7 @@ function HoldCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-slate-950">{hold.product_name}</p>
-          <p className="mt-1 text-xs text-slate-500">Qty {hold.quantity} · {hold.customer_phone || 'No phone'}</p>
+          <p className="mt-1 text-xs text-slate-500">Qty {hold.quantity} - {hold.customer_phone || 'No phone'}</p>
         </div>
         <div className="shrink-0 text-right">
           <p className="text-sm font-bold text-slate-950">{money(hold.estimated_amount)}</p>
@@ -151,6 +151,7 @@ export default function SellerPaymentDeskPage() {
   const desk = paymentDeskQuery.data
   const pendingOrders = useMemo(() => desk?.pending_orders ?? [], [desk?.pending_orders])
   const codOrders = useMemo(() => desk?.cod_orders ?? [], [desk?.cod_orders])
+  const paidOrders = useMemo(() => desk?.paid_orders ?? [], [desk?.paid_orders])
   const holds = useMemo(() => desk?.active_holds ?? [], [desk?.active_holds])
 
   function handlePaid(order: SellerPaymentDeskOrder, reference: string) {
@@ -275,7 +276,7 @@ export default function SellerPaymentDeskPage() {
                           <p className="truncate text-sm font-bold text-green-950">{order.order_number || order.order_id}</p>
                           <span className="text-sm font-bold text-green-800">{money(order.total_amount)}</span>
                         </div>
-                        <p className="mt-1 text-xs text-green-800">{order.customer_phone || 'Customer'} · {order.shipping_address || 'Pickup / address pending'}</p>
+                        <p className="mt-1 text-xs text-green-800">{order.customer_phone || 'Customer'} - {order.shipping_address || 'Pickup / address pending'}</p>
                         <Button
                           type="button"
                           size="sm"
@@ -288,6 +289,30 @@ export default function SellerPaymentDeskPage() {
                       </div>
                     )) : (
                       <p className="text-sm text-slate-500">No COD collection waiting.</p>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="border-slate-200 p-4 sm:p-5">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-700" />
+                    <h2 className="text-lg font-bold text-slate-950">Paid Today</h2>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {paidOrders.length ? paidOrders.slice(0, 6).map((order) => (
+                      <div key={order.order_id} className="rounded-md border border-slate-200 bg-white p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-slate-950">{order.order_number || order.order_id}</p>
+                            <p className="mt-1 truncate text-xs text-slate-500">
+                              {order.customer_name || order.customer_phone || 'Customer'} - {methodLabel(order.payment_method)}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-sm font-bold text-green-700">{money(order.total_amount)}</span>
+                        </div>
+                      </div>
+                    )) : (
+                      <p className="text-sm text-slate-500">Paid orders will appear here after collection.</p>
                     )}
                   </div>
                 </Card>

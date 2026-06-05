@@ -114,7 +114,7 @@ export const businessTypeRegistry: Record<BusinessType, BusinessTypeConfig> = {
   real_estate: {
     type: 'real_estate',
     label: 'Real Estate',
-    modules: ['crm', 'whatsapp', 'automations', 'properties', 'payments', 'analytics', 'campaigns'],
+    modules: ['crm', 'whatsapp', 'automations', 'properties', 'appointments', 'analytics', 'campaigns'],
     terminology: {
       ...sharedTerminology,
       customer: 'Buyer',
@@ -130,7 +130,7 @@ export const businessTypeRegistry: Record<BusinessType, BusinessTypeConfig> = {
   used_cars: {
     type: 'used_cars',
     label: 'Used Cars',
-    modules: ['crm', 'whatsapp', 'automations', 'catalog', 'inventory', 'payments', 'analytics', 'campaigns'],
+    modules: ['crm', 'whatsapp', 'automations', 'catalog', 'appointments', 'analytics', 'campaigns'],
     terminology: {
       ...sharedTerminology,
       customer: 'Buyer',

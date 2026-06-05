@@ -9,15 +9,18 @@ import { useDailyOverview, useLeads, useNeedsAttention, useResortReminderReadine
 import { useBusinessSettings } from '@/hooks/use-settings'
 import { useConversations } from '@/hooks/use-inbox'
 import { useAiManagerToday, type AiEmployee, type AiEmployeeMetric, type AiManagerSuggestion } from '@/hooks/use-ai-manager'
+import { useAppointmentSalesOverview } from '@/hooks/use-appointment-sales'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
   ArrowRight,
   Bot,
   Building2,
+  CalendarDays,
   CalendarCheck,
   CheckCircle2,
   Clock,
+  Car,
   IndianRupee,
   Loader2,
   MessageCircle,
@@ -185,7 +188,7 @@ function shortDate(value?: string) {
 }
 
 function isSalesBusinessType(businessType: string) {
-  return ['products', 'retail', 'used_cars'].includes(businessType)
+  return ['products', 'retail', 'used_cars', 'real_estate'].includes(businessType)
 }
 
 function useRecentWork(businessType: string) {
@@ -300,6 +303,7 @@ function employeeIcon(key: string) {
 
 function employeeStatusTone(status: string) {
   if (status === 'needs_attention') return 'border-rose-200 bg-rose-50 text-rose-700'
+  if (status === 'needs_setup') return 'border-amber-200 bg-amber-50 text-amber-700'
   if (status === 'working') return 'border-amber-200 bg-amber-50 text-amber-700'
   return 'border-green-200 bg-green-50 text-green-700'
 }
@@ -753,10 +757,236 @@ function ProductSellerDashboard({
   )
 }
 
+function visitStatusTone(status: string) {
+  if (status === 'completed' || status === 'converted') return 'border-green-200 bg-green-50 text-green-700'
+  if (status === 'cancelled' || status === 'no_show') return 'border-rose-200 bg-rose-50 text-rose-700'
+  if (status === 'confirmed' || status === 'arrived') return 'border-blue-200 bg-blue-50 text-[#0066FF]'
+  return 'border-amber-200 bg-amber-50 text-amber-700'
+}
+
+function visitTime(value?: string) {
+  if (!value) return 'Not scheduled'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return parsed.toLocaleString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+function AppointmentSalesDashboard({
+  businessName,
+  location,
+  businessType,
+}: {
+  businessName: string
+  location: string
+  businessType: string
+}) {
+  const overviewQuery = useAppointmentSalesOverview()
+  const overview = overviewQuery.data
+  const isProperty = businessType === 'real_estate'
+  const Icon = isProperty ? Building2 : Car
+  const copy = {
+    title: isProperty ? 'Property Sales Desk' : 'Vehicle Sales Desk',
+    noun: isProperty ? 'property' : 'vehicle',
+    plural: isProperty ? 'properties' : 'vehicles',
+    visit: isProperty ? 'site visit' : 'showroom visit',
+  }
+  const summary = overview?.summary
+  const setupNeeded = !summary || summary.active_listings === 0 || summary.active_staff === 0
+
+  if (overviewQuery.isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-[#0066FF]" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-5 pb-8">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="p-4 sm:p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-slate-950 text-white">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase text-[#0066FF]">{copy.title}</p>
+                  <h1 className="truncate text-2xl font-bold text-slate-950">{businessName}</h1>
+                  {location ? <p className="mt-1 truncate text-sm text-slate-500">{location}</p> : null}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild className="gap-2 bg-[#0066FF] hover:bg-[#0052CC]">
+                  <Link href="/appointment-sales">
+                    <CalendarCheck className="h-4 w-4" />
+                    Visit Desk
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="gap-2 bg-white">
+                  <Link href="/crm/inbox">
+                    <MessageCircle className="h-4 w-4" />
+                    Inbox
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="gap-2 bg-white">
+                  <Link href="/appointment-sales/listings">
+                    <Icon className="h-4 w-4" />
+                    Listings
+                  </Link>
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard
+                icon={Icon}
+                label={`Active ${copy.plural}`}
+                value={summary?.active_listings ?? 0}
+                note="ready to show"
+                tone="bg-blue-50 text-[#0066FF]"
+              />
+              <MetricCard
+                icon={Users}
+                label="Sales staff"
+                value={summary?.active_staff ?? 0}
+                note="with timings"
+                tone="bg-slate-100 text-slate-700"
+              />
+              <MetricCard
+                icon={CalendarDays}
+                label="Visits today"
+                value={summary?.visits_today ?? 0}
+                note="scheduled"
+                tone="bg-amber-50 text-amber-700"
+              />
+              <MetricCard
+                icon={CheckCircle2}
+                label="Upcoming"
+                value={summary?.upcoming_visits ?? 0}
+                note="to convert"
+                tone="bg-green-50 text-green-700"
+              />
+            </div>
+
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <Link href="/appointment-sales/listings" className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 hover:bg-white">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-bold text-slate-950">Needs details</span>
+                  <span className="text-lg font-bold text-slate-950">{summary?.listings_needing_update ?? 0}</span>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">missing photo or description</p>
+              </Link>
+              <Link href="/appointment-sales/listings" className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 hover:bg-white">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-bold text-amber-900">WhatsApp sync</span>
+                  <span className="text-lg font-bold text-amber-900">{summary?.sync_attention ?? 0}</span>
+                </div>
+                <p className="mt-1 text-xs text-amber-700">pending or failed items</p>
+              </Link>
+              <Link href="/appointment-sales/listings" className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 hover:bg-white">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-bold text-blue-950">Sold</span>
+                  <span className="text-lg font-bold text-blue-950">{summary?.sold_listings ?? 0}</span>
+                </div>
+                <p className="mt-1 text-xs text-blue-700">closed {copy.plural}</p>
+              </Link>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200 bg-slate-950 p-4 text-white sm:p-5 xl:border-l xl:border-t-0">
+            <p className="text-xs font-bold uppercase text-slate-300">Owner focus</p>
+            <h2 className="mt-2 text-xl font-bold">
+              {setupNeeded ? 'Finish listings and staff timings' : `Keep ${copy.visit}s moving`}
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              {setupNeeded
+                ? `Add at least one ${copy.noun} and one salesperson so AI can guide customers toward visits.`
+                : `AI can show saved ${copy.plural}, answer simple questions, and move interested customers to a visit.`}
+            </p>
+            <Button asChild className="mt-5 w-full justify-between bg-white text-slate-950 hover:bg-slate-100">
+              <Link href={setupNeeded ? '/appointment-sales-setup' : '/appointment-sales/visits'}>
+                {setupNeeded ? 'Complete setup' : 'Review visits'}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <Card className="border-slate-200 p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-slate-950">Recent visits</h2>
+              <p className="mt-1 text-sm text-slate-500">Today&apos;s practical work for the team.</p>
+            </div>
+            <Button asChild variant="ghost" size="sm" className="text-[#0066FF]">
+              <Link href="/appointment-sales/visits">All</Link>
+            </Button>
+          </div>
+          <div className="mt-4 divide-y divide-slate-100 rounded-md border border-slate-200">
+            {(overview?.recent_visits ?? []).slice(0, 5).map((visit) => (
+              <Link key={visit.visit_id} href="/appointment-sales/visits" className="block p-4 hover:bg-slate-50">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="truncate text-sm font-bold text-slate-950">{visit.customer_name || visit.customer_phone || 'Customer'}</p>
+                  <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase ${visitStatusTone(visit.status)}`}>
+                    {visit.status.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <p className="mt-2 truncate text-xs text-slate-500">
+                  {visit.item_name || `General ${copy.visit}`} | {visitTime(visit.scheduled_start)} | {visit.sales_staff_name || 'Auto assign'}
+                </p>
+              </Link>
+            ))}
+            {!overview?.recent_visits?.length ? (
+              <div className="p-4 text-sm text-slate-500">No visits booked yet.</div>
+            ) : null}
+          </div>
+        </Card>
+
+        <Card className="border-slate-200 p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-slate-950">AI employees</h2>
+              <p className="mt-1 text-sm text-slate-500">What AI is responsible for.</p>
+            </div>
+            <Bot className="h-5 w-5 text-[#0066FF]" />
+          </div>
+          <div className="mt-4 divide-y divide-slate-100 rounded-md border border-slate-200">
+            {(overview?.ai_employees ?? []).map((employee) => (
+              <div key={employee.key} className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-bold text-slate-950">{employee.name}</p>
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${employeeStatusTone(employee.status)}`}>
+                    {employee.status.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-slate-500">{employee.summary}</p>
+                <p className="mt-2 text-xs font-semibold text-[#0066FF]">{employee.next}</p>
+              </div>
+            ))}
+            {!overview?.ai_employees?.length ? (
+              <div className="p-4 text-sm text-slate-500">AI visit employees will appear after setup.</div>
+            ) : null}
+          </div>
+        </Card>
+      </section>
+    </div>
+  )
+}
+
 export function DashboardRenderer() {
   const { businessType, isLoading: bizLoading } = useBusinessType()
   const isProductBusiness = businessType === 'products' || businessType === 'retail'
-  const isSalesBusiness = isSalesBusinessType(businessType)
+  const isAppointmentBusiness = businessType === 'used_cars' || businessType === 'real_estate'
+  const isSalesBusiness = isSalesBusinessType(businessType) || isAppointmentBusiness
   const isUsedCars = businessType === 'used_cars'
   const { data: statsData, isLoading: statsLoading } = useDashboardStats()
   const { data: businessSettings } = useBusinessSettings()
@@ -782,7 +1012,15 @@ export function DashboardRenderer() {
       ? 'What to do today to convert product enquiries into orders.'
       : 'What to do today to get bookings and avoid mistakes.')
   const businessName = businessSettings?.business_name?.trim()
-    || (isUsedCars ? 'Your Showroom' : isProductBusiness ? 'Your Store' : businessType === 'events' ? 'Your Event Venue' : 'Your Resort')
+    || (isUsedCars
+      ? 'Your Showroom'
+      : businessType === 'real_estate'
+        ? 'Your Property Business'
+        : isProductBusiness
+          ? 'Your Store'
+          : businessType === 'events'
+            ? 'Your Event Venue'
+            : 'Your Resort')
   const location = [businessSettings?.city, businessSettings?.state].filter(Boolean).join(', ')
 
   const attentionLeads: SimpleLead[] = (needsAttentionQuery.data ?? [])
@@ -807,7 +1045,7 @@ export function DashboardRenderer() {
   const todayKey = offsetDateKey(0)
   const tomorrowKey = offsetDateKey(1)
   const upcomingStays: ResortBookingPreview[] = resortWorklistQuery.data?.upcoming_bookings ?? []
-  const nearCheckIns = isProductBusiness
+  const nearCheckIns = isProductBusiness || isAppointmentBusiness
     ? []
     : upcomingStays
       .filter((booking) => [todayKey, tomorrowKey].includes(dateKey(booking.check_in)))
@@ -851,6 +1089,16 @@ export function DashboardRenderer() {
         recentWork={recentWork}
         leadsLoading={needsAttentionQuery.isLoading || recentLeadsQuery.isLoading}
         workLoading={recentWorkQuery.isLoading}
+      />
+    )
+  }
+
+  if (isAppointmentBusiness) {
+    return (
+      <AppointmentSalesDashboard
+        businessName={businessName}
+        location={location}
+        businessType={businessType}
       />
     )
   }

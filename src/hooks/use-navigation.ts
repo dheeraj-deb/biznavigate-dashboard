@@ -25,6 +25,23 @@ const sellerSettingsChildren: NavItem[] = [
   })),
 ]
 
+const appointmentSettingsChildren: NavItem[] = [
+  { name: 'Visit Setup', href: '/appointment-sales-setup', icon: 'ListChecks' },
+  ...(sharedSettingsGroup?.children ?? []).map((child) => ({
+    ...child,
+    businessTypes: undefined,
+    displayName: {
+      ...child.displayName,
+      ...(child.href === '/settings/booking-methods'
+        ? { used_cars: 'Visit Rules', real_estate: 'Visit Rules' }
+        : {}),
+      ...(child.href === '/settings/booking-link'
+        ? { used_cars: 'Showroom Link', real_estate: 'Property Link' }
+        : {}),
+    },
+  })),
+]
+
 const LOCAL_SELLER_GROUPS: NavGroup[] = [
   {
     name: 'Store Desk',
@@ -77,6 +94,45 @@ const LOCAL_SELLER_GROUPS: NavGroup[] = [
   },
 ]
 
+const APPOINTMENT_SELLER_GROUPS: NavGroup[] = [
+  {
+    name: 'Today',
+    icon: 'Zap',
+    href: '/appointment-sales',
+    businessTypes: ['used_cars', 'real_estate'],
+  },
+  {
+    name: 'Inbox',
+    icon: 'MessageSquare',
+    href: '/crm/inbox',
+    businessTypes: ['used_cars', 'real_estate'],
+  },
+  {
+    name: 'Listings',
+    icon: 'ListChecks',
+    href: '/appointment-sales/listings',
+    businessTypes: ['used_cars', 'real_estate'],
+  },
+  {
+    name: 'Visits',
+    icon: 'CalendarCheck',
+    href: '/appointment-sales/visits',
+    businessTypes: ['used_cars', 'real_estate'],
+  },
+  {
+    name: 'Team',
+    icon: 'Users',
+    href: '/appointment-sales/staff',
+    businessTypes: ['used_cars', 'real_estate'],
+  },
+  {
+    name: 'Settings',
+    icon: 'Settings',
+    businessTypes: ['used_cars', 'real_estate'],
+    children: appointmentSettingsChildren,
+  },
+]
+
 const LOCAL_SELLER_QUICK_LINKS: QuickLink[] = [
   { href: '/seller-os', label: 'Store Desk', icon: 'ShoppingBag', businessTypes: ['products', 'retail'] },
   { href: '/seller-os/leads', label: 'Enquiries', icon: 'UserPlus', businessTypes: ['products', 'retail'] },
@@ -84,6 +140,14 @@ const LOCAL_SELLER_QUICK_LINKS: QuickLink[] = [
   { href: '/orders', label: 'Orders', icon: 'ShoppingCart', businessTypes: ['products', 'retail'] },
   { href: '/seller-os/payments', label: 'Payments', icon: 'CreditCard', businessTypes: ['products', 'retail'] },
   { href: '/seller-os/credit', label: 'Credit', icon: 'IndianRupee', businessTypes: ['products', 'retail'], sellerFeatures: ['credit_sales'] },
+]
+
+const APPOINTMENT_SELLER_QUICK_LINKS: QuickLink[] = [
+  { href: '/appointment-sales', label: 'Today', icon: 'Zap', businessTypes: ['used_cars', 'real_estate'] },
+  { href: '/crm/inbox', label: 'Inbox', icon: 'MessageSquare', businessTypes: ['used_cars', 'real_estate'] },
+  { href: '/appointment-sales/listings', label: 'Listings', icon: 'ListChecks', businessTypes: ['used_cars', 'real_estate'] },
+  { href: '/appointment-sales/visits', label: 'Visits', icon: 'CalendarCheck', businessTypes: ['used_cars', 'real_estate'] },
+  { href: '/appointment-sales/staff', label: 'Team', icon: 'Users', businessTypes: ['used_cars', 'real_estate'] },
 ]
 
 function matchesBizType(
@@ -106,6 +170,7 @@ function matchesSellerFeatures(
 export function useNavigation() {
   const { businessType, isLoading } = useCurrentBusiness()
   const isProductSeller = businessType === 'products' || businessType === 'retail'
+  const isAppointmentSeller = businessType === 'used_cars' || businessType === 'real_estate'
   const sellerSetupQuery = useSellerSetup({ enabled: isProductSeller })
 
   const { quickLinks, groups } = useMemo(() => {
@@ -113,12 +178,20 @@ export function useNavigation() {
     const sellerFeatures = isProductSeller
       ? (sellerSetupQuery.data?.features ?? {})
       : {}
-    const baseQuickLinks = isProductSeller ? LOCAL_SELLER_QUICK_LINKS : navigationConfig.quickLinks
+    const baseQuickLinks = isProductSeller
+      ? LOCAL_SELLER_QUICK_LINKS
+      : isAppointmentSeller
+        ? APPOINTMENT_SELLER_QUICK_LINKS
+        : navigationConfig.quickLinks
     const filteredQuickLinks: QuickLink[] = baseQuickLinks.filter((ql) =>
       matchesBizType(ql, businessType) && matchesSellerFeatures(ql, sellerFeatures),
     )
 
-    const baseGroups = isProductSeller ? LOCAL_SELLER_GROUPS : businessConfig.navigation
+    const baseGroups = isProductSeller
+      ? LOCAL_SELLER_GROUPS
+      : isAppointmentSeller
+        ? APPOINTMENT_SELLER_GROUPS
+        : businessConfig.navigation
     const filteredGroups: NavGroup[] = baseGroups
       .filter((group) => matchesBizType(group, businessType) && matchesSellerFeatures(group, sellerFeatures))
       .map((group) => {
@@ -131,7 +204,7 @@ export function useNavigation() {
       .filter((group) => group.href || (group.children && group.children.length > 0))
 
     return { quickLinks: filteredQuickLinks, groups: filteredGroups }
-  }, [businessType, isProductSeller, sellerSetupQuery.data?.features])
+  }, [businessType, isProductSeller, isAppointmentSeller, sellerSetupQuery.data?.features])
 
   return { quickLinks, groups, businessType, isLoading }
 }

@@ -24,6 +24,10 @@ interface OrderStats {
   average_order_value: number
 }
 
+function normalizeStatus(value: unknown) {
+  return typeof value === 'string' ? value.toLowerCase() : value
+}
+
 function normalizeOrder(raw: any) {
   const customer = raw?.customer || raw?.customers
   const customerName =
@@ -43,6 +47,9 @@ function normalizeOrder(raw: any) {
     id: raw?.id || raw?.order_id || raw?.product_order_id,
     orderNumber: raw?.orderNumber || raw?.order_number,
     total: raw?.total ?? raw?.total_amount,
+    status: normalizeStatus(raw?.status),
+    payment_status: normalizeStatus(raw?.payment_status ?? raw?.paymentStatus),
+    paymentStatus: normalizeStatus(raw?.paymentStatus ?? raw?.payment_status),
     customer_name: customerName,
     customer_phone: customerPhone,
     customer: customer || customerName || customerPhone
@@ -100,7 +107,7 @@ export function useOrder(id: string) {
     queryKey: ['order', id],
     queryFn: async () => {
       const response = await apiClient.get(`/orders/${id}`)
-      return response.data
+      return normalizeOrder(response.data?.data ?? response.data)
     },
     enabled: !!id,
   })
@@ -168,7 +175,7 @@ export function useUpdateOrderStatus() {
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const response = await apiClient.patch(`/orders/${id}/status`, { status })
+      const response = await apiClient.patch(`/orders/${id}/status`, { status: String(status).toLowerCase() })
       return response.data
     },
     onSuccess: (_, variables) => {

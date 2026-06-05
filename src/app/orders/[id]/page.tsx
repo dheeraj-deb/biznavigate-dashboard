@@ -32,46 +32,49 @@ import {
   Mail,
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { OrderStatus, PaymentStatus } from '@/types'
 import {
   useOrder,
   useUpdateOrderStatus,
   useUpdateOrderPayment,
 } from '@/hooks/use-orders'
 
-const getStatusBadgeColor = (status: OrderStatus) => {
-  const colors = {
-    [OrderStatus.PENDING]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-400',
-    [OrderStatus.CONFIRMED]: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400',
-    [OrderStatus.PROCESSING]: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-400',
-    [OrderStatus.SHIPPED]: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-400',
-    [OrderStatus.DELIVERED]: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400',
-    [OrderStatus.CANCELLED]: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400',
+const statusKey = (status?: unknown) => String(status ?? '').toLowerCase()
+
+const getStatusBadgeColor = (status?: unknown) => {
+  const colors: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-400',
+    confirmed: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400',
+    paid: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400',
+    processing: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-400',
+    shipped: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-400',
+    delivered: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400',
+    cancelled: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400',
   }
-  return colors[status]
+  return colors[statusKey(status)] ?? 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-400'
 }
 
-const getPaymentStatusColor = (status: PaymentStatus) => {
-  const colors = {
-    [PaymentStatus.PENDING]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-400',
-    [PaymentStatus.PAID]: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400',
-    [PaymentStatus.PARTIAL]: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400',
-    [PaymentStatus.REFUNDED]: 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-400',
-    [PaymentStatus.FAILED]: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400',
+const getPaymentStatusColor = (status?: unknown) => {
+  const colors: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-400',
+    paid: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400',
+    partial: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400',
+    refunded: 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-400',
+    failed: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400',
   }
-  return colors[status]
+  return colors[statusKey(status)] ?? colors.pending
 }
 
-const getStatusIcon = (status: OrderStatus) => {
-  const icons = {
-    [OrderStatus.PENDING]: Clock,
-    [OrderStatus.CONFIRMED]: CheckCircle2,
-    [OrderStatus.PROCESSING]: Package,
-    [OrderStatus.SHIPPED]: Truck,
-    [OrderStatus.DELIVERED]: CheckCircle2,
-    [OrderStatus.CANCELLED]: XCircle,
+const getStatusIcon = (status?: unknown) => {
+  const icons: Record<string, typeof Clock> = {
+    pending: Clock,
+    confirmed: CheckCircle2,
+    paid: CheckCircle2,
+    processing: Package,
+    shipped: Truck,
+    delivered: CheckCircle2,
+    cancelled: XCircle,
   }
-  return icons[status] || Clock
+  return icons[statusKey(status)] || Clock
 }
 
 export default function OrderDetailPage({ params }: { params: { id: string } }) {
@@ -223,8 +226,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
               <DropdownMenuSeparator />
 
               {/* Payment actions */}
-              {(order.paymentStatus || order.payment_status) !== PaymentStatus.PAID &&
-               (order.paymentStatus || order.payment_status) !== 'paid' && (
+              {statusKey(order.paymentStatus || order.payment_status) !== 'paid' && (
                 <DropdownMenuItem onClick={handleMarkAsPaid}>
                   <CreditCard className="mr-2 h-4 w-4" />
                   Mark as Paid
@@ -384,8 +386,7 @@ export default function OrderDetailPage({ params }: { params: { id: string } }) 
                   </div>
 
                   {/* Payment Received */}
-                  {((order.paymentStatus || order.payment_status) === PaymentStatus.PAID ||
-                    (order.paymentStatus || order.payment_status) === 'paid' ||
+                  {(statusKey(order.paymentStatus || order.payment_status) === 'paid' ||
                     (order.paid_at)) && (
                     <div className="flex gap-4">
                       <div className="flex flex-col items-center">

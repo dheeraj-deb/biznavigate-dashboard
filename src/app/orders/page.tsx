@@ -53,27 +53,30 @@ import { useAuthStore } from '@/store/auth-store'
 // Fallback business ID from seed data
 const FALLBACK_BUSINESS_ID = 'dd8ae5a1-cab4-4041-849d-e108d74490d3'
 
-const getStatusBadgeColor = (status: OrderStatus) => {
-  const colors = {
-    [OrderStatus.PENDING]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-400',
-    [OrderStatus.CONFIRMED]: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400',
-    [OrderStatus.PROCESSING]: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-400',
-    [OrderStatus.SHIPPED]: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-400',
-    [OrderStatus.DELIVERED]: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400',
-    [OrderStatus.CANCELLED]: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400',
+const statusKey = (status?: unknown) => String(status ?? '').toLowerCase()
+
+const getStatusBadgeColor = (status?: unknown) => {
+  const colors: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-400',
+    confirmed: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400',
+    paid: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400',
+    processing: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-400',
+    shipped: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-400',
+    delivered: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400',
+    cancelled: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400',
   }
-  return colors[status]
+  return colors[statusKey(status)] ?? 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-400'
 }
 
-const getPaymentStatusColor = (status: PaymentStatus) => {
-  const colors = {
-    [PaymentStatus.PENDING]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-400',
-    [PaymentStatus.PAID]: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400',
-    [PaymentStatus.PARTIAL]: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400',
-    [PaymentStatus.REFUNDED]: 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-400',
-    [PaymentStatus.FAILED]: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400',
+const getPaymentStatusColor = (status?: unknown) => {
+  const colors: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-400',
+    paid: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400',
+    partial: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400',
+    refunded: 'bg-gray-100 text-gray-800 dark:bg-gray-950 dark:text-gray-400',
+    failed: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400',
   }
-  return colors[status]
+  return colors[statusKey(status)] ?? colors.pending
 }
 
 export default function OrdersPage() {
@@ -400,7 +403,7 @@ export default function OrdersPage() {
                             Edit Order
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          {(order.paymentStatus || order.payment_status) !== PaymentStatus.PAID && (
+                          {statusKey(order.paymentStatus || order.payment_status) !== 'paid' && (
                             <DropdownMenuItem
                               onClick={() => handleMarkAsPaid(order.id || order.order_id)}
                             >
@@ -408,8 +411,8 @@ export default function OrdersPage() {
                               Mark as Paid
                             </DropdownMenuItem>
                           )}
-                          {order.status !== OrderStatus.SHIPPED &&
-                            order.status !== OrderStatus.DELIVERED && (
+                          {statusKey(order.status) !== 'shipped' &&
+                            statusKey(order.status) !== 'delivered' && (
                               <DropdownMenuItem
                                 onClick={() => handleMarkAsShipped(order.id || order.order_id)}
                               >

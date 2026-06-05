@@ -14,7 +14,7 @@ export interface WhatsAppCatalogProduct {
   in_whatsapp_catalog: boolean
   whatsapp_catalog_id?: string | null
   whatsapp_retailer_id?: string | null
-  whatsapp_sync_status: 'not_synced' | 'pending' | 'syncing' | 'synced' | 'failed' | 'linked' | 'local_only'
+  whatsapp_sync_status: 'not_synced' | 'pending' | 'syncing' | 'synced' | 'failed' | 'linked' | 'local_only' | 'needs_review' | 'pending_delete'
   whatsapp_sync_error?: string
   whatsapp_synced_at?: string | null
   product_images?: Array<{ file_path: string; is_primary: boolean }>
@@ -59,6 +59,8 @@ export interface ImportResult {
 export interface SyncResult {
   success: boolean
   synced?: number
+  deleted?: number
+  skipped?: number
   failed?: number
   errors?: Array<{ productId: string; error: string }>
 }
@@ -122,7 +124,10 @@ export function useImportWhatsAppCatalog() {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-catalog-status'] })
       queryClient.invalidateQueries({ queryKey: ['whatsapp-catalog-preview'] })
       queryClient.invalidateQueries({ queryKey: ['catalog'] })
-      toast.success(`Imported ${result.created} products and linked ${result.linked}`)
+      queryClient.invalidateQueries({ queryKey: ['appointment-sales-setup'] })
+      queryClient.invalidateQueries({ queryKey: ['appointment-sales-listings'] })
+      queryClient.invalidateQueries({ queryKey: ['appointment-sales-overview'] })
+      toast.success(`Imported ${result.created} items and linked ${result.linked}`)
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Could not import WhatsApp catalog')
@@ -134,11 +139,16 @@ export function useSyncCatalog() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (_?: { businessId?: string; productIds?: string[] }): Promise<SyncResult> => {
-      const response = await apiClient.post('/whatsapp/catalog/sync', {})
+      const response = await apiClient.post('/whatsapp/catalog/sync', {
+        productIds: _?.productIds,
+      })
       return (response as any).data ?? response
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-catalog'] })
       queryClient.invalidateQueries({ queryKey: ['whatsapp-catalog-status'] })
+      queryClient.invalidateQueries({ queryKey: ['appointment-sales-listings'] })
+      queryClient.invalidateQueries({ queryKey: ['appointment-sales-overview'] })
       toast.success('WhatsApp catalog sync started')
     },
     onError: (error: any) => {

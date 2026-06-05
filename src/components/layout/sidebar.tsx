@@ -69,8 +69,8 @@ export function Sidebar() {
               className={cn(
                 'flex items-center justify-center rounded-xl p-2.5 transition-all duration-200',
                 isActive || hasActiveChild
-                  ? 'bg-[#0066FF]/12 text-[#0066FF]'
-                  : 'text-[#4B4B4B] hover:bg-[#0066FF]/8'
+                  ? 'bg-white text-[#0066FF] shadow-[0_8px_24px_rgba(0,102,255,0.12)] ring-1 ring-[#0066FF]/15'
+                  : 'text-[#4B4B4B] hover:bg-white/80 hover:text-[#0066FF]'
               )}
             >
               <GroupIcon className="h-5 w-5 flex-shrink-0" />
@@ -87,8 +87,8 @@ export function Sidebar() {
               className={cn(
                 'flex w-full items-center justify-center rounded-xl p-2.5 transition-all duration-200',
                 hasActiveChild
-                  ? 'bg-[#0066FF]/12 text-[#0066FF]'
-                  : 'text-[#4B4B4B] hover:bg-[#0066FF]/8'
+                  ? 'bg-white text-[#0066FF] shadow-[0_8px_24px_rgba(0,102,255,0.12)] ring-1 ring-[#0066FF]/15'
+                  : 'text-[#4B4B4B] hover:bg-white/80 hover:text-[#0066FF]'
               )}
             >
               <GroupIcon className="h-5 w-5 flex-shrink-0" />
@@ -106,8 +106,8 @@ export function Sidebar() {
             className={cn(
               'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors group',
               isActive
-                ? 'bg-[#0066FF]/12 text-[#0066FF]'
-                : 'text-[#4B4B4B] hover:bg-[#0066FF]/8 hover:text-[#0066FF]'
+                ? 'bg-white text-[#0066FF] shadow-[0_8px_24px_rgba(0,102,255,0.12)] ring-1 ring-[#0066FF]/15'
+                : 'text-[#4B4B4B] hover:bg-white/80 hover:text-[#0066FF]'
             )}
           >
             <GroupIcon className="h-4.5 w-4.5 flex-shrink-0" />
@@ -125,8 +125,8 @@ export function Sidebar() {
                 item.comingSoon
                   ? 'text-[#989898] cursor-not-allowed'
                   : hasActiveChild
-                    ? 'text-[#0066FF]'
-                    : 'text-[#4B4B4B] hover:bg-[#0066FF]/8 hover:text-[#0066FF]'
+                    ? 'bg-white text-[#0066FF] shadow-[0_8px_24px_rgba(0,102,255,0.12)] ring-1 ring-[#0066FF]/15'
+                    : 'text-[#4B4B4B] hover:bg-white/80 hover:text-[#0066FF]'
               )}
             >
               <div className="flex items-center gap-3 flex-1">
@@ -187,8 +187,8 @@ export function Sidebar() {
       {/* Sidebar */}
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col border-r border-[#E8EEFF] transition-all duration-300 ease-in-out',
-          'bg-gradient-to-b from-[#EEF3FF] via-[#F5F8FF] to-white dark:from-gray-900 dark:via-gray-900 dark:to-gray-950 dark:border-gray-800',
+          'fixed inset-y-0 left-0 z-50 flex flex-col border-r border-[#DDE7FF] transition-all duration-300 ease-in-out',
+          'bg-[linear-gradient(180deg,#F8FAFC_0%,#EEF6FF_44%,#F8FFFB_100%)] dark:from-gray-900 dark:via-gray-900 dark:to-gray-950 dark:border-gray-800',
           isCollapsed ? 'w-16' : 'w-64',
           'lg:translate-x-0',
           !sidebarOpen && 'max-lg:-translate-x-full'
@@ -230,7 +230,7 @@ export function Sidebar() {
                   onError={() => setLogoError(true)}
                 />
               )}
-              <span className="text-[17px] font-bold tracking-tight bg-gradient-to-r from-[#0066FF] to-indigo-500 bg-clip-text text-transparent whitespace-nowrap">
+              <span className="text-[17px] font-bold tracking-tight bg-gradient-to-r from-[#0066FF] via-indigo-500 to-emerald-500 bg-clip-text text-transparent whitespace-nowrap">
                 BizNavigo
               </span>
             </Link>
@@ -276,8 +276,8 @@ export function Sidebar() {
                 className={cn(
                   'flex items-center justify-center rounded-xl p-2.5 transition-all duration-200',
                   pathname === homeHref
-                    ? 'bg-[#0066FF]/12 text-[#0066FF]'
-                    : 'text-[#4B4B4B] hover:bg-[#0066FF]/8'
+                    ? 'bg-white text-[#0066FF] shadow-[0_8px_24px_rgba(0,102,255,0.12)] ring-1 ring-[#0066FF]/15'
+                    : 'text-[#4B4B4B] hover:bg-white/80 hover:text-[#0066FF]'
                 )}
               >
                 <Home className="h-5 w-5 flex-shrink-0" />
@@ -289,8 +289,8 @@ export function Sidebar() {
               className={cn(
                 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-all duration-200',
                 pathname === homeHref
-                  ? 'bg-[#0066FF]/12 text-[#0066FF]'
-                  : 'text-[#4B4B4B] hover:bg-[#0066FF]/8 hover:text-[#0066FF]'
+                  ? 'bg-white text-[#0066FF] shadow-[0_8px_24px_rgba(0,102,255,0.12)] ring-1 ring-[#0066FF]/15'
+                  : 'text-[#4B4B4B] hover:bg-white/80 hover:text-[#0066FF]'
               )}
             >
               <Home className="h-4.5 w-4.5 flex-shrink-0" />
@@ -308,12 +308,12 @@ export function Sidebar() {
         {/* Footer */}
         {!isCollapsed && (
           <div className="border-t border-[#E8EEFF] dark:border-gray-800 p-4 flex-shrink-0">
-            <div className="rounded-2xl bg-gradient-to-br from-[#0066FF]/10 to-indigo-500/10 border border-[#0066FF]/15 p-4">
-              <p className="text-[13px] font-bold text-[#4B4B4B] dark:text-gray-100">Need Help?</p>
-              <p className="mt-0.5 text-[12px] text-[#6E6E6E] dark:text-gray-400">Check our documentation</p>
-              <button className="mt-3 w-full rounded-full bg-[#0066FF] px-3 py-1.5 text-[12px] font-bold text-white hover:bg-[#0052CC] transition-colors">
-                Get Support
-              </button>
+            <div className="rounded-2xl border border-[#0066FF]/15 bg-white/70 p-4 shadow-[0_14px_32px_rgba(15,23,42,0.06)] backdrop-blur">
+              <p className="text-[13px] font-bold text-[#1F2937] dark:text-gray-100">AI desk online</p>
+              <p className="mt-0.5 text-[12px] text-[#64748B] dark:text-gray-400">Ready for chats and visits</p>
+              <Link href="/crm/inbox" className="mt-3 block w-full rounded-full bg-[#0066FF] px-3 py-1.5 text-center text-[12px] font-bold text-white transition-colors hover:bg-[#0052CC]">
+                View inbox
+              </Link>
             </div>
           </div>
         )}

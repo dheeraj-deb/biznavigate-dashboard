@@ -170,6 +170,7 @@ export interface SellerPaymentDesk {
   }
   pending_orders: SellerPaymentDeskOrder[]
   cod_orders: SellerPaymentDeskOrder[]
+  paid_orders?: SellerPaymentDeskOrder[]
   active_holds: SellerPaymentHold[]
 }
 
@@ -504,6 +505,8 @@ export function useCreateManualSale() {
       queryClient.invalidateQueries({ queryKey: ['seller-os-overview'] })
       queryClient.invalidateQueries({ queryKey: ['seller-os-leads'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['order-stats'] })
       toast.success('Sale saved')
     },
     onError: (err: any) => toast.error(err?.message || 'Could not save sale'),
@@ -697,6 +700,8 @@ export function useCreatePaymentRequestFromHold() {
       queryClient.invalidateQueries({ queryKey: ['seller-os-overview'] })
       queryClient.invalidateQueries({ queryKey: ['seller-os-leads'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['order-stats'] })
       toast.success('Payment request created')
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || err?.message || 'Could not create payment request'),
@@ -722,6 +727,8 @@ export function useMarkSellerOrderPaid() {
       queryClient.invalidateQueries({ queryKey: ['seller-os-leads'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
       queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['order-stats'] })
       toast.success('Payment marked paid')
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || err?.message || 'Could not mark payment paid'),
@@ -741,6 +748,8 @@ export function useCancelSellerPaymentOrder() {
       queryClient.invalidateQueries({ queryKey: ['seller-os-overview'] })
       queryClient.invalidateQueries({ queryKey: ['seller-os-leads'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['order-stats'] })
       toast.success('Order cancelled')
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || err?.message || 'Could not cancel order'),
